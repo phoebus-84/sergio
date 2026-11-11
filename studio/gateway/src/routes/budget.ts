@@ -21,9 +21,8 @@
 // ---------------------------------------------------------------------------
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { readEpisodeBudget, type BudgetReport as LedgerReport } from "@studio/runtime";
+import { readEpisodeBudget, ledgerDirOf, type BudgetReport as LedgerReport } from "@studio/runtime";
 import { releaseSpend } from "@studio/contracts/src/budget.mjs";
-import { episodePath } from "@studio/contracts/src/layout.mjs";
 
 type EpisodeParams = { channel: string; series: string; episode: string };
 
@@ -48,7 +47,7 @@ export interface BudgetReport {
   /** Where each figure came from, so the numbers can be audited. */
   sources: {
     /** Settings level the limit was read from, or null when none sets one. */
-    limitFrom: "episode" | "series" | "channel" | null;
+    limitFrom: "episode" | "series" | "channel" | "shot" | "scene" | "film" | null;
     /** Calls settled; of those, how many at the estimate (no cost reported). */
     settledCalls: number;
     estimatedCalls: number;
@@ -139,7 +138,7 @@ export function registerBudgetRoutes(app: FastifyInstance, root: string): void {
       });
     }
     const note = (request.body as { note?: string } | undefined)?.note?.trim();
-    const released = await releaseSpend(episodePath(root, p.channel, p.series, p.episode), {
+    const released = await releaseSpend(await ledgerDirOf(root, p), {
       episode: p, actor: "human", reserveId,
       reason: note ? `released by the operator: ${note}` : "released by the operator",
     });

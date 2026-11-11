@@ -24,7 +24,7 @@ import { SystemClock } from "./ports/clock.js";
 import { FileSystemSnapshotStore } from "./pipeline/fs-snapshot-store.js";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { initChannel, initSeries, initEpisode } from "./workspace/init.js";
-import { ExecutionService, JournalReviewGate, JournalBudgetGuard, readEpisodeBudget } from "./execution/index.js";
+import { ExecutionService, JournalReviewGate, JournalBudgetGuard, readEpisodeBudget, ledgerDirOf } from "./execution/index.js";
 import { releaseSpend } from "@studio/contracts/src/budget.mjs";
 import type { SourceRef } from "@studio/contracts/src/source-pins.mjs";
 import type { ExecutionError, StageEvidence, StageOutcome } from "./execution/index.js";
@@ -541,7 +541,7 @@ async function cmdBudget(ctx: CliContext, args: string[]): Promise<number> {
     return EX_RUNTIME;
   }
   const note = flagValue(args, "--note");
-  const released = await releaseSpend(episodePath(root, parsed.channel, parsed.series, parsed.episode), {
+  const released = await releaseSpend(await ledgerDirOf(root, parsed), {
     episode: parsed, actor: "human", reserveId,
     reason: note ? `released by the operator: ${note}` : "released by the operator",
   });

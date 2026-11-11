@@ -1,0 +1,36 @@
+{
+  "name": "@studio/film",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A film on disk, produced: its scenes and shots, its footage, its cut at each level, checked, assembled and rendered",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@av/video-composer": "workspace:*",
+    "@studio/contracts": "workspace:*",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  }
+}

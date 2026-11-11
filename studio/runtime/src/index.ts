@@ -284,7 +284,7 @@ export type {
 // Execution (one meaning for run/status/rerun)
 export {
   ExecutionService, dependenciesMet, JournalReviewGate, REVIEW_SATISFIED_BY,
-  JournalBudgetGuard, readEpisodeBudget, declaresPaidCapability,
+  JournalBudgetGuard, readEpisodeBudget, ledgerDirOf, declaresPaidCapability,
 } from "./execution/index.js";
 export type {
   BudgetReport,
