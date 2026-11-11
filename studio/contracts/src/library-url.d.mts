@@ -2,6 +2,8 @@
 
 /** A partial reference to a workspace level. */
 export interface LevelReference {
+  /** The kind of project `channel` names. Default: a channel. */
+  kind?: "channel" | "film" | undefined;
   channel?: string | undefined;
   series?: string | undefined;
   episode?: string | undefined;
@@ -12,6 +14,18 @@ export const SERIES_CONTAINER: string;
 
 /** Directory inside a series that holds its episodes. */
 export const EPISODES_CONTAINER: string;
+
+/** Directory inside a film that holds its scenes. */
+export const SCENES_CONTAINER: string;
+
+/** Directory inside a scene that holds its shots. */
+export const SHOTS_CONTAINER: string;
+
+/** "This level itself" in a film's address: `<film>/_/_` is the film's own unit. */
+export const SELF: "_";
+
+/** The second- and third-level containers of each project kind. */
+export const CONTAINERS: Readonly<Record<"channel" | "film", readonly [string, string]>>;
 
 /** Path segments for a workspace level, deepest level the reference supports. */
 export function librarySegments(ref: LevelReference): string[];

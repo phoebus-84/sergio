@@ -1,0 +1,51 @@
+[
+  {
+    "apiVersion": "studio.video/v1alpha1",
+    "kind": "CutTimeline",
+    "unit": { "channel": "the-long-shift", "series": "010-car-park", "episode": "_" },
+    "revision": 3,
+    "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24 },
+    "tracks": [
+      {
+        "id": "v1", "kind": "video", "name": "Picture", "role": "picture",
+        "clips": [
+          { "id": "wide", "source": { "unit": "010-wide" }, "at": 0, "duration": 144, "audio": { "gain": -6, "fadeOut": 12 } },
+          {
+            "id": "close", "label": "Mara looks up", "source": { "unit": "020-close-mara" }, "at": 132, "duration": 96, "in": 0.5, "speed": 1,
+            "transitionIn": { "type": "dissolve", "duration": 12 },
+            "effects": [{ "type": "exposure", "params": { "stops": 0.3 } }, { "type": "grain", "params": { "amount": 8 }, "enabled": false }]
+          },
+          { "id": "black", "source": { "color": "#000000" }, "at": 228, "duration": 24, "transitionIn": { "type": "fade", "duration": 12 } }
+        ]
+      },
+      {
+        "id": "v2", "kind": "video", "name": "Titles", "role": "overlay",
+        "clips": [{ "id": "title", "source": { "path": "assets/graphics/title.png" }, "at": 12, "duration": 72, "fit": "contain", "opacity": 0.9, "transitionIn": { "type": "fade", "duration": 8 }, "transitionOut": { "type": "fade", "duration": 8 } }]
+      },
+      {
+        "id": "dialogue", "kind": "audio", "name": "Dialogue", "role": "dialogue",
+        "effects": [{ "type": "highpass", "params": { "frequency": 80 } }],
+        "clips": [{ "id": "line-1", "source": { "path": "assets/takes/mara-01.3f9a2c1d.wav" }, "at": 150, "duration": 48, "gain": -2, "fadeIn": 2, "fadeOut": 4, "locked": true }]
+      },
+      {
+        "id": "music", "kind": "audio", "name": "Score", "role": "music", "gain": -8,
+        "duck": { "under": ["dialogue", "v1"], "gain": -10, "attack": 0.2, "release": 0.8 },
+        "clips": [{ "id": "theme", "source": { "project": "music/theme.wav" }, "at": 0, "duration": 252, "in": 12.5, "fadeOut": 48 }]
+      }
+    ],
+    "markers": [{ "id": "m1", "at": 132, "label": "She sees the clock" }],
+    "master": {
+      "video": [{ "type": "lut", "params": { "file": "bible/luts/night.cube" } }],
+      "audio": [{ "type": "limiter", "params": { "ceiling": -1 } }],
+      "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+    }
+  },
+  {
+    "apiVersion": "studio.video/v1alpha1",
+    "kind": "CutTimeline",
+    "unit": { "channel": "the-long-shift", "series": "010-car-park", "episode": "010-wide" },
+    "revision": 1,
+    "format": { "width": 1920, "height": 1080, "fps": 24 },
+    "tracks": [{ "id": "v1", "kind": "video", "clips": [{ "id": "take-2", "source": { "project": "footage/media/a001-c004.mov" }, "at": 0, "duration": 144, "in": 3.2 }] }]
+  }
+]

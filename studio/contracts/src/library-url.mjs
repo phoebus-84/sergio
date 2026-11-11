@@ -18,18 +18,46 @@ export const SERIES_CONTAINER = "series";
 /** Directory inside a series that holds its episodes. */
 export const EPISODES_CONTAINER = "episodes";
 
+/** Directory inside a film that holds its scenes (ADR-0050). */
+export const SCENES_CONTAINER = "scenes";
+
+/** Directory inside a scene that holds its shots. */
+export const SHOTS_CONTAINER = "shots";
+
+/**
+ * "This level itself", in a film's address.
+ *
+ * A film is produced at three levels — the shot, the scene, the whole film —
+ * and each is a production unit with its own journal, cut and renders. A unit
+ * is still addressed by three segments, so the scene's own unit is
+ * `<film>/<scene>/_` and the film's is `<film>/_/_`. No slug can be `_`:
+ * names beginning with an underscore are reserved at every level.
+ */
+export const SELF = "_";
+
+/** The containers of each project kind: what holds its second and third level. */
+export const CONTAINERS = Object.freeze({
+  channel: Object.freeze([SERIES_CONTAINER, EPISODES_CONTAINER]),
+  film: Object.freeze([SCENES_CONTAINER, SHOTS_CONTAINER]),
+});
+
 /**
  * Path segments for a workspace level, from a partial reference.
  *
  * Supplying only `channel` yields the channel, adding `series` yields the
- * series, and so on — matching `workspacePath` in `layout.mjs`.
+ * series, and so on — matching `workspacePath` in `layout.mjs`. A reference
+ * with `kind: "film"` reads the same three positions as film, scene and shot
+ * (the browser knows the kind from the library listing; it cannot look on
+ * disk as `layout.mjs` does).
  */
-export function librarySegments({ channel, series, episode }) {
+export function librarySegments({ kind, channel, series, episode }) {
   if (!channel) return [];
+  const [second, third] = CONTAINERS[kind === "film" ? "film" : "channel"];
   const segments = [channel];
-  if (series) {
-    segments.push(SERIES_CONTAINER, series);
-    if (episode) segments.push(EPISODES_CONTAINER, episode);
+  // In a film, `_` names the level itself: `<film>/_/_` is the film.
+  if (series && series !== SELF) {
+    segments.push(second, series);
+    if (episode && episode !== SELF) segments.push(third, episode);
   }
   return segments;
 }
