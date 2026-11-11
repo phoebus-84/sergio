@@ -11,13 +11,13 @@
 import { existsSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { Type } from "typebox";
-import { episodePath, sourcePath } from "@studio/contracts/src/layout.mjs";
+import { episodePath, sourcePath, SELF } from "@studio/contracts/src/layout.mjs";
 import { guardPath, type TrustCheck } from "./trust-guards.js";
 
 export const WORKSPACE_PARAMS = {
-  channel: Type.String({ description: "Channel slug" }),
-  series: Type.Optional(Type.String({ description: "Series slug, with episode" })),
-  episode: Type.Optional(Type.String({ description: "Episode slug, with series" })),
+  channel: Type.String({ description: "Channel slug; or a film's slug" }),
+  series: Type.Optional(Type.String({ description: "Series slug, with episode; in a film, the scene, or _ for the film itself" })),
+  episode: Type.Optional(Type.String({ description: "Episode slug, with series; in a film, the shot, or _ for the scene itself" })),
   source: Type.Optional(Type.String({ description: "Instead of series and episode: a channel source's name (library/<channel>/sources/<name>)" })),
 };
 
@@ -37,7 +37,8 @@ const SLUG = /^[a-z0-9][a-z0-9._-]*$/i;
 /** The workspace the parameters name; an error saying what is wrong when they name none, or two. */
 export function workspaceOf(libraryRoot: string, p: WorkspaceParams): Workspace {
   const parts = [p.channel, p.series, p.episode, p.source].filter((x): x is string => x !== undefined);
-  for (const part of parts) if (!SLUG.test(part) || part.includes("..")) throw new Error(`"${part}" is not a slug`);
+  // `_` names the level itself in a film: <film>/<scene>/_ is the scene's own unit (ADR-0050).
+  for (const part of parts) if ((!SLUG.test(part) && !(part === SELF && part !== p.channel && part !== p.source)) || part.includes("..")) throw new Error(`"${part}" is not a slug`);
   if (p.source !== undefined) {
     if (p.series !== undefined || p.episode !== undefined) throw new Error("give either series and episode, or source, not both");
     const dir = sourcePath(libraryRoot, p.channel, p.source);
