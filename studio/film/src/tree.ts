@@ -31,7 +31,7 @@ export interface UnitNode<M> {
   manifestProblems: ManifestProblem[];
   status: CutStatus;
   /** The unit's render to look at — the final when fresh, else the newest — as a path relative to the library. */
-  render: { path: string; renderId: string; quality: "final" | "preview"; fresh: boolean; durationSeconds: number } | null;
+  render: { path: string; renderId: string; quality: "final" | "preview"; fresh: boolean; durationSeconds: number; poster: string | null } | null;
 }
 
 export interface ShotNode extends UnitNode<ShotManifest> {
@@ -64,9 +64,12 @@ export interface FilmTree extends UnitNode<FilmManifest> {
 function renderOf(root: string, ref: UnitRef, status: CutStatus): UnitNode<unknown>["render"] {
   const pick = status.final?.fresh ? status.final : status.preview?.fresh ? status.preview : status.final ?? status.preview;
   if (!pick) return null;
+  const output = join(unitDir(root, ref), "output");
+  const poster = join(output, `${pick.renderId}.jpg`);
   return {
-    path: libraryRelative(root, join(unitDir(root, ref), "output", pick.path)),
+    path: libraryRelative(root, join(output, pick.path)),
     renderId: pick.renderId, quality: pick.quality, fresh: pick.fresh, durationSeconds: pick.durationSeconds,
+    poster: existsSync(poster) ? libraryRelative(root, poster) : null,
   };
 }
 

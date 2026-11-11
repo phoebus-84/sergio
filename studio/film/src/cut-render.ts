@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkCut, renderCut, renderCutFrame, CutError,
+  checkCut, extractStill, renderCut, renderCutFrame, CutError,
   type Cut, type CutClip as RenderClip, type CutProblem as RenderProblem, type RenderCutResult, type RenderProgress, type RenderQuality,
 } from "@av/video-composer";
 import { filmPath } from "@studio/contracts/src/layout.mjs";
@@ -406,6 +406,9 @@ export async function renderUnit(root: string, ref: UnitRef, options: RenderUnit
     if (error instanceof CutError) throw new FilmError(`${unitLabel(ref)}: ${error.message}`, error.code, error.problems as CutProblem[]);
     throw error;
   }
+
+  // A still of the render's middle, to stand for it wherever the unit is listed. Missing one is no failure.
+  await extractStill(output, result.durationSeconds / 2, join(outputDir, `${renderId}.jpg`), { width: 640 }).catch(() => undefined);
 
   const createdAt = new Date().toISOString();
   const reportPath = join(outputDir, `${renderId}.report.json`);

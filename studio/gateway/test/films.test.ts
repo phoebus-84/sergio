@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Fastify from "fastify";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -120,6 +120,26 @@ describe("film routes", () => {
     expect((await app.inject({ method: "PUT", url, payload: { set: { slug: "other" } } })).statusCode).toBe(400);
     const ordered = await app.inject({ method: "PUT", url: "/api/films/tide/units/010-shore/_/manifest", payload: { order: ["020-wave", "010-sky"] } });
     expect(ordered.json().manifest.shots).toEqual(["020-wave", "010-sky"]);
+    await app.close();
+  });
+
+  it("says which pipeline a unit runs, and lets a level decide for the levels under it", async () => {
+    const { app, root } = await film();
+    const shot = "/api/films/tide/units/010-shore/010-sky/control";
+    expect((await app.inject({ method: "GET", url: shot })).json()).toMatchObject({ level: "shot", pipeline: "film-shot", declared: { pipeline: null } });
+    const set = await app.inject({ method: "PUT", url: "/api/films/tide/units/_/_/control", payload: { shots: "film-shot-auto", scenes: "film-scene-auto" } });
+    expect(set.json()).toMatchObject({ level: "film", pipeline: "film-project", declared: { pipeline: null, scenes: "film-scene-auto", shots: "film-shot-auto" } });
+    expect((await app.inject({ method: "GET", url: shot })).json().pipeline).toBe("film-shot-auto");
+    // One scene directed by a person in an automatic film; one shot of it its own way.
+    await app.inject({ method: "PUT", url: "/api/films/tide/units/010-shore/_/control", payload: { shots: "film-shot-directed" } });
+    expect((await app.inject({ method: "GET", url: shot })).json().pipeline).toBe("film-shot-directed");
+    await app.inject({ method: "PUT", url: shot, payload: { pipeline: "film-shot" } });
+    expect((await app.inject({ method: "GET", url: shot })).json()).toMatchObject({ pipeline: "film-shot", declared: { pipeline: "film-shot" } });
+    await app.inject({ method: "PUT", url: shot, payload: { pipeline: null } });
+    expect((await app.inject({ method: "GET", url: shot })).json().pipeline).toBe("film-shot-directed");
+    expect(readFileSync(join(root, "tide", "pipeline.yaml"), "utf-8")).toBe("shots: film-shot-auto\nscenes: film-scene-auto\n");
+    expect((await app.inject({ method: "PUT", url: shot, payload: { shots: "film-shot" } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "PUT", url: shot, payload: { pipeline: "Not An Id" } })).statusCode).toBe(400);
     await app.close();
   });
 

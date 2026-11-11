@@ -14,11 +14,15 @@
 // ---------------------------------------------------------------------------
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { readFileSync, writeFileSync } from "node:fs";
+import * as path from "node:path";
+import { Document, parseDocument } from "yaml";
+import { DEFAULT_FILM_PIPELINES, defaultPipeline, pipelineOf } from "@studio/runtime";
 import { libraryUrlPath } from "@studio/contracts/src/library-url.mjs";
 import { FILM_FORMATS } from "@studio/contracts/src/film.mjs";
 import type { CutTimeline } from "@studio/contracts/src/cut-timeline.mjs";
 import {
-  FilmError, assembleCut, checkUnitCut, createFilm, createScene, createShot, cutStatus, editCut, filmTree, levelOf, listEffects, listFilms,
+  FilmError, assembleCut, checkUnitCut, existingUnitDir, createFilm, createScene, createShot, cutStatus, editCut, filmTree, levelOf, listEffects, listFilms,
   nextSteps, readCut, readFootage, readManifest, renderUnit, renderUnitFrame, setOrder, unitKey, unitLabel, unitOf, updateManifest, writeCut,
   annotateFootage, ingestFootage, filmUnit,
   type CutOp, type FilmTree, type SceneNode, type ShotNode, type UnitNode, type UnitRef, type UnitRender,
@@ -56,10 +60,10 @@ function sendError(reply: FastifyReply, error: unknown): FastifyReply {
 }
 
 /** What the browser needs beside a node of the tree: where to fetch its files and its render. */
-function withUrls<T extends UnitNode<unknown>>(node: T): T & { url: string | null; renderUrl: string | null } {
+function withUrls<T extends UnitNode<unknown>>(node: T): T & { url: string | null; renderUrl: string | null; posterUrl: string | null } {
   const ref = { kind: "film" as const, ...node.ref };
-  const render = node.render ? node.render.path.split("/output/").pop() : null;
-  return { ...node, url: libraryUrlPath(ref), renderUrl: render ? libraryUrlPath(ref, `output/${render}`) : null };
+  const inOutput = (file: string | null | undefined) => (file ? libraryUrlPath(ref, `output/${file.split("/output/").pop()}`) : null);
+  return { ...node, url: libraryUrlPath(ref), renderUrl: inOutput(node.render?.path), posterUrl: inOutput(node.render?.poster) };
 }
 
 function treeForBrowser(tree: FilmTree) {
@@ -225,6 +229,77 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
       publish("unit.manifest-changed", ref, {});
       const { manifest, problems } = readManifest(root, ref);
       return { unit: ref, level: levelOf(ref), manifest, problems };
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  // ── Who decides: the pipeline of a unit and of the levels under it ──────
+
+  /** The keys of a unit's pipeline.yaml that say how much a person is asked, by the level they govern. */
+  const CONTROL_KEYS = { film: ["pipeline", "scenes", "shots"], scene: ["pipeline", "shots"], shot: ["pipeline"] } as const;
+
+  const controlView = (ref: UnitRef) => {
+    const level = levelOf(ref);
+    const file = path.join(existingUnitDir(root, ref), "pipeline.yaml");
+    let declared: Record<string, unknown> = {};
+    try {
+      const doc = parseDocument(readFileSync(file, "utf-8")).toJS();
+      if (doc && typeof doc === "object" && !Array.isArray(doc)) declared = doc as Record<string, unknown>;
+    } catch { /* no declaration here */ }
+    let pipeline: string;
+    try {
+      pipeline = pipelineOf(root, ref);
+    } catch {
+      pipeline = defaultPipeline(root, ref);
+    }
+    return {
+      unit: ref,
+      level,
+      /** The pipeline this unit runs, wherever it is declared. */
+      pipeline,
+      /** What this unit's own pipeline.yaml says, for itself and for the levels under it. */
+      declared: Object.fromEntries(CONTROL_KEYS[level].map((key) => [key, typeof declared[key] === "string" ? declared[key] : null])),
+      /** What each level runs when nothing declares otherwise. */
+      defaults: DEFAULT_FILM_PIPELINES,
+    };
+  };
+
+  app.get(`${UNIT}/control`, {
+    schema: { description: "The pipeline a unit runs and the ones it declares for the levels under it: how much of the film waits for a person.", tags: ["films"] } as any,
+  }, async (request, reply) => {
+    try {
+      return controlView(unitFrom(request));
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  app.put(`${UNIT}/control`, {
+    schema: { description: "Declare the unit's pipeline and that of the levels under it: { pipeline?, scenes?, shots? }, null removing a declaration.", tags: ["films"] } as any,
+  }, async (request, reply) => {
+    try {
+      const ref = unitFrom(request);
+      const level = levelOf(ref);
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const file = path.join(existingUnitDir(root, ref), "pipeline.yaml");
+      let source = "";
+      try {
+        source = readFileSync(file, "utf-8");
+      } catch { /* written new */ }
+      // An empty or absent file has no mapping to set a key in: start one.
+      const document = source.trim() ? parseDocument(source) : new Document({});
+      for (const [key, value] of Object.entries(body)) {
+        if (!(CONTROL_KEYS[level] as readonly string[]).includes(key)) {
+          return reply.status(400).send({ error: "bad-input", message: `a ${level} declares ${CONTROL_KEYS[level].join(", ")}; not "${key}"` });
+        }
+        if (value === null) document.delete(key);
+        else if (typeof value === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) document.set(key, value);
+        else return reply.status(400).send({ error: "bad-input", message: `"${String(value)}" is not a pipeline id` });
+      }
+      writeFileSync(file, document.toString());
+      publish("unit.control-changed", ref, {});
+      return controlView(ref);
     } catch (error) {
       return sendError(reply, error);
     }
