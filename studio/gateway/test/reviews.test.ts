@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Fastify from "fastify";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerReviewRoutes } from "../src/routes/reviews.js";
@@ -41,13 +41,38 @@ describe("review routes", () => {
 
     const disk = JSON.parse(
       await readFile(
-        join(root, "childrens", "fairy-tales", "the-wolf-and-the-seven-little-kids", "reviews", `${thread.id}.json`),
+        // Inside the episode, where everything else about it is (layout 2).
+        join(root, "childrens", "series", "fairy-tales", "episodes", "the-wolf-and-the-seven-little-kids", "reviews", `${thread.id}.json`),
         "utf-8",
       ),
     );
     expect(disk.messages).toHaveLength(1);
     expect(disk.messages[0]!.body).toContain("too scary");
 
+    await app.close();
+  });
+
+  it("still lists and answers a thread written where threads used to go", async () => {
+    const { app, root } = await makeApp();
+    const legacy = join(root, "childrens", "fairy-tales", "the-wolf", "reviews");
+    await mkdir(legacy, { recursive: true });
+    await writeFile(join(legacy, "rth-old.json"), JSON.stringify({ id: "rth-old", anchor: "script", episodeSlug: "childrens/fairy-tales/the-wolf", messages: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }));
+    const base = "/api/channels/childrens/series/fairy-tales/episodes/the-wolf/reviews";
+    const fresh = (await app.inject({ method: "POST", url: base, payload: { anchor: "render/current" } })).json();
+    const listed = (await app.inject({ method: "GET", url: base })).json().threads.map((t: { id: string }) => t.id).sort();
+    expect(listed).toEqual([fresh.id, "rth-old"].sort());
+    expect((await app.inject({ method: "GET", url: `${base}/rth-old` })).statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("keeps a film unit's threads in the unit: the scene's own, and the film's", async () => {
+    const { app, root } = await makeApp();
+    await mkdir(join(root, "tide", "scenes", "010-shore"), { recursive: true });
+    await writeFile(join(root, "tide", "film.yaml"), "kind: Film\n");
+    const scene = (await app.inject({ method: "POST", url: "/api/channels/tide/series/010-shore/episodes/_/reviews", payload: { anchor: "cut/clip/020-wave", body: "Hold this two beats longer." } })).json();
+    await readFile(join(root, "tide", "scenes", "010-shore", "reviews", `${scene.id}.json`), "utf-8");
+    const film = (await app.inject({ method: "POST", url: "/api/channels/tide/series/_/episodes/_/reviews", payload: { anchor: "render/current" } })).json();
+    await readFile(join(root, "tide", "reviews", `${film.id}.json`), "utf-8");
     await app.close();
   });
 

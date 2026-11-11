@@ -8,7 +8,9 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import * as fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import * as path from "node:path";
+import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { EventBus, createEvent } from "../events/bus.js";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -49,12 +51,30 @@ export interface ReviewThread {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function threadFilePath(root: string, channel: string, series: string, episode: string, threadId: string): string {
-  return path.join(root, channel, series, episode, "reviews", `${threadId}.json`);
+/**
+ * Where an episode's review threads live: `reviews/` inside the episode.
+ *
+ * These paths used to be joined by hand as `<root>/<channel>/<series>/<episode>`
+ * — layout 1 — so every thread written since the library moved to layout 2
+ * landed in a directory beside the channel's own files, outside the episode it
+ * was about, where nothing that reads an episode would find it. The layout
+ * module is the one place that knows where an episode is; in a film the same
+ * three positions name a shot, a scene or the film (ADR-0050).
+ */
+function threadsDir(root: string, channel: string, series: string, episode: string): string {
+  return path.join(episodePath(root, channel, series, episode), "reviews");
 }
 
-function threadsDir(root: string, channel: string, series: string, episode: string): string {
+/** Where threads were written before: read, so that none is lost, and never written again. */
+function legacyThreadsDir(root: string, channel: string, series: string, episode: string): string {
   return path.join(root, channel, series, episode, "reviews");
+}
+
+/** A thread's file: in the episode, unless it exists only where threads used to be written. */
+function threadFilePath(root: string, channel: string, series: string, episode: string, threadId: string): string {
+  const current = path.join(threadsDir(root, channel, series, episode), `${threadId}.json`);
+  const legacy = path.join(legacyThreadsDir(root, channel, series, episode), `${threadId}.json`);
+  return existsSync(current) || !existsSync(legacy) ? current : legacy;
 }
 
 function makeId(): string {
@@ -89,29 +109,31 @@ export function registerReviewRoutes(
     Params: { channel: string; series: string; episode: string };
   }>, reply: FastifyReply) => {
     const { channel, series, episode } = request.params;
-    const dir = threadsDir(root, channel!, series!, episode!);
-
-    try {
-      const files = await fs.readdir(dir);
-      const threads: ReviewThread[] = [];
-
+    const threads: ReviewThread[] = [];
+    const seen = new Set<string>();
+    // The episode's own threads, then any written where they used to go.
+    for (const dir of [threadsDir(root, channel!, series!, episode!), legacyThreadsDir(root, channel!, series!, episode!)]) {
+      let files: string[];
+      try {
+        files = await fs.readdir(dir);
+      } catch (e: any) {
+        if (e.code === "ENOENT" || e.code === "ENOTDIR") continue;
+        return reply.status(500).send({ error: `Failed to list reviews: ${e.message}` });
+      }
       for (const file of files) {
-        if (!file.endsWith(".json")) continue;
+        if (!file.endsWith(".json") || seen.has(file)) continue;
         try {
-          const raw = await fs.readFile(path.join(dir, file), "utf-8");
-          threads.push(JSON.parse(raw));
+          const thread = JSON.parse(await fs.readFile(path.join(dir, file), "utf-8"));
+          // The episode's reviews/ also holds other records; a thread has an id and its messages.
+          if (!thread || typeof thread.id !== "string" || !Array.isArray(thread.messages)) continue;
+          seen.add(file);
+          threads.push(thread);
         } catch {
           // Skip corrupt files
         }
       }
-
-      return reply.send({ threads });
-    } catch (e: any) {
-      if (e.code === "ENOENT") {
-        return reply.send({ threads: [] });
-      }
-      return reply.status(500).send({ error: `Failed to list reviews: ${e.message}` });
     }
+    return reply.send({ threads });
   });
 
   // ── GET /api/channels/:c/series/:s/episodes/:e/reviews/:id ──────────
