@@ -1,0 +1,107 @@
+# One scene of a film (ADR-0050): directed, its shots produced, its sound made, cut and rendered.
+# A person approves the direction and the cut. film-scene-auto asks nobody.
+pipeline:
+  id: film-scene
+  version: "1.0.0"
+  description: "One scene of a film: its direction, its shots, its dialogue and sound, its cut and its render. A person approves the direction and the cut."
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: direction
+      name: "Scene Direction"
+      type: editorial
+      description: "What the scene is for, how it is covered, the order of its shots and the sound it needs; its shots are created from this."
+      inputs: []
+      outputs:
+        - contract: scene-direction.md
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 1
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+      depends_on: []
+
+    - id: shots
+      name: "Shots"
+      type: editorial
+      description: "Every shot of the scene produced through its own pipeline and rendered; the record names each shot's render."
+      inputs:
+        - contract: scene-direction.md
+          version: "1.0.0"
+      outputs:
+        - contract: shots-report.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: shot-production
+          version: "0.1.0"
+      depends_on: [direction]
+
+    - id: sound
+      name: "Scene Sound"
+      type: editorial
+      description: "The scene's dialogue, recorded or synthesised and checked against its lines; its effects and its ambience, recorded, licensed or generated."
+      inputs:
+        - contract: scene-direction.md
+          version: "1.0.0"
+      outputs:
+        - contract: scene-sound.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [direction]
+
+    - id: cut
+      name: "Scene Cut"
+      type: editorial
+      description: "Assemble the shots in cutting order and edit the scene: trims, transitions, dialogue, effects and ambience on their tracks, levels and ducking."
+      inputs:
+        - contract: shots-report.json
+          version: "1.0.0"
+        - contract: scene-sound.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [shots, sound]
+
+    - id: render
+      name: "Render"
+      type: capability
+      capability: video.compose
+      description: "Render the cut with FFmpeg to an immutable output/<render-id>.mp4, rendering first the units under it that changed; the unit's current render moves only when the file is whole."
+      inputs:
+        - contract: cut.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut-render.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 0
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [cut]

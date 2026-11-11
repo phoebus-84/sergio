@@ -1,0 +1,131 @@
+# film-project with one gate: the final review. Everything before it runs without waiting for anyone.
+pipeline:
+  id: film-project-auto
+  version: "1.0.0"
+  description: "A whole film produced without waiting for anyone until its final review."
+  extends:
+    pipeline: film-project
+    version: "1.0.0"
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: development
+      name: "Development"
+      type: editorial
+      description: "The film on paper: logline, synopsis and treatment, from the idea and the material at hand."
+      inputs: []
+      outputs:
+        - contract: treatment.md
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-development
+          version: "0.1.0"
+      depends_on: []
+
+    - id: screenplay
+      name: "Screenplay"
+      type: editorial
+      description: "The screenplay: scenes with their headings, action and dialogue, written to the length the film is meant to run."
+      inputs:
+        - contract: treatment.md
+          version: "1.0.0"
+      outputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-development
+          version: "0.1.0"
+      depends_on: [development]
+
+    - id: bible
+      name: "Look and Sound"
+      type: editorial
+      description: "The film's bible: its look, its characters and their voices, its locations and its sound world, with the references every shot is held to."
+      inputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+      outputs:
+        - contract: bible.md
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+      depends_on: [screenplay]
+
+    - id: breakdown
+      name: "Breakdown"
+      type: editorial
+      description: "The screenplay broken into scenes and shots, each created as a unit with its manifest, in running order; the footage at hand logged and assigned."
+      inputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+        - contract: bible.md
+          version: "1.0.0"
+      outputs:
+        - contract: breakdown.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+        - skill: footage-ingest
+          version: "0.1.0"
+      depends_on: [screenplay, bible]
+
+    - id: score
+      name: "Music"
+      type: editorial
+      description: "The film's music: composed, licensed or generated, spotted against the scenes, kept under music/ with its provenance."
+      inputs:
+        - contract: breakdown.json
+          version: "1.0.0"
+      outputs:
+        - contract: score.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [breakdown]
+
+    - id: cut
+      name: "Film Cut"
+      type: editorial
+      description: "Assemble the scenes in running order and edit the film: the joins between scenes, the music, titles and credits, the grade and the mix."
+      inputs:
+        - contract: scenes-report.json
+          version: "1.0.0"
+        - contract: score.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [scenes, score]

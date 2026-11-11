@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
   SELF, FILM_MANIFEST, SCENE_MANIFEST, SHOT_MANIFEST, SCENES_CONTAINER, SHOTS_CONTAINER,
@@ -179,6 +179,17 @@ export function childUnit(ref: UnitRef, slug: string): UnitRef {
   if (level === "film") return sceneUnit(ref.channel, slug);
   if (level === "scene") return shotUnit(ref.channel, ref.series, slug);
   throw new FilmError(`a shot is cut from files, not from units: "${slug}" names none`, "bad-unit");
+}
+
+/**
+ * The library a unit's directory is in, from the directory and the reference:
+ * for a caller that was handed both and not the root (a stage adapter).
+ */
+export function libraryRootOf(dir: string, ref: UnitRef): string {
+  const depth = { film: 1, scene: 3, shot: 5 }[levelOf(ref)];
+  let root = dir;
+  for (let k = 0; k < depth; k++) root = dirname(root);
+  return root;
 }
 
 /** A path of the library relative to its root, with forward slashes: what a report or a URL carries. */

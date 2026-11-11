@@ -54,6 +54,7 @@ stage reported as unhandled — a refusal for someone to clear — can never rea
 | `narration-captions` | `media.probe` | `captions.srt` | `narration-manifest.json` |
 | `narration-timing` | — (derivation) | `timing.json` | `narration-manifest.json` |
 | `render-qa` | — (derivation) | `qa-report.json` | `output.mp4` |
+| `cut-render` | `video.compose` | `cut-render.json` | a film unit's `cut.json` — the shot's, the scene's or the film's — rendering first the units under it that changed |
 
 `createStudioDispatcher()` is what the gateway composes its execution service
 with. The gateway carries requests to these adapters and writes no artifact

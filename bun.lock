@@ -169,6 +169,7 @@
         "@av/video-composer": "workspace:*",
         "@studio/contracts": "workspace:*",
         "@studio/episode": "workspace:*",
+        "@studio/film": "workspace:*",
         "@studio/runtime": "workspace:*",
       },
       "devDependencies": {
