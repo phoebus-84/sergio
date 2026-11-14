@@ -4,7 +4,9 @@
 // A take's WordTiming — every word of its written text with its start and
 // end in the take's audio — measured by forced alignment: Qwen3-ForcedAligner
 // in the local voice worker by default, ElevenLabs when a person asks for it,
-// never one in place of the other. The provider's words go through the same
+// never one in place of the other. Two providers measure nothing and cost
+// nothing: "derived" reads the words an audio edit carried, "synthesis" the
+// words the speech model returned with the audio it made. The provider's words go through the same
 // post-processing either way (speech-align.ts); the timing is written beside
 // the take and takes.json points at it.
 //
@@ -14,7 +16,7 @@
 
 import { editRecordFor } from "./audio-edit.js";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { ELEVENLABS_PROFILES, ElevenLabsError, forcedAlignment } from "@av/elevenlabs";
 import { validateNarrationTakes } from "@studio/contracts/src/narration-takes.mjs";
@@ -27,8 +29,49 @@ export const timingPathFor = (takeId: string) => `artifacts/timing/${takeId}.jso
 /** Pauses inside the speech longer than this are reported (judging them is avg-8hs.3). */
 export const REPORTED_PAUSE_SECONDS = 0.35;
 
-/** derived: the words an audio edit carried from the takes it was cut from (avg-8hs.5). */
-export type AlignProvider = "qwen-local" | "elevenlabs" | "derived";
+/**
+ * derived: the words an audio edit carried from the takes it was cut from (avg-8hs.5).
+ * synthesis: the words the speech model timed while it spoke, kept in the
+ * take's synthesis record (avg-8hs.1) — no aligner, no second paid call.
+ */
+export type AlignProvider = "qwen-local" | "elevenlabs" | "derived" | "synthesis";
+export const ALIGN_PROVIDERS: readonly AlignProvider[] = ["qwen-local", "elevenlabs", "derived", "synthesis"];
+
+/** Beside a synthesized WAV: what made it, and the words it returned. */
+export const SYNTHESIS_SUFFIX = ".synthesis.json";
+
+/** What a speech tool records beside the audio it made, as far as alignment reads it. */
+export interface SynthesisRecord {
+  provider: string;
+  model?: string;
+  /** Hex SHA-256 of the audio the record is about. */
+  wavSha256: string;
+  /** The words the provider timed, in seconds of that audio. */
+  words?: RawWord[];
+}
+
+/** The synthesis record of this audio, by the audio's hash; null when no speech tool here made it. */
+export function synthesisRecordFor(dir: string, hash: string): { path: string; record: SynthesisRecord } | null {
+  const hex = hash.replace(/^sha256:/, "");
+  const walk = (rel: string): { path: string; record: SynthesisRecord } | null => {
+    const full = join(dir, rel);
+    if (!existsSync(full)) return null;
+    for (const entry of readdirSync(full, { withFileTypes: true })) {
+      const child = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) {
+        const found = walk(child);
+        if (found) return found;
+      } else if (entry.name.endsWith(SYNTHESIS_SUFFIX)) {
+        try {
+          const record = JSON.parse(readFileSync(join(dir, child), "utf-8")) as SynthesisRecord;
+          if (record?.wavSha256 === hex && typeof record.provider === "string") return { path: child, record };
+        } catch { /* not a record */ }
+      }
+    }
+    return null;
+  };
+  return walk("artifacts") ?? walk("assets");
+}
 
 /** What aligning `minutes` of audio with ElevenLabs is estimated to cost, in US dollars (its profile). */
 export const elevenLabsAlignmentUsd = (minutes: number) => minutes * ELEVENLABS_PROFILES.forcedAlignment.usdPerMinute;
@@ -123,6 +166,15 @@ function derivedWords(episodeDir: string, hash: string, takeId: string): { words
   return { words: found.record.words, model: found.path };
 }
 
+/** The words the speech model returned with this audio; its record names the provider and model. */
+function synthesisWords(episodeDir: string, hash: string, takeId: string): { words: RawWord[]; model: string; provider: string } {
+  const found = synthesisRecordFor(episodeDir, hash);
+  if (!found) throw new AlignError("no-synthesis", `take "${takeId}": no synthesis record in this workspace is about this audio (no <file>${SYNTHESIS_SUFFIX} names its hash): align it with qwen-local or elevenlabs`);
+  const words = (found.record.words ?? []).filter((w) => typeof w?.text === "string" && Number.isFinite(w.start) && Number.isFinite(w.end));
+  if (words.length === 0) throw new AlignError("no-synthesis", `take "${takeId}": ${found.path} has no word timings (the provider returned none): align it with qwen-local or elevenlabs`);
+  return { words, model: found.record.model ?? "unknown", provider: found.record.provider };
+}
+
 async function alignWithElevenLabs(options: AlignTakeOptions["elevenlabs"], audioPath: string, text: string, minutes: number): Promise<{ words: RawWord[]; model: string }> {
   if (!options?.apiKey) throw new AlignError("no-key", "ElevenLabs needs its API key (ELEVENLABS_API_KEY)");
   const call = async () => {
@@ -169,11 +221,13 @@ export async function alignTake(episodeDir: string, options: AlignTakeOptions): 
     throw new AlignError("audio-changed", `${take.audio.path} is not the audio ${TAKES_PATH} names: record the take again, or update it`);
   }
 
-  const aligned = provider === "derived"
+  const fromSynthesis = provider === "synthesis" ? synthesisWords(episodeDir, take.audio.hash, take.id) : null;
+  const aligned = fromSynthesis
+    ?? (provider === "derived"
     ? derivedWords(episodeDir, take.audio.hash, take.id)
     : provider === "elevenlabs"
     ? await alignWithElevenLabs(options.elevenlabs, audioPath, take.text, take.audio.durationSeconds / 60)
-    : await alignLocally(options.workerUrl, audioPath, take.text, language);
+    : await alignLocally(options.workerUrl, audioPath, take.text, language));
   const { words, unmapped } = mapToText(take.text, aligned.words);
   const measured = await measureSilences(audioPath);
   const timed = snapToSilences(words, measured.silences, measured.durationSeconds);
@@ -187,7 +241,8 @@ export async function alignTake(episodeDir: string, options: AlignTakeOptions): 
     text: take.text,
     ...(take.spokenText ? { spokenText: take.spokenText } : {}),
     language,
-    alignment: { provider: provider === "derived" ? "audio-edit" : provider, model: aligned.model, method: provider === "derived" ? "derived" : "forced", createdAt: new Date().toISOString() },
+    // A synthesis is named by what spoke: its timestamps are that model's, placed against the text it was given.
+    alignment: { provider: fromSynthesis ? fromSynthesis.provider : provider === "derived" ? "audio-edit" : provider, model: aligned.model, method: provider === "derived" ? "derived" : "forced", createdAt: new Date().toISOString() },
     words: timed,
     speech: measured.speech,
     energy,

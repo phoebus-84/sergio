@@ -8,6 +8,8 @@
 // ---------------------------------------------------------------------------
 
 import { CODEX_PROVIDER, resolveImageProvider } from "./image-provider.js";
+import { AVATAR_SPEECH_TOOL, avatarTerms } from "./avatar-tools.js";
+import { elevenLabsSpeechTerms } from "./elevenlabs-speech.js";
 
 /** The CustomVoice size the worker's /synthesize loads. */
 const SYNTHESIS_MODEL_SIZE = "1.7B";
@@ -128,13 +130,33 @@ export async function imageGenerationStatus(options: {
 }
 
 /**
- * Generated video: both fal routes need only FAL_KEY, but they are different
+ * ElevenLabs: speech (paid, with word timings) and forced alignment (paid)
+ * need only the key; each says which tool and option reaches it.
+ */
+export function elevenLabsStatus(keySet: boolean): {
+  "text-to-speech-elevenlabs": CapabilityReport;
+  "speech-align-elevenlabs": CapabilityReport;
+} {
+  const missing = "ELEVENLABS_API_KEY not set";
+  return {
+    "text-to-speech-elevenlabs": keySet
+      ? { available: true, detail: `ELEVENLABS_API_KEY set (pva_synthesize_speech with provider "elevenlabs" and voiceId; ${elevenLabsSpeechTerms()}; word timings kept for pva_align_take provider "synthesis")` }
+      : { available: false, detail: missing },
+    "speech-align-elevenlabs": keySet
+      ? { available: true, detail: "ELEVENLABS_API_KEY set" }
+      : { available: false, detail: missing },
+  };
+}
+
+/**
+ * Generated video: every fal route needs only FAL_KEY, but they are different
  * tools at very different prices, so each says so on its own line.
  */
 export function videoGenerationStatus(falConfigured: boolean): {
   "video-generation": CapabilityReport;
   "video-generation-flux3-max": CapabilityReport;
   "video-generation-wan": CapabilityReport;
+  "avatar-speech": CapabilityReport;
 } {
   const missing = "FAL_KEY not set";
   return {
@@ -146,6 +168,9 @@ export function videoGenerationStatus(falConfigured: boolean): {
       : { available: false, detail: missing },
     "video-generation-wan": falConfigured
       ? { available: true, detail: "fal.ai Wan 2.2 A14B turbo configured (pva_generate_wan_video, $0.05–0.10/clip, end frame for loops)" }
+      : { available: false, detail: missing },
+    "avatar-speech": falConfigured
+      ? { available: true, detail: `fal.ai MiniMax H3 Max lip-sync configured (${AVATAR_SPEECH_TOOL}: photo + audio → talking video; ${avatarTerms()})` }
       : { available: false, detail: missing },
   };
 }

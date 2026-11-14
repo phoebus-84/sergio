@@ -77,6 +77,19 @@ export interface FalClient {
 /** fal's queue host, where asynchronous jobs live. */
 const DEFAULT_QUEUE_URL = "https://queue.fal.run";
 
+/** fal's storage API: where a local file gets the URL an endpoint can read. */
+const DEFAULT_STORAGE_URL = "https://rest.alpha.fal.ai";
+const STORAGE_TYPE = "fal-cdn-v3";
+
+/** A local file to hand to an endpoint by URL. */
+export interface FalUpload {
+  readonly bytes: Uint8Array;
+  /** The name fal keeps it under; its extension is all that matters. */
+  readonly fileName: string;
+  /** e.g. "audio/wav", "image/png". */
+  readonly contentType: string;
+}
+
 export interface SubmitAndWaitOptions {
   /** First poll delay; backs off from here to at most 15s. */
   pollMs?: number;
@@ -100,6 +113,8 @@ export interface FalClientImplOptions {
   readonly transport?: Transport;
   /** Queue host for asynchronous jobs. */
   readonly queueUrl?: string;
+  /** Storage host for uploads. */
+  readonly storageUrl?: string;
 }
 
 export class FalClientImpl implements FalClient {
@@ -110,6 +125,7 @@ export class FalClientImpl implements FalClient {
   private readonly logger: Logger;
   private readonly transport: Transport;
   private readonly queueUrl: string;
+  private readonly storageUrl: string;
 
   private _totalSpendUsd = 0;
   private _submissionCount = 0;
@@ -142,6 +158,7 @@ export class FalClientImpl implements FalClient {
     this.sleeper = options.sleeper ?? new SystemSleeper();
     this.logger = options.logger ?? createLogger();
     this.queueUrl = options.queueUrl ?? DEFAULT_QUEUE_URL;
+    this.storageUrl = options.storageUrl ?? DEFAULT_STORAGE_URL;
     this.transport = options.transport ?? new FetchTransport();
   }
 
@@ -401,6 +418,66 @@ export class FalClientImpl implements FalClient {
     const timeout = new FalTimeoutError(maxWaitMs);
     this.logError(timeout, input);
     throw timeout;
+  }
+
+  /**
+   * Put a local file in fal's storage and return the URL an endpoint reads it
+   * from. Free: nothing is generated. An endpoint that takes audio or video
+   * needs this — a data URI is fine for a still, not for a minute of sound.
+   *
+   * Two requests: fal names an upload URL (authorized), then the bytes go
+   * there (the URL itself is the authorization, so the key is not sent).
+   */
+  async uploadFile(file: FalUpload, signal?: AbortSignal): Promise<string> {
+    if (signal?.aborted) throw new FalCancelledError("cancelled before upload");
+    this.logger.info("fal upload", { fileName: file.fileName, contentType: file.contentType, bytes: file.bytes.byteLength });
+    const fail = (err: unknown): never => {
+      if (signal?.aborted) throw new FalCancelledError("cancelled during upload");
+      this.logger.error("fal upload error", {
+        fileName: file.fileName,
+        code: err instanceof FalAdapterError ? err.code : "FAL_UNKNOWN",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    };
+
+    let initiated: Record<string, unknown>;
+    try {
+      const response = await this.transport.request({
+        method: "POST",
+        url: `${this.storageUrl}/storage/upload/initiate?storage_type=${STORAGE_TYPE}`,
+        headers: { authorization: `Key ${this.config.falKey}`, "content-type": "application/json" },
+        body: JSON.stringify({ file_name: file.fileName, content_type: file.contentType }),
+      }, signal);
+      if (response.status < 200 || response.status >= 300) {
+        throw new FalHttpError(response.status, response.body, response.status >= 500 || response.status === 429);
+      }
+      initiated = JSON.parse(response.body) as Record<string, unknown>;
+    } catch (err) {
+      return fail(err instanceof SyntaxError
+        ? new FalAdapterError("fal storage returned a body that is not valid JSON", "FAL_CONTRACT_ERROR", false)
+        : err);
+    }
+    const uploadUrl = initiated["upload_url"];
+    const fileUrl = initiated["file_url"];
+    if (typeof uploadUrl !== "string" || typeof fileUrl !== "string" || !uploadUrl || !fileUrl) {
+      return fail(new FalAdapterError("fal storage named no upload_url or file_url", "FAL_CONTRACT_ERROR", false, { fileName: file.fileName }));
+    }
+
+    try {
+      const put = await this.transport.request({
+        method: "PUT",
+        url: uploadUrl,
+        headers: { "content-type": file.contentType },
+        body: file.bytes,
+      }, signal);
+      if (put.status < 200 || put.status >= 300) {
+        throw new FalHttpError(put.status, put.body, put.status >= 500 || put.status === 429);
+      }
+    } catch (err) {
+      return fail(err);
+    }
+    return fileUrl;
   }
 
   /** Fetch a completed job's payload when the queue points elsewhere. */

@@ -30,9 +30,17 @@ import {
   loadSoundCueSheet,
 } from "./multitrack-compose.js";
 import { CodexImageClient } from "@av/codex-image";
-import { createFalClient, getProfile, FalHttpError, FalValidationError } from "@av/fal-media";
+import {
+  createFalClient,
+  getProfile,
+  FalHttpError,
+  FalValidationError,
+  H3_PRICES_PER_SECOND_USD,
+  H3_MAX_TURBO_PRICES_PER_SECOND_USD,
+} from "@av/fal-media";
 import { paidCall, providerCost, type SpendCall } from "./spend.js";
 import { COMFYUI_PROVIDER, comfyUiSpeechStatus, comfyUiSpeechTerms, comfyUiVoices, synthesizeWithComfyUi } from "./comfyui-speech.js";
+import { ELEVENLABS_PROVIDER, elevenLabsSpeechTerms, synthesizeWithElevenLabs } from "./elevenlabs-speech.js";
 import { SpendRefused, toMicros } from "@studio/contracts/src/budget.mjs";
 import {
   CODEX_PROVIDER,
@@ -57,6 +65,7 @@ import {
   AlignError,
   registerTake,
   elevenLabsAlignmentUsd,
+  ALIGN_PROVIDERS,
   compareVersions,
   initEpisodeSpec,
   upgradeEpisodeSpec,
@@ -214,7 +223,7 @@ async function generateImage(
 // ── TTS synthesis ──────────────────────────────────────────────────────────
 
 /** Who can speak for pva_synthesize_speech; the first is the default, and never replaced silently. */
-export const SPEECH_PROVIDERS = ["qwen-local", COMFYUI_PROVIDER] as const;
+export const SPEECH_PROVIDERS = ["qwen-local", COMFYUI_PROVIDER, ELEVENLABS_PROVIDER] as const;
 /** The Qwen3-TTS CustomVoice speakers the worker's model knows, and its aliases (avg-vzb). */
 export const QWEN_SPEAKERS = ["aiden", "dylan", "eric", "ono_anna", "ryan", "serena", "sohee", "uncle_fu", "vivian"] as const;
 export const QWEN_SPEAKER_ALIASES = ["default", "narrator", "girl", "grandmother", "wolf", "woodcutter"] as const;
@@ -761,6 +770,9 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
     label: "Generate MiniMax H3 Video",
     description:
       "Animate one opening keyframe, optionally toward an exact closing keyframe, with MiniMax H3 through fal.ai. " +
+      "The same image as first and last frame closes an exact loop. model 'h3' (480P/768P/2K/4K: $0.05/0.06/0.13/0.16 per second) " +
+      "or 'h3-max-turbo' (480P/768P/1080P: $0.025/0.04/0.08 per second, cheaper and faster). " +
+      "Reserved on the episode's spend ledger at the per-second price x duration. " +
       "Saves one clip and provenance sidecar under episode assets/video/.",
     parameters: Type.Object({
       channel: Type.String({ description: "Channel slug" }),
@@ -771,7 +783,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       firstFramePath: Type.String({ description: "Episode-relative opening keyframe path" }),
       lastFramePath: Type.Optional(Type.String({ description: "Episode-relative closing keyframe path" })),
       durationSeconds: Type.Integer({ minimum: 4, maximum: 15, default: 5 }),
-      resolution: Type.Optional(StringEnum(["480P", "768P", "2K", "4K"] as const, { default: "2K" })),
+      model: Type.Optional(StringEnum(["h3", "h3-max-turbo"] as const, { default: "h3", description: "h3 (up to 4K) or h3-max-turbo (up to 1080P, about half the price)" })),
+      resolution: Type.Optional(StringEnum(["480P", "768P", "1080P", "2K", "4K"] as const, { description: "h3: 480P/768P/2K/4K (default 2K); h3-max-turbo: 480P/768P/1080P (default 768P)" })),
       seed: Type.Optional(Type.Integer()),
       enablePromptExpansion: Type.Optional(Type.Boolean({ default: false })),
     }),
@@ -802,17 +815,26 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
 
         const config = await resolveConfig();
         if (!config.falKeyRef) throw new Error("FAL_KEY env var not set");
-        const profile = getProfile("minimax/h3/image-to-video@v1");
+        const turbo = params.model === "h3-max-turbo";
+        const profile = getProfile(turbo ? "minimax/h3-max-turbo/image-to-video@v1" : "minimax/h3/image-to-video@v1");
         if (!profile) throw new Error("MiniMax H3 image-to-video profile is not installed");
+        const resolution = params.resolution ?? (turbo ? "768P" : "2K");
+        const perSecond = turbo
+          ? (H3_MAX_TURBO_PRICES_PER_SECOND_USD as Record<string, number>)[resolution]
+          : (H3_PRICES_PER_SECOND_USD as Record<string, number>)[resolution];
+        if (perSecond === undefined) {
+          throw new Error(`${turbo ? "h3-max-turbo" : "h3"} does not offer ${resolution}`);
+        }
+        const priceUsd = Math.round(perSecond * params.durationSeconds * 1000) / 1000;
 
         const parameters: Record<string, unknown> = {
           prompt: params.prompt,
           duration: params.durationSeconds,
-          resolution: params.resolution ?? "2K",
+          resolution,
           image_url: asDataUrl(resolvedFrames[0]!),
-          enable_prompt_expansion: params.enablePromptExpansion ?? false,
+          prompt_expansion_mode: params.enablePromptExpansion ? "balanced" : "disabled",
           enable_safety_checker: true,
-          ...(resolvedFrames[1] ? { last_image_url: asDataUrl(resolvedFrames[1]) } : {}),
+          ...(resolvedFrames[1] ? { end_image_url: asDataUrl(resolvedFrames[1]) } : {}),
           ...(params.seed === undefined ? {} : { seed: params.seed }),
         };
         const requestHash = createHash("sha256")
@@ -833,7 +855,10 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         // price before submission and settled at what fal reports.
         const result = await paidCall(
           { libraryRoot: LIBRARY_ROOT, channel: params.channel, series: params.series, episode: params.episode },
-          { capability: "video.generate", provider: "fal", model: profile.profileId, purpose: `clip ${params.shotId}` },
+          {
+            capability: "video.generate", provider: "fal", model: profile.profileId, purpose: `clip ${params.shotId}`,
+            estimate: { estimate: { currency: "USD", micros: toMicros(priceUsd) }, priced: true, profile: profile.profileId },
+          },
           async (spend) => {
             spend.sending();
             try {
@@ -881,7 +906,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
           firstFramePath: params.firstFramePath,
           ...(params.lastFramePath ? { lastFramePath: params.lastFramePath } : {}),
           durationSeconds: params.durationSeconds,
-          resolution: params.resolution ?? "2K",
+          resolution,
+          estimatedCostUsd: priceUsd,
           seed: params.seed ?? null,
           cost: result.cost,
           outputSha256: createHash("sha256").update(data).digest("hex"),
@@ -891,7 +917,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         return {
           content: [{
             type: "text" as const,
-            text: `✅ ${params.shotId}.mp4 — ${(data.length / 1024 / 1024).toFixed(1)}MB (${result.profileId})`,
+            text: `✅ ${params.shotId}.mp4 — ${(data.length / 1024 / 1024).toFixed(1)}MB (${result.profileId}, ${resolution}, ~$${priceUsd})`,
           }],
           details: {
             outputPath,
@@ -998,13 +1024,19 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
     label: "Synthesize Speech",
     description: "Synthesize speech audio via the local Qwen3-TTS worker by default (MLX or Torch). " +
       `Only with provider "${COMFYUI_PROVIDER}", use the operator's ComfyUI server instead (${comfyUiSpeechTerms()}); clone only a voice whose owner consented. ` +
+      `Only with provider "${ELEVENLABS_PROVIDER}" and a voiceId, ElevenLabs (paid, through the episode's spend ledger: ${elevenLabsSpeechTerms()}). ` +
       "The provider is never switched automatically. Saves artifacts/narration/<sceneId>.wav and <sceneId>.synthesis.json. " +
-      "Register the WAV with pva_register_take, then pva_align_take with an aligner; neither Qwen provider returns word timings.",
+      "Register the WAV with pva_register_take, then pva_align_take: with an aligner for either Qwen provider, which return no word timings; " +
+      "with provider \"synthesis\" for ElevenLabs, whose record keeps each word's timing, with no second paid call.",
     parameters: Type.Object({
       ...WORKSPACE_PARAMS,
       sceneId: Type.String({ description: "Scene ID (e.g. n1, n2)" }),
       text: Type.String({ description: "Text to synthesize as speech" }),
-      provider: Type.Optional(StringEnum(SPEECH_PROVIDERS, { default: SPEECH_PROVIDERS[0], description: "qwen-local: the worker (default). comfyui-qwen: the operator's ComfyUI server, needs voice or referenceAudioPath" })),
+      provider: Type.Optional(StringEnum(SPEECH_PROVIDERS, { default: SPEECH_PROVIDERS[0], description: "qwen-local: the worker (default). comfyui-qwen: the operator's ComfyUI server, needs voice or referenceAudioPath. elevenlabs: paid, needs voiceId and ELEVENLABS_API_KEY" })),
+      voiceId: Type.Optional(Type.String({ description: "elevenlabs only: the ElevenLabs voice id that speaks" })),
+      model: Type.Optional(Type.String({ description: "elevenlabs only: the model id, when not the default" })),
+      languageCode: Type.Optional(Type.String({ description: "elevenlabs only: ISO 639-1 language of the text, e.g. it, en" })),
+      voiceSettings: Type.Optional(Type.Record(Type.String(), Type.Union([Type.Number(), Type.Boolean()]), { description: "elevenlabs only: voice_settings to change, e.g. {\"stability\": 0.3, \"style\": 0.4}" })),
       voice: Type.Optional(Type.String({
         default: "default",
         description: `Qwen CustomVoice speaker: ${QWEN_SPEAKERS.join(", ")}; or an alias: ${QWEN_SPEAKER_ALIASES.join(", ")}; ` +
@@ -1018,7 +1050,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       referenceStart: Type.Optional(Type.Number({ description: "cleanReference only: where the part to learn from starts, in seconds (default 0)" })),
       referenceDuration: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "cleanReference only: how long that part is, in seconds (default 15)" })),
       saveVoiceAs: Type.Optional(Type.String({ description: "cleanReference only: also save the learned voice on the ComfyUI server under this name, to speak with later as voice saved:<name>" })),
-      seed: Type.Optional(Type.Integer({ minimum: 0, description: "Qwen speech: a seed, to make the same take again" })),
+      seed: Type.Optional(Type.Integer({ minimum: 0, description: "Qwen speech and elevenlabs: a seed, to make the same take again" })),
       temperature: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 2, description: "Sampling temperature (worker default 0.7): higher is more varied, lower more even" })),
       repetitionPenalty: Type.Optional(Type.Number({ minimum: 1, maximum: 3, description: "Repetition penalty (worker default: 1.5 for a clone, 1.05 for a preset). A recited poem read better at 1.1 with a clone, one stanza per call with its verses on their own lines" })),
       language: Type.Optional(StringEnum([...QWEN_LANGUAGES], {
@@ -1039,6 +1071,10 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         const comfyUiOnly = (["referenceAudioPath", "voiceConsentPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => params[k] !== undefined);
         if (provider !== COMFYUI_PROVIDER && comfyUiOnly.length > 0) {
           throw new Error(`${comfyUiOnly.join(", ")} ${comfyUiOnly.length > 1 ? "are" : "is"} for provider "${COMFYUI_PROVIDER}", and this call speaks with ${provider}: add provider: "${COMFYUI_PROVIDER}" to use the ComfyUI server, or drop ${comfyUiOnly.length > 1 ? "them" : "it"}`);
+        }
+        const elevenLabsOnly = (["voiceId", "model", "languageCode", "voiceSettings"] as const).filter((k) => params[k] !== undefined);
+        if (provider !== ELEVENLABS_PROVIDER && elevenLabsOnly.length > 0) {
+          throw new Error(`${elevenLabsOnly.join(", ")} ${elevenLabsOnly.length > 1 ? "are" : "is"} for provider "${ELEVENLABS_PROVIDER}", and this call speaks with ${provider}: add provider: "${ELEVENLABS_PROVIDER}" to use ElevenLabs (paid), or drop ${elevenLabsOnly.length > 1 ? "them" : "it"}`);
         }
         if (provider === COMFYUI_PROVIDER) {
           if (params.speed !== undefined && params.speed !== 1) throw new Error("speed must be 1.0: Qwen does not change speed");
@@ -1081,6 +1117,33 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             content: [{ type: "text" as const, text: `✅ ${params.sceneId} — ${made.durationSeconds.toFixed(1)}s, ${COMFYUI_PROVIDER} ${voiceSaid}, seed ${String(made.receipt.seed)}, made in ${made.elapsedSeconds.toFixed(1)}s, $0 → ${made.audioPath}; receipt ${made.receiptPath}` +
               `${made.cleanedReferencePath ? `; the cleaned reference to listen to: ${made.cleanedReferencePath}` : ""}; no word timings: pva_register_take, then pva_align_take with an aligner` }],
             details: { audioPath: made.audioPath, durationSec: made.durationSeconds, receiptPath: made.receiptPath, receipt: made.receipt, ...(made.cleanedReferencePath ? { cleanedReferencePath: made.cleanedReferencePath } : {}) },
+          };
+        }
+        if (provider === ELEVENLABS_PROVIDER) {
+          const qwenOnly = (["voice", "temperature", "repetitionPenalty", "language", "speed", "instruct"] as const).filter((k) => params[k] !== undefined);
+          if (qwenOnly.length > 0) throw new Error(`${qwenOnly.join(", ")} ${qwenOnly.length > 1 ? "are" : "is"} for the local worker; ElevenLabs takes voiceId, model, languageCode, seed and voiceSettings (direction goes in the text as [tags])`);
+          if (!params.voiceId) throw new Error(`provider "${ELEVENLABS_PROVIDER}" needs voiceId: the ElevenLabs voice that speaks`);
+          const apiKey = process.env.ELEVENLABS_API_KEY;
+          if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+          const made = await synthesizeWithElevenLabs({
+            dir,
+            target: { libraryRoot: LIBRARY_ROOT, ...episodeOf(where(params), "speech with ElevenLabs") },
+            sceneId: params.sceneId,
+            text: params.text,
+            voiceId: params.voiceId,
+            apiKey,
+            ...(params.model ? { model: params.model } : {}),
+            ...(params.languageCode ? { languageCode: params.languageCode } : {}),
+            ...(params.seed !== undefined ? { seed: params.seed } : {}),
+            ...(params.voiceSettings ? { voiceSettings: params.voiceSettings as Record<string, number | boolean> } : {}),
+            ...(signal ? { signal } : {}),
+          });
+          const timed = made.wordCount > 0
+            ? `${made.wordCount} words timed: pva_register_take, then pva_align_take with provider "synthesis"`
+            : "⚠️ ElevenLabs returned no word timings: align the take with another provider";
+          return {
+            content: [{ type: "text" as const, text: `✅ ${params.sceneId} — ${made.durationSeconds.toFixed(1)}s, ${ELEVENLABS_PROVIDER} voice ${params.voiceId} (${String(made.receipt.model)}), ~$${made.estimatedCostUsd} → ${made.audioPath}; receipt ${made.receiptPath}; ${timed}` }],
+            details: { audioPath: made.audioPath, durationSec: made.durationSeconds, receiptPath: made.receiptPath, receipt: made.receipt },
           };
         }
         const voice = params.voice ?? "default";
@@ -1754,11 +1817,11 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "pva_align_take",
     label: "Align Take",
-    description: "Measure a narration take's word timing (speech.align): when each word of its written text is said in its audio, by forced alignment, written beside the take and named in artifacts/narration/takes.json — what the series compiler reads. Local Qwen3-ForcedAligner in the voice worker by default (free); provider \"elevenlabs\" only when the person asks for it (paid, through the spend ledger). Never switches provider on its own.",
+    description: "Measure a narration take's word timing (speech.align): when each word of its written text is said in its audio, by forced alignment, written beside the take and named in artifacts/narration/takes.json — what the series compiler reads. Local Qwen3-ForcedAligner in the voice worker by default (free); provider \"elevenlabs\" only when the person asks for it (paid, through the spend ledger); provider \"synthesis\" for a take pva_synthesize_speech made with ElevenLabs (free: it reads the word timings that synthesis returned). Never switches provider on its own.",
     parameters: Type.Object({
       ...WORKSPACE_PARAMS,
       take: Type.String({ description: "The take's id in takes.json" }),
-      provider: Type.Optional(Type.Union([Type.Literal("qwen-local"), Type.Literal("elevenlabs"), Type.Literal("derived")], { description: "Default qwen-local; derived: a take made by pva_edit_audio, its words carried from the takes it was cut from (no aligner)" })),
+      provider: Type.Optional(StringEnum(ALIGN_PROVIDERS as unknown as ["qwen-local", "elevenlabs", "derived", "synthesis"], { description: "Default qwen-local; derived: a take made by pva_edit_audio, its words carried from the takes it was cut from (no aligner); synthesis: a take whose <name>.synthesis.json holds the words its speech provider timed (ElevenLabs through pva_synthesize_speech; no aligner, $0)" })),
       language: Type.Optional(Type.String({ description: "ISO 639-1 code (it, en…) when the take does not give one" })),
     }),
     async execute(_toolCallId, params) {
@@ -2112,7 +2175,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const caps: Record<string, { available: boolean; detail: string }> = {};
-      const { imageGenerationStatus, videoGenerationStatus, voiceWorkerStatus } = await import("./capability-status.js");
+      const { elevenLabsStatus, imageGenerationStatus, videoGenerationStatus, voiceWorkerStatus } = await import("./capability-status.js");
 
       // Generated media: the route the series resolves, each with its own readiness (avg-twq).
       // Video generation (MiniMax H3, Wan 2.2) specifically requires fal.ai.
@@ -2127,14 +2190,12 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         falConfigured,
         codexLoggedIn: async () => Boolean(registry && await registry.getApiKeyForProvider(CODEX_PROVIDER)),
       }).catch((e: unknown) => ({ available: false, detail: e instanceof Error ? e.message : String(e) }));
-      // Video generation through fal: MiniMax H3 and Wan 2.2 turbo, each with its own line.
+      // Video generation through fal: MiniMax H3, Wan 2.2 turbo and H3 Max lip-sync, each with its own line.
       Object.assign(caps, videoGenerationStatus(falConfigured));
 
       // The voice worker: speech only with a CustomVoice model installed, alignment only with /align (avg-twq, avg-07q).
       Object.assign(caps, await voiceWorkerStatus(process.env.AVG_TTS_WORKER_URL || DEFAULT_TTS_WORKER_URL));
-      caps["speech-align-elevenlabs"] = process.env.ELEVENLABS_API_KEY
-        ? { available: true, detail: "ELEVENLABS_API_KEY set" }
-        : { available: false, detail: "ELEVENLABS_API_KEY not set" };
+      Object.assign(caps, elevenLabsStatus(Boolean(process.env.ELEVENLABS_API_KEY)));
       // Speech from a ComfyUI server: optional, never a fallback for the worker.
       caps[`text-to-speech-${COMFYUI_PROVIDER}`] = await comfyUiSpeechStatus(LIBRARY_ROOT);
 

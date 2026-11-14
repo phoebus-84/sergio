@@ -1,8 +1,7 @@
 # @av/elevenlabs
 
 A small client for the ElevenLabs API, with the studio's rate and retry
-rules. Today it does forced alignment (avg-8hs.2); speech synthesis joins it
-with avg-8hs.1.
+rules. It supports forced alignment and speech synthesis with word timestamps.
 
 ```ts
 import { forcedAlignment, ELEVENLABS_PROFILES, ElevenLabsError } from "@av/elevenlabs";
@@ -14,6 +13,32 @@ const { words, loss } = await forcedAlignment({
 });
 // words: [{ text, start, end, loss? }]
 ```
+
+## Speech synthesis
+
+```ts
+import { synthesizeSpeech } from "@av/elevenlabs";
+
+const { wav, words, durationSeconds } = await synthesizeSpeech({
+  text: "Buongiorno a tutti.",
+  voiceId: "your-voice-id",
+  apiKey: process.env.ELEVENLABS_API_KEY!,
+  modelId: "eleven_v3",
+  languageCode: "it",
+  seed: 7,
+});
+```
+
+Uses `/v1/text-to-speech/{voice_id}/with-timestamps`, wraps PCM in WAV,
+and converts character timestamps into words. Defaults and price estimates
+live in `ELEVENLABS_PROFILES.speechSynthesis`.
+
+In the studio, explicitly select `provider: "elevenlabs"` and `voiceId` in
+`pva_synthesize_speech`. It writes `artifacts/narration/<sceneId>.wav` and
+`<sceneId>.synthesis.json` through the spend ledger. Register that WAV with
+`pva_register_take`, then call `pva_align_take` with `provider: "synthesis"`
+to reuse its timings without another paid request. Qwen remains the default;
+there is no automatic provider fallback.
 
 ## Rules
 

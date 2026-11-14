@@ -237,7 +237,7 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(await said({})).toContain("needs voice");
     expect(await said({ voice: "clone:0b0e7c3a-1111-2222-3333-444455556666" })).toContain("enrolled in the local voice worker");
     expect(await said({ voice: "Ryan", referenceText: "x" })).toContain("referenceText needs referenceAudioPath");
-    expect(await said({ provider: "elevenlabs" })).toContain("unsupported speech provider");
+    expect(await said({ provider: "some-cloud" })).toContain("unsupported speech provider");
     expect(await said({ referenceAudioPath: "assets/none.wav" })).toContain("there is no assets/none.wav");
     expect(await said({ referenceAudioPath: "../../../outside.wav" })).not.toContain("✅");
     mkdirSync(join(dir, "assets"), { recursive: true });

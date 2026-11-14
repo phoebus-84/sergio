@@ -26,6 +26,7 @@ export type AlignErrorCode =
   | "unsupported-language"
   | "bad-audio"
   | "empty-text"
+  | "no-synthesis"
   | "no-key"
   | "auth"
   | "quota"
