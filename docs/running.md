@@ -320,6 +320,30 @@ The voice worker can speak with an enrolled clone voice, through the Qwen3-TTS
   model, the seed, and the sampling when it was set.
 - **A channel's characters** name their voice in `voices/registry.local.json`.
 
+### Speech from a ComfyUI server
+
+`pva_synthesize_speech` with `provider: "comfyui-qwen"` speaks through the
+Qwen3-TTS nodes of a ComfyUI server you run (`packages/comfyui-speech`): free,
+no spend ledger, and never chosen on its own.
+- **The address** is `AVG_COMFYUI_URL`, or `url` in the library's
+  `.render/comfyui.json` (`AVG_COMFYUI_CONFIG` names another file). That file
+  also sets the nodes: `model`, `device`, `precision`, `attention`,
+  `unloadModelAfterGenerate`, `outputPrefix`, `inputSubfolder`,
+  `timeoutSeconds`.
+- **A server that listens only on its own loopback** needs a tunnel you open:
+  `ssh -N -L 18188:127.0.0.1:8188 <host>`, then
+  `AVG_COMFYUI_URL=http://127.0.0.1:18188`.
+- **Voices:** `voice` is a preset speaker or `saved:<name>` (a voice saved on
+  the server); `referenceAudioPath` clones a recording of the workspace, with
+  `referenceText` its exact words; `cleanReference: true` cuts it
+  (`referenceStart`, `referenceDuration`) and separates the voice from music
+  and noise first, `saveVoiceAs` keeps the learned voice on the server. Clone
+  only a voice whose owner consented.
+- **The receipt** names the workflow, the reference's hashes, the seed and the
+  sampling. Qwen times no words: align the take with `pva_align_take`.
+- `pva_capability_status` says whether the server answers, which workflows it
+  has the nodes for, and its saved voices; `pva_voices` lists them.
+
 ### Editing audio
 
 `pva_edit_audio` makes one audio file from others, from a recipe saved

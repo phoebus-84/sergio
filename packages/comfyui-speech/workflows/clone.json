@@ -1,0 +1,32 @@
+{
+  "description": "One sentence in the voice of a reference recording (Qwen3-TTS Base). With a transcript the model continues the reference; without one only its timbre is used.",
+  "outputs": { "speech": "3" },
+  "prompt": {
+    "1": {
+      "class_type": "LoadAudio",
+      "inputs": { "audio": "{{referenceAudio}}" }
+    },
+    "2": {
+      "class_type": "FB_Qwen3TTSVoiceClone",
+      "inputs": {
+        "target_text": "{{text}}",
+        "model_choice": "{{model}}",
+        "device": "{{device}}",
+        "precision": "{{precision}}",
+        "language": "{{language}}",
+        "ref_audio": ["1", 0],
+        "ref_text": "{{referenceText}}",
+        "seed": "{{seed}}",
+        "x_vector_only": "{{timbreOnly}}",
+        "temperature": "{{temperature}}",
+        "repetition_penalty": "{{repetitionPenalty}}",
+        "attention": "{{attention}}",
+        "unload_model_after_generate": "{{unloadModel}}"
+      }
+    },
+    "3": {
+      "class_type": "SaveAudio",
+      "inputs": { "audio": ["2", 0], "filename_prefix": "{{outputPrefix}}" }
+    }
+  }
+}

@@ -13,6 +13,7 @@
     "packages/audio-edit",
     "packages/blender",
     "packages/codex-image",
+    "packages/comfyui-speech",
     "packages/elevenlabs",
     "packages/fal-media",
     "packages/graphics",

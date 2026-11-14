@@ -1,0 +1,31 @@
+{
+  "description": "One sentence in a voice saved on the server by the SaveVoice node (models/qwen-tts/voices).",
+  "outputs": { "speech": "3" },
+  "prompt": {
+    "1": {
+      "class_type": "FB_Qwen3TTSLoadSpeaker",
+      "inputs": { "filename": "{{savedVoice}}" }
+    },
+    "2": {
+      "class_type": "FB_Qwen3TTSVoiceClone",
+      "inputs": {
+        "target_text": "{{text}}",
+        "model_choice": "{{model}}",
+        "device": "{{device}}",
+        "precision": "{{precision}}",
+        "language": "{{language}}",
+        "voice_clone_prompt": ["1", 0],
+        "seed": "{{seed}}",
+        "x_vector_only": false,
+        "temperature": "{{temperature}}",
+        "repetition_penalty": "{{repetitionPenalty}}",
+        "attention": "{{attention}}",
+        "unload_model_after_generate": "{{unloadModel}}"
+      }
+    },
+    "3": {
+      "class_type": "SaveAudio",
+      "inputs": { "audio": ["2", 0], "filename_prefix": "{{outputPrefix}}" }
+    }
+  }
+}

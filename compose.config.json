@@ -42,6 +42,15 @@
       },
       "docs": "docs/packages/fal-media.md"
     },
+    "comfyui-speech": {
+      "path": "packages/comfyui-speech",
+      "kind": "node",
+      "standalone": true,
+      "summary": "Speech from the Qwen3-TTS nodes of a ComfyUI server: preset speakers, cloned and saved voices, and cleaning a reference before cloning it. Optional at run time: without a server address, speech stays with the other providers.",
+      "capabilities": [],
+      "requires": {},
+      "docs": "docs/packages/comfyui-speech.md"
+    },
     "codex-image": {
       "path": "packages/codex-image",
       "kind": "node",
@@ -251,6 +260,7 @@
         "video-composer",
         "remotion-composer",
         "render-worker",
+        "comfyui-speech",
         "contracts",
         "series",
         "episode",
@@ -285,6 +295,7 @@
         "video-composer",
         "remotion-composer",
         "render-worker",
+        "comfyui-speech",
         "contracts",
         "series",
         "episode",
@@ -316,6 +327,7 @@
         "video-composer",
         "remotion-composer",
         "render-worker",
+        "comfyui-speech",
         "contracts",
         "series",
         "episode",
