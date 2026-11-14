@@ -343,6 +343,9 @@ no spend ledger, and never chosen on its own.
   sampling. Qwen times no words: align the take with `pva_align_take`.
 - `pva_capability_status` says whether the server answers, which workflows it
   has the nodes for, and its saved voices; `pva_voices` lists them.
+- **Clean only:** `pva_clean_voice` separates a recording's voice from music
+  and noise on the same server (optionally cut first) into a new WAV under
+  `assets/`, with `<file>.clean.json` beside it. Nothing is cloned.
 
 ### Editing audio
 

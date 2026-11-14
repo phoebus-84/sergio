@@ -42,8 +42,11 @@ beforeAll(async () => {
 
 async function tools(): Promise<ToolMap> {
   const { registerCapabilityTools } = await import("../src/capability-tools.js");
+  const { registerAudioTools } = await import("../src/audio-tools.js");
   const map: ToolMap = new Map();
-  registerCapabilityTools({ registerTool: (t: { name: string }) => map.set(t.name, t as never) } as never);
+  const pi = { registerTool: (t: { name: string }) => map.set(t.name, t as never) } as never;
+  registerCapabilityTools(pi);
+  registerAudioTools(pi);
   return map;
 }
 const call = async (name: string, params: Record<string, unknown>) =>
@@ -262,5 +265,21 @@ describe("the ComfyUI server in pva_capability_status and pva_voices", () => {
     expect(result.isError).toBeFalsy();
     expect(result.content[0].text).toContain("saved voices: saved:Anna");
     expect(result.details.comfyUi).toEqual({ speakers: ["Ryan", "Serena"], savedVoices: ["Anna"] });
+  });
+});
+
+describe("pva_clean_voice", () => {
+  it("keeps the separated voice as a new WAV under assets/, with its record", async () => {
+    mkdirSync(join(dir, "assets"), { recursive: true });
+    writeFileSync(join(dir, "assets", "noisy.mp3"), Buffer.from("speech over music"));
+    const result = await call("pva_clean_voice", { inputPath: "assets/noisy.mp3", outputPath: "assets/sounds/voice.wav", duration: 8 });
+    expect(result.isError).toBeFalsy();
+    expect(Object.values(queued[0]!).map((n) => n.class_type)).toEqual(["LoadAudio", "TrimAudioDuration", "AudioSeparation", "SaveAudio"]);
+    const wav = readFileSync(join(dir, "assets", "sounds", "voice.wav"));
+    expect(wav.toString("latin1", 0, 4)).toBe("RIFF");
+    const record = JSON.parse(readFileSync(join(dir, "assets", "sounds", "voice.wav.clean.json"), "utf-8"));
+    expect(record).toMatchObject({ provider: COMFYUI_PROVIDER, operation: "clean-voice", workflow: "clean", input: { path: "assets/noisy.mp3" }, cut: { startSeconds: 0, durationSeconds: 8 }, output: { path: "assets/sounds/voice.wav", sha256: sha(wav) } });
+    expect((await call("pva_clean_voice", { inputPath: "assets/noisy.mp3", outputPath: "assets/sounds/voice.wav" })).content[0].text).toContain("already exists");
+    expect((await call("pva_clean_voice", { inputPath: "assets/noisy.mp3", outputPath: "voice.wav" })).content[0].text).toContain("under assets/");
   });
 });

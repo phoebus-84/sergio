@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   cleanAndClone,
+  cleanVoice,
   ComfyUiError,
   createComfyUiClient,
   DEFAULT_NODE_SETTINGS,
@@ -136,7 +137,7 @@ describe("workflow templates", () => {
         }
       }
       for (const id of [...Object.values(t.outputs), ...Object.values(t.optionalNodes ?? {})]) expect(t.prompt[id]).toBeDefined();
-      expect(t.prompt[t.outputs.speech!]!.class_type).toBe("SaveAudio");
+      for (const id of Object.values(t.outputs)) expect(t.prompt[id]!.class_type).toBe("SaveAudio");
     }
   });
 
@@ -363,6 +364,26 @@ describe("configuration", () => {
     writeFileSync(file, JSON.stringify({ url: 8188 }));
     expect(() => readComfyUiConfig(file)).toThrow(/url is not a string/);
     expect(() => createComfyUiClient({ baseUrl: "localhost:8188" })).toThrow(ComfyUiError);
+  });
+});
+
+describe("cleanVoice", () => {
+  it("separates the voice without a cut: the trim node is bypassed", async () => {
+    const result = await cleanVoice({ client, input: { inputName: "noisy.wav" }, requestId: "r" });
+    const g = f.queued[0]!;
+    expect(Object.values(g).map((n) => n.class_type)).toEqual(["LoadAudio", "AudioSeparation", "SaveAudio"]);
+    expect(g["3"]!.inputs).toEqual({ audio: ["1", 0], chunk_fade_shape: "linear", chunk_length: 10, chunk_overlap: 0.1 });
+    expect(g["4"]!.inputs).toEqual({ audio: ["3", 3], filename_prefix: "studio-speech/r-voice" });
+    expect(result).toMatchObject({ workflow: "clean", input: "noisy.wav", durationSeconds: 3.5, format: "flac" });
+  });
+
+  it("cuts first when asked, and uploads bytes under their hash", async () => {
+    await cleanVoice({ client, input: { bytes: Buffer.from("rec"), filename: "x.mp3" }, start: 2 });
+    const g = f.queued[0]!;
+    expect(g["2"]!.inputs).toEqual({ audio: ["1", 0], start_index: 2, duration: 86_400 });
+    expect(g["3"]!.inputs.audio).toEqual(["2", 0]);
+    expect(f.calls[0]!.path).toBe("/upload/image");
+    expect((await failure(cleanVoice({ client, input: { inputName: "a.wav" }, duration: 0 }))).message).toMatch(/duration/);
   });
 });
 

@@ -1,0 +1,23 @@
+{
+  "description": "Clean a recording without cloning it: optionally cut it, separate the voice from music and noise (Hybrid Demucs, the Vocals output), and save the voice.",
+  "outputs": { "voice": "4" },
+  "bypassNodes": { "trim": "2" },
+  "prompt": {
+    "1": {
+      "class_type": "LoadAudio",
+      "inputs": { "audio": "{{inputAudio}}" }
+    },
+    "2": {
+      "class_type": "TrimAudioDuration",
+      "inputs": { "audio": ["1", 0], "start_index": "{{start}}", "duration": "{{duration}}" }
+    },
+    "3": {
+      "class_type": "AudioSeparation",
+      "inputs": { "audio": ["2", 0], "chunk_fade_shape": "linear", "chunk_length": 10.0, "chunk_overlap": 0.1 }
+    },
+    "4": {
+      "class_type": "SaveAudio",
+      "inputs": { "audio": ["3", 3], "filename_prefix": "{{outputPrefix}}" }
+    }
+  }
+}

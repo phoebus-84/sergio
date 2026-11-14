@@ -18,6 +18,7 @@ export { fillWorkflow, loadWorkflow, nodeClassesOf, placeholdersOf, WORKFLOW_NAM
 export type { WorkflowName, WorkflowTemplate, WorkflowValue } from "./workflows.js";
 export {
   cleanAndClone,
+  cleanVoice,
   DEFAULT_REFERENCE_SECONDS,
   DEFAULT_SAMPLING,
   probeSpeech,
@@ -28,4 +29,4 @@ export {
   speakWithSavedVoice,
   speakWithSpeaker,
 } from "./speech.js";
-export type { Reference, ReferenceOptions, SavedAudio, SpeechOptions, SpeechProbe, SpeechResult } from "./speech.js";
+export type { CleanVoiceOptions, CleanVoiceResult, Reference, ReferenceOptions, SavedAudio, SpeechOptions, SpeechProbe, SpeechResult } from "./speech.js";

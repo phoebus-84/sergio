@@ -149,23 +149,30 @@ async function fetchSaved(client: ComfyUiClient, file: ComfyUiFile, signal: Abor
   return { audio, format: "flac", file, durationSeconds: info ? info.durationSeconds : null, sampleRate: info ? info.sampleRate : null };
 }
 
+/** Queue a graph and wait for it; what its output nodes saved. */
+async function queueAndWait(
+  client: ComfyUiClient, prompt: ComfyUiPrompt, timeoutMs: number, signal: AbortSignal | undefined,
+): Promise<{ promptId: string; outputs: Record<string, Record<string, unknown>> }> {
+  const promptId = await client.queuePrompt(prompt, signal);
+  try {
+    const { outputs } = await client.waitForPrompt(promptId, { timeoutMs, ...(signal ? { signal } : {}) });
+    return { promptId, outputs };
+  } catch (e) {
+    // Given up on: take it out of the queue if it has not started. A graph
+    // already running is left to finish — interrupting would stop whatever
+    // the server is running, which may be someone else's.
+    if (e instanceof ComfyUiError && (e.code === "aborted" || e.code === "timeout")) await client.dequeue(promptId).catch(() => undefined);
+    throw e;
+  }
+}
+
 async function run(
   o: SpeechOptions, workflow: WorkflowName, c: Common, extra: Record<string, WorkflowValue | undefined>,
 ): Promise<SpeechResult> {
   const template = loadWorkflow(workflow);
   const prompt = fillWorkflow(template, { ...c.values, ...extra });
   const started = Date.now();
-  const promptId = await o.client.queuePrompt(prompt, o.signal);
-  let outputs: Record<string, Record<string, unknown>>;
-  try {
-    ({ outputs } = await o.client.waitForPrompt(promptId, { timeoutMs: c.timeoutMs, ...(o.signal ? { signal: o.signal } : {}) }));
-  } catch (e) {
-    // Given up on: take it out of the queue if it has not started. A graph
-    // already running is left to finish — interrupting would stop whatever
-    // the server is running, which may be someone else's.
-    if (e instanceof ComfyUiError && (e.code === "aborted" || e.code === "timeout")) await o.client.dequeue(promptId).catch(() => undefined);
-    throw e;
-  }
+  const { promptId, outputs } = await queueAndWait(o.client, prompt, c.timeoutMs, o.signal);
   const speech = await fetchSaved(o.client, savedFile(outputs, template.outputs.speech!, "the speech"), o.signal);
   const cleanedNode = template.outputs.cleanedReference;
   const cleanedReference = cleanedNode ? await fetchSaved(o.client, savedFile(outputs, cleanedNode, "the cleaned reference"), o.signal) : undefined;
@@ -181,7 +188,7 @@ async function run(
 }
 
 /** The name LoadAudio reads the reference by: uploaded under its content's hash, or as the caller named it. */
-async function referenceInput(o: SpeechOptions & ReferenceOptions): Promise<string> {
+async function referenceInput(o: { client: ComfyUiClient; reference: Reference; inputSubfolder?: string; signal?: AbortSignal }): Promise<string> {
   const ref = o.reference;
   if ("inputName" in ref) {
     if (ref.inputName.trim() === "" || ref.inputName.includes("..")) throw new ComfyUiError("bad-request", `"${ref.inputName}" is not a file of the server's input folder`);
@@ -258,6 +265,63 @@ export async function cleanAndClone(o: SpeechOptions & ReferenceOptions & {
     saveVoiceAs: o.saveVoiceAs,
   });
   return { ...result, referenceInput: input };
+}
+
+export interface CleanVoiceOptions {
+  client: ComfyUiClient;
+  /** The recording to clean: bytes to upload, or a file already in the server's input folder. */
+  input: Reference;
+  /** Cut before separating: where the part starts, in seconds (default 0). */
+  start?: number;
+  /** Cut before separating: how long the part is, in seconds (default: to the end). */
+  duration?: number;
+  /** Folder under the server's output/ the voice is saved in. */
+  outputPrefix?: string;
+  /** Folder under the server's input/ an uploaded recording goes in. */
+  inputSubfolder?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  /** Tests: what names this request's files instead of a random id. */
+  requestId?: string;
+}
+
+export interface CleanVoiceResult extends SavedAudio {
+  workflow: "clean";
+  promptId: string;
+  prompt: ComfyUiPrompt;
+  /** The name LoadAudio read. */
+  input: string;
+  elapsedSeconds: number;
+}
+
+/** Longer than any recording: the trim node stops at the end of the audio. */
+const TO_THE_END = 86_400;
+
+/**
+ * The voice of a recording, without its music and noise: the clean-clone
+ * workflow's cleaning half (an optional cut, AudioSeparation's Vocals), with
+ * nothing learned or said.
+ */
+export async function cleanVoice(o: CleanVoiceOptions): Promise<CleanVoiceResult> {
+  const trim = o.start !== undefined || o.duration !== undefined;
+  const start = o.start ?? 0;
+  if (!Number.isFinite(start)) throw new ComfyUiError("bad-request", `start ${o.start} is not a number of seconds`);
+  if (o.duration !== undefined && !(o.duration > 0 && Number.isFinite(o.duration))) throw new ComfyUiError("bad-request", `duration ${o.duration} is not a positive number of seconds`);
+  const prefix = (o.outputPrefix ?? DEFAULT_OUTPUT_PREFIX).replace(/^\/+|\/+$/g, "");
+  if (prefix === "" || prefix.includes("..")) throw new ComfyUiError("bad-request", `"${o.outputPrefix}" is not a folder under the server's output`);
+  const id = o.requestId ?? `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+  const input = await referenceInput({ client: o.client, reference: o.input, ...(o.inputSubfolder ? { inputSubfolder: o.inputSubfolder } : {}), ...(o.signal ? { signal: o.signal } : {}) });
+  const template = loadWorkflow("clean");
+  const prompt = fillWorkflow(template, {
+    inputAudio: input,
+    trim,
+    ...(trim ? { start, duration: o.duration ?? TO_THE_END } : {}),
+    outputPrefix: `${prefix}/${id}-voice`,
+  });
+  const started = Date.now();
+  const { promptId, outputs } = await queueAndWait(o.client, prompt, o.timeoutMs ?? DEFAULT_TIMEOUT_SECONDS * 1000, o.signal);
+  const voice = await fetchSaved(o.client, savedFile(outputs, template.outputs.voice!, "the cleaned voice"), o.signal);
+  return { ...voice, workflow: "clean", promptId, prompt, input, elapsedSeconds: (Date.now() - started) / 1000 };
 }
 
 /** What a server can do for speech, read without running anything. */

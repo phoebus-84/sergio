@@ -28,9 +28,10 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   cleanAndClone,
+  cleanVoice,
   ComfyUiError,
   createComfyUiClient,
   DEFAULT_REFERENCE_SECONDS,
@@ -301,4 +302,62 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     method,
     receipt,
   };
+}
+
+// ── Clean only: the voice of a recording, without its music and noise ───────
+
+export interface ComfyUiCleanRequest {
+  libraryRoot: string;
+  /** The recording, already checked to be inside the workspace. */
+  input: { absolutePath: string; relativePath: string };
+  /** Where the WAV goes, already checked; relative to the workspace. */
+  output: { absolutePath: string; relativePath: string };
+  start?: number;
+  duration?: number;
+  signal?: AbortSignal;
+}
+
+export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ recordPath: string; durationSeconds: number; elapsedSeconds: number; record: Record<string, unknown> }> {
+  const config = comfyUiConfig(r.libraryRoot);
+  if (!config.url) throw new Error(NOT_CONFIGURED);
+  const inputBytes = readFileSync(r.input.absolutePath);
+  let cleaned: Awaited<ReturnType<typeof cleanVoice>>;
+  try {
+    cleaned = await cleanVoice({
+      client: createComfyUiClient({ baseUrl: config.url }),
+      // Only the extension leaves this machine: the package names the upload by its content's hash.
+      input: { bytes: inputBytes, filename: basename(r.input.absolutePath) },
+      ...(r.start !== undefined ? { start: r.start } : {}),
+      ...(r.duration !== undefined ? { duration: r.duration } : {}),
+      ...(config.outputPrefix ? { outputPrefix: config.outputPrefix } : {}),
+      ...(config.inputSubfolder ? { inputSubfolder: config.inputSubfolder } : {}),
+      ...(config.timeoutSeconds ? { timeoutMs: config.timeoutSeconds * 1000 } : {}),
+      ...(r.signal ? { signal: r.signal } : {}),
+    });
+  } catch (e) {
+    if (e instanceof ComfyUiError && e.code === "unreachable") throw new Error(`${e.message}: is the server running, and the operator's tunnel to it open?`);
+    throw e;
+  }
+  const wav = await flacToWav(cleaned.audio);
+  mkdirSync(dirname(r.output.absolutePath), { recursive: true });
+  writeFileSync(r.output.absolutePath, wav);
+  const durationSeconds = Math.round(wavSeconds(wav) * 1000) / 1000;
+  const recordPath = `${r.output.absolutePath}.clean.json`;
+  const record = {
+    provider: COMFYUI_PROVIDER,
+    operation: "clean-voice",
+    workflow: cleaned.workflow,
+    promptId: cleaned.promptId,
+    separation: "AudioSeparation (Hybrid Demucs), Vocals",
+    input: { path: r.input.relativePath.replace(/\\/g, "/"), sha256: sha256(inputBytes) },
+    ...(r.start !== undefined || r.duration !== undefined ? { cut: { startSeconds: r.start ?? 0, ...(r.duration !== undefined ? { durationSeconds: r.duration } : {}) } } : {}),
+    output: { path: r.output.relativePath.replace(/\\/g, "/"), sha256: sha256(wav), durationSeconds },
+    sourceFormat: cleaned.format,
+    sourceSha256: sha256(cleaned.audio),
+    elapsedSeconds: Math.round(cleaned.elapsedSeconds * 100) / 100,
+    estimatedCost: { amount: 0, currency: "USD" },
+    createdAt: new Date().toISOString(),
+  };
+  writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+  return { recordPath, durationSeconds, elapsedSeconds: cleaned.elapsedSeconds, record };
 }

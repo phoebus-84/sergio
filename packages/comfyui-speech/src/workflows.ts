@@ -7,12 +7,16 @@
 //
 // A template may name optional nodes: `optionalNodes: { <value name>: <node
 // id> }`. When that value is not given the node is left out of the graph.
+//
+// And nodes to bypass, as ComfyUI's own bypass does: `bypassNodes: { <flag>:
+// <node id> }`. Unless the flag is true the node is left out, and what read
+// its first output reads its first linked input instead.
 
 import { readFileSync } from "node:fs";
 import type { ComfyUiPrompt } from "./client.js";
 import { ComfyUiError } from "./errors.js";
 
-export const WORKFLOW_NAMES = ["speaker", "clone", "saved-voice", "clean-clone"] as const;
+export const WORKFLOW_NAMES = ["speaker", "clone", "saved-voice", "clean-clone", "clean"] as const;
 export type WorkflowName = typeof WORKFLOW_NAMES[number];
 
 export interface WorkflowTemplate {
@@ -21,6 +25,8 @@ export interface WorkflowTemplate {
   outputs: Record<string, string>;
   /** Nodes left out when the value they are named after is absent: value name → node id. */
   optionalNodes?: Record<string, string>;
+  /** Nodes passed through unless their flag is true: flag → node id. */
+  bypassNodes?: Record<string, string>;
   prompt: ComfyUiPrompt;
 }
 
@@ -59,6 +65,18 @@ export function fillWorkflow(template: WorkflowTemplate, values: Record<string, 
     if (values[name] === undefined) delete prompt[nodeId];
   }
   const used = new Set<string>();
+  for (const [flag, nodeId] of Object.entries(template.bypassNodes ?? {})) {
+    used.add(flag);
+    if (values[flag] === true) continue;
+    const through = Object.values(prompt[nodeId]?.inputs ?? {}).find((v) => Array.isArray(v));
+    if (!through) throw new ComfyUiError("bad-request", `node ${nodeId} has no linked input to pass through`);
+    delete prompt[nodeId];
+    for (const node of Object.values(prompt)) {
+      for (const [k, v] of Object.entries(node.inputs)) {
+        if (Array.isArray(v) && v[0] === nodeId && v[1] === 0) node.inputs[k] = [...through];
+      }
+    }
+  }
   const fill = (value: unknown): unknown => {
     if (typeof value === "string") {
       const m = PLACEHOLDER.exec(value);
