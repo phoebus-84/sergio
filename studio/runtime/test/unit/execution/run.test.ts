@@ -517,7 +517,9 @@ describe("ExecutionService.run", () => {
     const dispatcher = writingDispatcher(dir);
     const svc = new ExecutionService({
       libraryRoot: root, builtinPipelines: PIPELINES,
-      dispatcher, budget: permissiveBudget, holder: "test/1", leaseTtlMs: 40,
+      // Long enough for a whole run on a busy machine: at 40 ms the run that
+      // follows the lapse lost its own lease before it finished, one time in two.
+      dispatcher, budget: permissiveBudget, holder: "test/1", leaseTtlMs: 400,
     });
 
     journalMockState.dropStageStarted = true;
@@ -540,7 +542,7 @@ describe("ExecutionService.run", () => {
 
     // And it becomes claimable again by lapse, not by a release that would
     // have contradicted the log.
-    await new Promise((r) => setTimeout(r, 60));
+    await new Promise((r) => setTimeout(r, 450));
     const later = await svc.run(REF, "narrated-illustrated-video", { stage: "brief" });
     expect(later.ok).toBe(true);
     if (!later.ok) return;
