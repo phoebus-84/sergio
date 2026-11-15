@@ -9,6 +9,8 @@
    */
   import { files } from "$lib/files-store.svelte.ts";
   import { episode } from "$lib/episode-store.svelte.ts";
+  import { film } from "$lib/film-store.svelte.ts";
+  import { RENDER_STATE_LABELS } from "$lib/film-types";
   import { library } from "$lib/library-store.svelte.ts";
   import { studio } from "$lib/studio-store.svelte.ts";
   import { transitiveDownstream } from "$lib/stage-graph";
@@ -54,6 +56,38 @@
       push("versions", files.revisions.length ? String(files.revisions.length) : null);
       push("state", files.dirty ? "unsaved changes" : "saved");
       if (files.viewingRevision) push("showing", "an older version");
+      return out;
+    }
+
+    /* In a film the levels are a film, a scene and a shot, and each is a unit
+       with a cut and a render of its own: that is what there is to say. */
+    const unit = library.filmUnit;
+    if (unit) {
+      const node = film.node(unit);
+      const tree = film.tree;
+      push("scope", `${unit.level} · ${unit.level === "film" ? unit.film : unit.level === "scene" ? unit.scene : unit.shot}`);
+      if (unit.level !== "film") push("film", unit.film);
+      if (unit.level === "shot") push("scene", unit.scene);
+      if (unit.level === "film" && tree) {
+        push("scenes", String(tree.totals.scenes));
+        push("shots", String(tree.totals.shots));
+        push("format", tree.manifest ? `${tree.manifest.format.width}×${tree.manifest.format.height} · ${tree.manifest.format.fps} fps` : null);
+      }
+      if (unit.level === "scene") push("shots", String(film.scene(unit.scene)?.shots.length ?? 0));
+      if (node) {
+        push("state", RENDER_STATE_LABELS[node.status.state]);
+        push("cut", node.status.cut.exists ? `revision ${node.status.cut.revision} · ${node.status.cut.clips} clip${node.status.cut.clips === 1 ? "" : "s"}` : "none yet");
+        push("render", node.render ? `${node.render.quality} ${node.render.renderId}${node.render.fresh ? "" : " (out of date)"}` : "none yet");
+      }
+      const unitEpisode = episode.state.phase === "ready" ? episode.state.episode : null;
+      if (unitEpisode) {
+        push("pipeline", unitEpisode.pipeline);
+        push("approval", unitEpisode.approvalMode);
+        if (typeof unitEpisode.budgetSpent === "number" && typeof unitEpisode.budgetLimit === "number") {
+          push("spend", `$${unitEpisode.budgetSpent.toFixed(2)} of $${unitEpisode.budgetLimit.toFixed(2)}`);
+        }
+      }
+      push("files", files.entries.length ? String(files.entries.length) : null);
       return out;
     }
 

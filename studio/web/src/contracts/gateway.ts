@@ -34,16 +34,26 @@ export interface ErrorResponse {
 
 /* ── workspace discovery ── */
 
+/** What a project of the library is: a channel that keeps making episodes, or one self-contained film. */
+export type ProjectKind = "channel" | "film";
+
 export interface ChannelSummary {
   slug: string;
   title: string;
+  /** A channel's series; a film's scenes. */
   seriesCount: number;
+  /** Absent means a channel. */
+  kind?: ProjectKind;
 }
 
 export interface SeriesSummary {
   slug: string;
   title: string;
+  /** A series' episodes; a scene's shots. */
   episodeCount: number;
+  /** A scene: the sequence and the act of the film it is in. */
+  sequence?: string | null;
+  act?: string | null;
 }
 
 export interface EpisodeSummary {

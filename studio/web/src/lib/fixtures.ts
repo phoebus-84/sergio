@@ -20,6 +20,7 @@ export function buildFixtureTree(fixture: LibraryFixture): LibraryTree {
       return {
         slug: ch.slug,
         title: ch.title,
+        kind: ch.kind ?? "channel",
         series: series.map((ser) => {
           const key = `${ch.slug}/${ser.slug}`;
           const episodes = fixture.episodesBySeries[key] ?? [];
@@ -28,6 +29,7 @@ export function buildFixtureTree(fixture: LibraryFixture): LibraryTree {
             slug: ser.slug,
             title: ser.title,
             channel: ch.slug,
+            ...(ser.sequence !== undefined ? { sequence: ser.sequence, act: ser.act ?? null } : {}),
             episodes: episodes.map((ep) => {
               const base = {
                 slug: ep.slug,

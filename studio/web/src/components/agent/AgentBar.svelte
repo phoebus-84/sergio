@@ -23,6 +23,19 @@
         label: files.selectedPath,
       };
     }
+    /* In a film every level is a unit the agent can be steered about: the film
+       and a scene are addressed like a shot, with `_` for the level itself. */
+    const unit = library.filmUnit;
+    if (unit) {
+      const name = unit.level === "film" ? unit.film : unit.level === "scene" ? unit.scene : unit.shot;
+      const stage = studio.view === "stages" ? episode.selectedStageId : null;
+      const what = studio.view === "cut" ? "cut" : stage;
+      return {
+        episodeSlug: `${unit.film}/${unit.scene}/${unit.shot}`,
+        stageId: stage,
+        label: `${unit.level} · ${name}${what ? ` · ${what}` : ""}`,
+      };
+    }
     if (slug) {
       const stage = episode.selectedStageId;
       return {
@@ -42,7 +55,7 @@
   });
 
   const suggestions = $derived(
-    suggestionsFor(studio.view, files.selectedPresentation?.viewer),
+    suggestionsFor(studio.view, files.selectedPresentation?.viewer, library.filmUnit?.level),
   );
 
   /* The gateway says which agent is behind the bar; Pi until it answers. */
@@ -73,23 +86,35 @@
   }
 </script>
 
-<div class="agent-bar">
+<div class="agent-bar" class:collapsed={studio.agentBarCollapsed}>
   <div class="agent-context">
     <span class="agent-anchor" title={anchor.label}>about {anchor.label}</span>
     <span class="agent-status" data-kind={studio.agentStatus.kind} role="status">
       {studio.agentStatus.text}
     </span>
 
-    <div class="agent-suggestions">
-      {#each suggestions as suggestion (suggestion)}
-        <button class="agent-chip" onclick={() => (studio.agentDraft = suggestion)}>
-          {suggestion}
-        </button>
-      {/each}
-    </div>
+    {#if !studio.agentBarCollapsed}
+      <div class="agent-suggestions">
+        {#each suggestions as suggestion (suggestion)}
+          <button class="agent-chip" onclick={() => (studio.agentDraft = suggestion)}>
+            {suggestion}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Folded, the bar is one line: what a message would be about and what
+         the agent is doing. The room goes back to the work. -->
+    <button
+      class="agent-fold"
+      aria-expanded={!studio.agentBarCollapsed}
+      aria-label={studio.agentBarCollapsed ? `Open the message box to ${agent.name}` : "Fold the message box away"}
+      title={studio.agentBarCollapsed ? `Write to ${agent.name}` : "Fold away"}
+      onclick={() => studio.toggleAgentBar()}
+    >{studio.agentBarCollapsed ? `Ask ${agent.name} ▴` : "▾"}</button>
   </div>
 
-  <div class="agent-input-row">
+  <div class="agent-input-row" hidden={studio.agentBarCollapsed}>
     <input
       type="text"
       class="agent-input"
@@ -176,6 +201,48 @@
     font-size: var(--vs-text-xs);
     cursor: pointer;
     white-space: nowrap;
+  }
+
+  .agent-bar.collapsed {
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .agent-bar.collapsed .agent-context {
+    padding-bottom: 0;
+  }
+
+  .agent-input-row[hidden] {
+    display: none;
+  }
+
+  .agent-fold {
+    flex-shrink: 0;
+    padding: 2px var(--vs-space-2);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--vs-radius-sm);
+    color: var(--vs-text-tertiary);
+    font: inherit;
+    font-size: var(--vs-text-xs);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .agent-bar.collapsed .agent-fold {
+    margin-left: auto;
+    border-color: var(--vs-border);
+    color: var(--vs-text-secondary);
+  }
+
+  .agent-fold:hover {
+    background: var(--vs-bg-hover);
+    color: var(--vs-text-primary);
+  }
+
+  .agent-fold:focus-visible {
+    outline: 2px solid var(--vs-border-focus);
+    outline-offset: 1px;
   }
 
   .agent-chip:hover {

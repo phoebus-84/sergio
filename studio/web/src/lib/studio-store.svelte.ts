@@ -16,6 +16,8 @@ export type Level = "channel" | "series" | "episode";
 
 export type View =
   | "overview"
+  | "cut"
+  | "footage"
   | "pipeline"
   | "stages"
   | "files"
@@ -25,6 +27,7 @@ export type View =
   | "render";
 
 export type InspectorTab =
+  | "cut"
   | "provenance"
   | "versions"
   | "logs"
@@ -63,6 +66,36 @@ export const VIEWS: Record<Level, ViewDef[]> = {
   ],
 };
 
+/**
+ * Which views each level of a film offers (ADR-0050).
+ *
+ * A film is produced at every level, so every level has a cut and stages: the
+ * film's own, a scene's, a shot's. The overview is what the level is and what
+ * is under it — the film as a board of scenes and shots, a scene as its shot
+ * list, a shot as its plan and its takes.
+ */
+export const FILM_VIEWS: Record<Level, ViewDef[]> = {
+  channel: [
+    { key: "overview", label: "Board" },
+    { key: "cut", label: "Cut" },
+    { key: "footage", label: "Footage" },
+    { key: "stages", label: "Stages" },
+    { key: "files", label: "Files" },
+  ],
+  series: [
+    { key: "overview", label: "Scene" },
+    { key: "cut", label: "Cut" },
+    { key: "stages", label: "Stages" },
+    { key: "files", label: "Files" },
+  ],
+  episode: [
+    { key: "overview", label: "Shot" },
+    { key: "cut", label: "Cut" },
+    { key: "stages", label: "Stages" },
+    { key: "files", label: "Files" },
+  ],
+};
+
 /** The view a level lands on when you arrive at it. */
 const DEFAULT_VIEW: Record<Level, View> = {
   channel: "overview",
@@ -82,6 +115,34 @@ class StudioStore {
   /** Free-text filter over the library tree. */
   libraryFilter = $state("");
 
+  /**
+   * The side panels: open or put away, and how wide. Kept here rather than in
+   * the shell so a view can ask what room it has — the cut shows its own
+   * inspector when the shell's is away.
+   */
+  structureOpen = $state(true);
+  inspectorOpen = $state(true);
+  structureWidth = $state(260);
+  inspectorWidth = $state(340);
+
+  /**
+   * Both side panels put away at once, for work that needs the width: a
+   * timeline, a long document, a storyboard. Leaving focus brings back
+   * whatever was open before; it does not forget a panel the person closed.
+   */
+  focus = $state(false);
+
+  /** The agent bar folded down to its status line. */
+  agentBarCollapsed = $state(false);
+
+  get structureVisible(): boolean {
+    return this.structureOpen && !this.focus;
+  }
+
+  get inspectorVisible(): boolean {
+    return this.inspectorOpen && !this.focus;
+  }
+
   paletteOpen = $state(false);
   paletteQuery = $state("");
 
@@ -99,8 +160,13 @@ class StudioStore {
     return "episode";
   }
 
+  /** The kind of project the selection is in. */
+  get kind(): "channel" | "film" {
+    return library.selection?.kind ?? "channel";
+  }
+
   get views(): ViewDef[] {
-    return VIEWS[this.level];
+    return this.kind === "film" ? FILM_VIEWS[this.level] : VIEWS[this.level];
   }
 
   /**
@@ -115,7 +181,7 @@ class StudioStore {
 
   /** Land on a level's default view. Called when the library selection moves. */
   resetView(): void {
-    this.view = DEFAULT_VIEW[this.level];
+    this.view = this.kind === "film" ? "overview" : DEFAULT_VIEW[this.level];
   }
 
   /** Open a file in a tab and focus the Files view. */
@@ -131,6 +197,68 @@ class StudioStore {
   /** Drop every open tab. Used when the level changes, since paths are relative to it. */
   clearFiles(): void {
     this.openPaths = [];
+  }
+
+  // ── Layout, remembered across reloads ─────────────────────────────────
+
+  static readonly #LAYOUT_KEY = "vs-panels";
+
+  restoreLayout(): void {
+    try {
+      const saved = JSON.parse(localStorage.getItem(StudioStore.#LAYOUT_KEY) ?? "{}") as Record<string, unknown>;
+      if (typeof saved.structure === "boolean") this.structureOpen = saved.structure;
+      if (typeof saved.inspector === "boolean") this.inspectorOpen = saved.inspector;
+      if (typeof saved.structureWidth === "number") this.structureWidth = saved.structureWidth;
+      if (typeof saved.inspectorWidth === "number") this.inspectorWidth = saved.inspectorWidth;
+      if (typeof saved.focus === "boolean") this.focus = saved.focus;
+      if (typeof saved.agentBar === "boolean") this.agentBarCollapsed = saved.agentBar;
+    } catch { /* first run, or unreadable storage */ }
+  }
+
+  persistLayout(): void {
+    try {
+      localStorage.setItem(StudioStore.#LAYOUT_KEY, JSON.stringify({
+        structure: this.structureOpen,
+        inspector: this.inspectorOpen,
+        structureWidth: this.structureWidth,
+        inspectorWidth: this.inspectorWidth,
+        focus: this.focus,
+        agentBar: this.agentBarCollapsed,
+      }));
+    } catch { /* storage unavailable; the session still works */ }
+  }
+
+  toggleFocus(): void {
+    this.focus = !this.focus;
+    this.persistLayout();
+  }
+
+  /** Open or close one side panel. Asking for a panel while in focus leaves focus with that panel open. */
+  togglePanel(side: "structure" | "inspector"): void {
+    const key = side === "structure" ? "structureOpen" : "inspectorOpen";
+    if (this.focus) {
+      this.focus = false;
+      this[key] = true;
+    } else this[key] = !this[key];
+    this.persistLayout();
+  }
+
+  resizePanel(side: "structure" | "inspector", width: number): void {
+    // Dragging a collapsed panel's edge reopens it; otherwise the drag would set a width nobody can see.
+    if (side === "structure") {
+      this.structureWidth = width;
+      this.structureOpen = true;
+    } else {
+      this.inspectorWidth = width;
+      this.inspectorOpen = true;
+    }
+    this.focus = false;
+    this.persistLayout();
+  }
+
+  toggleAgentBar(): void {
+    this.agentBarCollapsed = !this.agentBarCollapsed;
+    this.persistLayout();
   }
 
   togglePalette(): void {

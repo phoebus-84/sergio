@@ -62,10 +62,11 @@
   </div>
 
   {#if expanded}
-    <div class="series-list" role="group" aria-label="{channel.title} series">
+    <div class="series-list" role="group" aria-label="{channel.title} {channel.kind === "film" ? "scenes" : "series"}">
       {#each channel.series as series (series.slug)}
         <SeriesItem
           channelSlug={channel.slug}
+          kind={channel.kind}
           {series}
           {forceExpand}
           autoExpand={autoExpandedSeries && channel.series.length === 1}
