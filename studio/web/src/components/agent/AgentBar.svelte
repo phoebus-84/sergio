@@ -171,6 +171,10 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* What the agent is doing is read before a suggestion is: the chips
+       scroll, the status keeps its words. */
+    flex: 0 1 auto;
+    min-width: min(18ch, 40%);
   }
 
   /* A failure to reach Pi is not a neutral status line. */

@@ -565,8 +565,15 @@
 
   .fo-entry-row {
     display: grid;
-    grid-template-columns: 2fr 2fr 1fr;
+    /* A column may shrink below its content: the last one was pushed out of the panel. */
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(88px, 1fr);
     gap: var(--vs-space-2);
+  }
+
+  .fo-entry-row :is(input, select) {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   @media (max-width: 900px) {

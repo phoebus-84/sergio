@@ -103,7 +103,7 @@
   {#if !levelRef}
     <div class="pc-empty">
       <h2>Nothing selected</h2>
-      <p>Choose a channel, series or episode from the library.</p>
+      <p>Choose a film or a channel from the library, or something inside one.</p>
     </div>
   {:else}
     <ViewTabs />
