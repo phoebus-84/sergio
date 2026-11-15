@@ -53,6 +53,55 @@ holding areas (`_media`, `_exports`). Neither is ever content, at any level.
 `studio/contracts/src/layout.mjs` is the single source of truth for these paths.
 Compute paths through it rather than joining strings.
 
+### A film
+
+A library holds two kinds of project. A channel keeps making episodes; a
+**film** is one self-contained work, short or feature length (ADR-0050).
+`film.yaml` is what makes a directory a film.
+
+```text
+library/
+└── film-slug/
+    ├── film.yaml                       # title, format, running time, sequences and acts
+    ├── pipeline.yaml                   # pipeline: / scenes: / shots: — who decides, per level
+    ├── settings.yaml                   # `budget:` covers every scene and shot under it
+    ├── bible/                          # film knowledge: the look and sound every shot is held to
+    ├── characters/
+    ├── locations/
+    ├── references/
+    ├── skills/
+    ├── sources/
+    ├── voices/
+    ├── footage/                        # catalog.json · media/ · proxies/ · sheets/
+    ├── music/
+    ├── artifacts/                      # cut.json: the film's cut, of its scenes' renders
+    ├── output/                         # the film's renders
+    └── scenes/                         # explicit container
+        └── scene-slug/
+            ├── scene.yaml
+            ├── references/  skills/  sources/
+            ├── artifacts/              # cut.json: the scene's cut, of its shots' renders
+            ├── output/
+            └── shots/                  # explicit container
+                └── shot-slug/
+                    ├── shot.yaml
+                    ├── assets/         # the shot's takes
+                    ├── artifacts/      # cut.json: the shot's cut, of its take
+                    └── output/
+```
+
+The film, each scene and each shot are **production units**, with what an
+episode has: `artifacts/`, `assets/`, `attempts/`, `journal/`, `reviews/`,
+`output/` and their own pipeline state. Every tool and route addresses one
+with the same three positions as an episode — the film, the scene, the shot —
+and `_` for the level itself: `tide/010-shore/020-close` is a shot,
+`tide/010-shore/_` the scene's own unit, `tide/_/_` the film's.
+
+A render is immutable (`output/<render-id>.mp4`, with the cut it rendered and
+a report). `output/current.json` names a unit's final render and
+`output/preview.json` its latest preview. The renderer keeps the windows it
+has rendered in the unit's `.cut/`; they are a cache and can be deleted.
+
 ## Migrating
 
 ```bash
@@ -198,6 +247,7 @@ the browser remembers the choice.
 The rules have `.gitignore`'s syntax and stack, a later layer winning:
 
 1. **The studio's defaults:** `.git/`, `node_modules/`, `.cache/`, `*.tmp`,
+   a cut renderer's working files (`.cut/`, `.locks/`, `*.partial.mp4`),
    `*.bak.json`, `*.tsbuildinfo`, `Thumbs.db`, and lock files (`*.lock`,
    `*.lockb`, `*.lock.json`, `*.lock.jsonl`, `package-lock.json`,
    `pnpm-lock.yaml`, so `bun.lock`, `kits.lock.json` and `media.lock.jsonl`

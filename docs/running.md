@@ -120,6 +120,11 @@ authority on its parameters.
 - **Timeline and render:** `pva_build_timeline`, `pva_layout_sheet`,
   `pva_record_sheet_reading`, `pva_compose_video`, `pva_compare_versions`,
   `pva_compose_multitrack_video`, `pva_extend_episode`, `pva_probe_media`.
+- **Films:** `pva_create_film`, `pva_create_scene`, `pva_create_shot`,
+  `pva_film`, `pva_update_unit`, `pva_ingest_footage`, `pva_footage`,
+  `pva_inspect_media`, `pva_assemble_cut`, `pva_edit_cut`, `pva_check_cut`,
+  `pva_cut_frame`, `pva_cut_effects`, `pva_render_cut`. See
+  [Making a film](#making-a-film).
 
 `pva_synthesize_sound` makes a series' sounds at $0, locally: wind, sea, rain,
 fire, steam, birds, thunder, applause, a whoosh, a shimmer, and a music bed (a
@@ -347,6 +352,54 @@ and the studio compares the two. The report goes to
 
 Which pauses are too short is the series' or the channel's rule, in its skill
 or validator.
+
+### Making a film
+
+A film is one self-contained work, short or feature length, beside the
+library's channels (ADR-0050). Ask for one in words — "make a two-minute
+film from the footage in ~/shoot and this script" — and the agent loads the
+`film-producer` skill and works through it. What it does, and what you can
+do by hand at any point:
+
+- **It is produced at three levels.** The film, its scenes, their shots:
+  each has its own files, pipeline, cut (`artifacts/cut.json`) and renders.
+  A shot's render is a source of its scene's cut, a scene's of the film's.
+  Every tool takes a unit as film / scene / shot, and the pipeline, budget
+  and approval tools take the same unit as channel / series / episode with
+  `_` for the level itself (`tide/010-shore/_` is a scene).
+- **Where it stands:** `pva_film` lists every scene and shot in running
+  order with its state — no cut, blocked, ready to render, stale, preview
+  only, current — and what stands between the film and its final render.
+- **Real material:** `pva_ingest_footage` brings camera originals, location
+  sound, stock and music into the film's `footage/`, each named by its
+  content with a proxy a browser plays, a contact sheet, the instants its
+  picture cuts and its loudness. `link: true` leaves large originals where
+  they are. `pva_footage` searches and annotates the log.
+- **Made material:** a shot's takes go under its `assets/`, made with the
+  same image, video, Blender, graphics, terminal, voice and sound tools as
+  an episode's, addressed to the shot.
+- **The cut:** `pva_assemble_cut` makes a unit's cut from what is under it
+  and keeps it in step; `pva_edit_cut` edits it with operations applied
+  together or not at all; `pva_cut_effects` lists the picture and sound
+  effects; `pva_cut_frame` composes one frame with every effect, to judge a
+  grade without rendering.
+- **Rendering:** `pva_render_cut` renders a unit with FFmpeg, first
+  rendering whatever under it is out of date and nothing that is not: a
+  change to one shot costs that shot and the joins above it. `preview` is
+  small and fast; `final` is the film's format and is what the level above
+  is cut from. Everything here is local and $0.
+- **Who decides:** each level's `pipeline.yaml` names its pipeline and the
+  one the levels under it run, from a person at every step to only a final
+  review. See [the film families](pipelines.md#the-film-families).
+
+In the browser studio a film opens on its **board** — scenes and shots with
+their state — and every level has a **Cut** view: sources, a monitor, the
+timeline and an inspector. The monitor plays the draft from its sources
+(cuts and timing only), the unit's render, or one composed frame, and says
+which. You edit a draft with undo and save it as the next revision; a save is
+refused if the agent wrote one meanwhile, and the agent's edit is refused the
+same way. Lock a clip or a track and the agent and assembly leave it as it
+is. **Footage** on the film lists the log with each clip's sheet and proxy.
 
 ## 1b. The same agent in Claude Code
 

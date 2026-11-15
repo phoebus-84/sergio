@@ -6,6 +6,13 @@ executive producer; a deterministic runtime keeps pipeline state; dedicated
 packages generate media; Remotion renders the episode's edit timeline and
 FFmpeg masters and checks it; a gateway connects the agent to a browser studio.
 
+It makes two kinds of work. A **channel** keeps making episodes of a series
+to a pinned format. A **film** is one self-contained piece, short or feature
+length, produced at three levels — the film, its scenes, their shots — from
+real footage, stock, generated and programmed material, each level with its
+own cut, edited by the agent or by a person on a timeline and rendered with
+FFmpeg in the pieces that changed.
+
 ## The shape of this repository
 
 The repository is split along one line, and that line is enforced by
@@ -39,13 +46,14 @@ narrate episodes is the studio's business, not the tool's.
 | `packages/infographics` | Frame-accurate animated infographics via Remotion |
 | `packages/terminal-recorder` | A terminal session recorded to video from a VHS tape |
 | `packages/blender` | Editable 3D scenes, Geometry Nodes, Eevee/Cycles animation and Poly Haven assets |
-| `packages/video-composer` | Typed timeline → FFmpeg filter graph; probes and QA; multitrack mixes |
+| `packages/video-composer` | Typed timeline → FFmpeg filter graph; probes and QA; multitrack mixes; the cut renderer (effects, transitions, mix, loudness) |
 
 | Studio module | Role |
 |---|---|
 | `studio/contracts` | Canonical schemas, vocabulary, bindings |
 | `studio/series` | Series compilers: episode spec and narration → edit timeline |
 | `studio/episode` | An episode on disk, produced: timeline built or compiled, checked, rendered |
+| `studio/film` | A film on disk, produced: scenes and shots, footage, a cut at each level assembled, edited and rendered |
 | `studio/runtime` | Snapshots, leases, staleness, journal, policy |
 | `studio/pipelines` | Built-in pipeline manifests |
 | `studio/agent` | The executive-producer tools: a Pi extension, served to Claude Code over MCP |

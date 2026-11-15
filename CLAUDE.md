@@ -17,6 +17,9 @@ commands are its prompts (`/mcp__pva__video`, `/mcp__pva__render`, …).
 
 - Before production work, load the `pva-executive-producer` skill; each stage
   has its own skill (`write-brief`, `write-script`, `compose-video`, …).
+- A library holds channels (series of episodes) and films. A film is
+  produced at three levels — film, scene, shot — each with its own cut and
+  renders (ADR-0050): load `film-producer` first.
 - Paid generation is budgeted per episode: `pva_budget_status` before spending.
 - Only the operator approves a stage. Ask with `pva_request_approval`; never
   approve on their behalf.
