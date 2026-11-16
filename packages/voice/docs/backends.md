@@ -157,7 +157,31 @@ WAVs, one model load for two requests and records cold/warm timing. It does
 not enroll a human voice or publish audio. The opt-in **Voice CPU live smoke** workflow (manual dispatch, or the
 `voice-live-smoke` label on a pull request) runs the same check on a Linux x64 runner and publishes only JSON
 measurements, not model weights or audio. For a GPU run set the smoke device
-to the installed device; GPU performance remains unverified until measured.
+to the installed device.
+
+### Hardware acceptance: AMD ROCm
+
+On 2026-11-16, PR #95 was exercised offline on Linux x86_64 with a Radeon
+RX 7900 XTX, Python 3.12.16, PyTorch 2.11.0+rocm7.2 and qwen-tts 0.1.1,
+using `cuda:0`, BF16 and SDPA. The test used an isolated environment, leaving
+ComfyUI and its installation unchanged; existing official 1.7B CustomVoice
+and Base weights were checked against the catalogue's critical SHA-256 values.
+
+- 422 Python tests passed; six opt-in tests skipped.
+- The live English/Italian smoke passed, with one model load for two requests.
+  Cold English: 1.84 s audio / 18.32 s wall; warm Italian: 1.84 s / 1.46 s.
+- A longer Italian preset produced 10.80 s of canonical mono PCM16/24 kHz
+  audio in 24.48 s; Base cloning produced 6.40 s in 71.29 s including its
+  first-use costs. Only that newly generated synthetic preset was enrolled,
+  with synthetic-source consent. Deleting the enrolled profile prevented
+  further clone synthesis.
+- Offline faster-whisper large-v3 (CPU/int8, separate environment) transcribed
+  both longer samples with zero normalized word errors against their texts.
+
+These are functional acceptance measurements, not a controlled throughput
+benchmark or a listening/voice-similarity approval. MIOpen emitted workspace
+warnings but generation succeeded. They do not establish NVIDIA CUDA support
+on real hardware, other AMD cards, or cross-runtime bit-identical output.
 
 ## Why not make GGUF the default?
 

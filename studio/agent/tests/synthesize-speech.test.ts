@@ -92,6 +92,21 @@ describe("pva_synthesize_speech", () => {
     expect(result.content[0].text).toContain("serena (italian)");
   });
 
+  it("preserves the portable runtime and forwards an explicit preset seed", async () => {
+    const runtime = { backend: "torch", device: "cuda:0", dtype: "bfloat16", attention: "sdpa", cpu_threads: null, runtime_version: "2.11.0+rocm7.2", engine_version: "0.1.1" };
+    const original = answer;
+    answer = (body) => {
+      const [status, out] = original(body);
+      (out as { result: Record<string, unknown> }).result.runtime = runtime;
+      return [status, out];
+    };
+    const result = await synthesize({ sceneId: "portable", text: "Hello.", seed: 42001 });
+    expect(result.isError).toBeFalsy();
+    expect(requests[0]).toHaveProperty("seed", 42001);
+    const receipt = JSON.parse(readFileSync(join(narration(), "portable.synthesis.json"), "utf-8"));
+    expect(receipt.runtime).toEqual(runtime);
+  });
+
   it("passes temperature and repetition penalty to a preset voice too, and keeps them in the receipt", async () => {
     const result = await synthesize({ sceneId: "n2", text: "Hello.", voice: "serena", temperature: 0.8, repetitionPenalty: 1.2 });
     expect(result.isError).toBeFalsy();
@@ -105,6 +120,8 @@ describe("pva_synthesize_speech", () => {
     expect(requests[0]).not.toHaveProperty("language");
     const receipt = JSON.parse(readFileSync(join(narration(), "n1.synthesis.json"), "utf-8"));
     expect([receipt.requestedVoice, receipt.speaker, receipt.language]).toEqual(["default", "ryan", "auto"]);
+    expect(receipt).not.toHaveProperty("runtime");
+    expect(requests[0]).not.toHaveProperty("seed");
   });
 
   it("says the worker's own error for a failed job, and writes nothing", async () => {

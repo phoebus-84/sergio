@@ -28,6 +28,7 @@ beforeEach(async () => {
       res.end(JSON.stringify(req.url === `/voices/${VOICE}/synthesize` ? {
         synthesis_id: "s1", voice_id: VOICE, voice_revision_sha256: "a".repeat(64), provider_mode: "live", model_size: "1.7B", model_profile: "base",
         model_revision: "r1", model_identity_sha256: "b".repeat(64), reference_audio_sha256: "c".repeat(64), reference_text_sha256: "d".repeat(64),
+        runtime: { backend: "torch", device: "cuda:0", dtype: "bfloat16", attention: "sdpa" },
         seed: 7, wav_path: wav, wav_sha256: createHash("sha256").update(readFileSync(wav)).digest("hex"), duration_seconds: 8.5, created_at: "2026-10-09T20:00:00Z", warning: null,
       } : { error: "Voice profile not found" }));
     });
@@ -59,6 +60,7 @@ describe("a clone voice", () => {
     expect(calls[0]).toEqual({ url: `/voices/${VOICE}/synthesize`, body: { text: "Gemmea l'aria", language: "italian", model_size: "1.7B", seed: 7 } });
     const receipt = JSON.parse(readFileSync(join(root, "poesia", "sources", "novembre", "artifacts", "narration", "recita-01.synthesis.json"), "utf-8"));
     expect(receipt).toMatchObject({ method: "voice-clone", voice: { id: VOICE, revisionSha256: "a".repeat(64), referenceAudioSha256: "c".repeat(64) }, model: { profile: "base", size: "1.7B" }, seed: 7, durationSeconds: 8.5 });
+    expect(receipt.runtime).toEqual({ backend: "torch", device: "cuda:0", dtype: "bfloat16", attention: "sdpa" });
     expect(existsSync(join(root, "poesia", "sources", "novembre", "artifacts", "narration", "recita-01.wav"))).toBe(true);
   });
 
