@@ -4,7 +4,9 @@
 // `artifacts/cut.json` is edited by the agent and by a person, sometimes in
 // the same hour. Every write goes through here: the document is held to its
 // contract, its revision goes up by one, and a writer that names the revision
-// it read is refused when someone else wrote in between.
+// it read is refused when someone else wrote in between. The read, the check
+// and the write are held together by a lock (cut-lock.ts), so that holds
+// between two processes too.
 //
 // An edit is a list of small operations, applied together or not at all. A
 // clip or a track a person locked is left as it is by the agent: that is how
@@ -20,6 +22,7 @@ import {
 } from "@studio/contracts/src/cut-timeline.mjs";
 import type { FilmManifest } from "@studio/contracts/src/film.mjs";
 import { writeAtomically } from "./authoring.js";
+import { withCutLock, type CutLockOptions } from "./cut-lock.js";
 import { FilmError, existingUnitDir, filmUnit, readManifest, unitDir, unitLabel, type UnitRef } from "./units.js";
 
 export type { CutTimeline, CutClip, CutTrack, CutProblem };
@@ -65,22 +68,18 @@ export function formatOf(root: string, ref: UnitRef): CutFormat {
   return { id: format.id, width: format.width, height: format.height, fps: format.fps };
 }
 
-export interface WriteCutOptions {
+export interface WriteCutOptions extends CutLockOptions {
   /** The revision the writer read. A cut that moved on since is not overwritten. */
   expectedRevision?: number;
 }
 
-/**
- * Write a unit's cut. Refused when it has an error, or when `expectedRevision`
- * is not the revision on disk. The stored revision is the previous one plus one.
- */
-export function writeCut(root: string, ref: UnitRef, cut: CutTimeline, options: WriteCutOptions = {}): CutTimeline {
-  existingUnitDir(root, ref);
+/** Check and write a cut. The caller holds the cut's lock. */
+function storeCut(root: string, ref: UnitRef, cut: CutTimeline, expectedRevision: number | undefined, stillHeld: () => void): CutTimeline {
   const stored = readCut(root, ref);
   const current = stored.cut?.revision ?? 0;
-  if (options.expectedRevision !== undefined && options.expectedRevision !== current) {
+  if (expectedRevision !== undefined && expectedRevision !== current) {
     throw new FilmError(
-      `the cut of ${unitLabel(ref)} is at revision ${current}, not ${options.expectedRevision}: someone changed it since it was read. Read it again and repeat the edit`,
+      `the cut of ${unitLabel(ref)} is at revision ${current}, not ${expectedRevision}: someone changed it since it was read. Read it again and repeat the edit`,
       "revision-conflict",
     );
   }
@@ -90,8 +89,20 @@ export function writeCut(root: string, ref: UnitRef, cut: CutTimeline, options: 
     const errors = problems.filter((p) => p.severity === "error");
     throw new FilmError(`the cut of ${unitLabel(ref)} was not written: ${errors.map((p) => `${p.path} ${p.message}`).slice(0, 5).join("; ")}`, "invalid-cut", problems);
   }
+  stillHeld();
   writeAtomically(cutPath(root, ref), serialize(next));
   return next;
+}
+
+/**
+ * Write a unit's cut. Refused when it has an error, or when `expectedRevision`
+ * is not the revision on disk. The stored revision is the previous one plus one.
+ * One writer at a time, on this machine: two that name the same revision
+ * cannot both be accepted.
+ */
+export function writeCut(root: string, ref: UnitRef, cut: CutTimeline, options: WriteCutOptions = {}): CutTimeline {
+  existingUnitDir(root, ref);
+  return withCutLock(cutPath(root, ref), unitLabel(ref), (stillHeld) => storeCut(root, ref, cut, options.expectedRevision, stillHeld), options);
 }
 
 /** The unit's cut, or an empty one in the film's format when it has none yet. */
@@ -301,12 +312,26 @@ export interface EditCutResult {
   frames: number;
 }
 
-/** Edit a unit's cut and write it: the operations hold together, or nothing changes. */
+/**
+ * Edit a unit's cut and write it: the operations hold together, or nothing
+ * changes. The cut is read, edited and written under its lock, so an edit
+ * that names no revision is applied to the cut as it then is, after any
+ * other writer's, and never on top of it.
+ */
 export function editCut(
   root: string, ref: UnitRef, ops: readonly CutOp[], options: WriteCutOptions & { editor?: Editor } = {},
 ): EditCutResult {
-  const current = cutOrEmpty(root, ref);
-  const edited = applyCutOps(current, ops, options.editor ?? "person");
-  const written = writeCut(root, ref, edited, { expectedRevision: options.expectedRevision ?? current.revision });
+  existingUnitDir(root, ref);
+  const written = withCutLock(cutPath(root, ref), unitLabel(ref), (stillHeld) => {
+    const current = cutOrEmpty(root, ref);
+    if (options.expectedRevision !== undefined && options.expectedRevision !== current.revision) {
+      throw new FilmError(
+        `the cut of ${unitLabel(ref)} is at revision ${current.revision}, not ${options.expectedRevision}: someone changed it since it was read. Read it again and repeat the edit`,
+        "revision-conflict",
+      );
+    }
+    const edited = applyCutOps(current, ops, options.editor ?? "person");
+    return storeCut(root, ref, edited, current.revision, stillHeld);
+  }, options);
   return { cut: written, problems: validateCutTimeline(written), frames: cutDuration(written) };
 }
