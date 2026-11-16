@@ -46,6 +46,7 @@ const STATUS_OF: Record<string, number> = {
   "bad-slug": 400, "bad-input": 400, "bad-unit": 400, "bad-format": 400, "bad-edit": 400, "bad-manifest": 422, "invalid-cut": 422,
   "no-unit": 404, "not-a-film": 404, "no-footage": 404, "missing-file": 404, "no-cut": 409, "revision-conflict": 409, "cut-exists": 409,
   "name-taken": 409, locked: 409, blocked: 409, "no-media": 409, "no-units": 409, cancelled: 499,
+  "cut-busy": 409,
 };
 
 function sendError(reply: FastifyReply, error: unknown): FastifyReply {
@@ -338,10 +339,11 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
       if (typeof body.expectedRevision !== "number") {
         return reply.status(400).send({ error: "bad-input", message: "expectedRevision is required: the revision the edit was made on" });
       }
-      if (Array.isArray(body.ops)) editCut(root, ref, body.ops, { editor: "person", expectedRevision: body.expectedRevision });
-      else if (body.cut) writeCut(root, ref, body.cut, { expectedRevision: body.expectedRevision });
+      let written: CutTimeline;
+      if (Array.isArray(body.ops)) written = editCut(root, ref, body.ops, { editor: "person", expectedRevision: body.expectedRevision }).cut;
+      else if (body.cut) written = writeCut(root, ref, body.cut, { expectedRevision: body.expectedRevision });
       else return reply.status(400).send({ error: "bad-input", message: "give cut or ops" });
-      publish("cut.changed", ref, { by: "person" });
+      publish("cut.changed", ref, { by: "person", revision: written.revision, previousRevision: body.expectedRevision });
       return cutView(ref);
     } catch (error) {
       return sendError(reply, error);
@@ -354,7 +356,7 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
     try {
       const ref = unitFrom(request);
       const result = await assembleCut(root, ref, (request.body ?? {}) as Parameters<typeof assembleCut>[2]);
-      publish("cut.changed", ref, { by: "assemble" });
+      publish("cut.changed", ref, { by: "assemble", revision: result.cut.revision });
       return { ...cutView(ref), notes: result.notes };
     } catch (error) {
       return sendError(reply, error);
