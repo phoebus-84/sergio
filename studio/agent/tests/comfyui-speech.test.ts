@@ -155,6 +155,27 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(JSON.stringify(receipt)).not.toContain("comfy.test");
   });
 
+  it("uses the same tool for a film, scene, shot and channel source", async () => {
+    const { registerFilmTools } = await import("../src/film-tools.js");
+    const filmTools = new Map<string, any>();
+    registerFilmTools({ registerTool: (tool: { name: string }) => filmTools.set(tool.name, tool) } as never);
+    const make = (name: string, params: Record<string, unknown>) => filmTools.get(name).execute("create", params);
+    await make("pva_create_film", { slug: "sample-film", title: "A sample film", format: "hd-24" });
+    await make("pva_create_scene", { film: "sample-film", slug: "010-scene", title: "A scene" });
+    await make("pva_create_shot", { film: "sample-film", scene: "010-scene", slug: "010-shot", title: "A shot", source: "generated", durationSeconds: 2 });
+    for (const [series, episode, relative] of [["_", "_", ""], ["010-scene", "_", "scenes/010-scene"], ["010-scene", "010-shot", "scenes/010-scene/shots/010-shot"]]) {
+      const result = await speak({ channel: "sample-film", series, episode, voice: "Ryan" });
+      expect(result.isError, result.content[0].text).toBeFalsy();
+      expect(existsSync(join(root, "sample-film", relative!, "artifacts/narration/line-1.wav"))).toBe(true);
+    }
+    const source = join(root, REF.channel, "sources", "shared-voice");
+    mkdirSync(source, { recursive: true });
+    const result = await speak({ series: undefined, episode: undefined, source: "shared-voice", voice: "Ryan" });
+    expect(result.isError, result.content[0].text).toBeFalsy();
+    expect(existsSync(join(source, "artifacts/narration/line-1.wav"))).toBe(true);
+    expect(queued).toHaveLength(4);
+  });
+
   it("reads the server and the nodes' settings from the library's .render/comfyui.json", async () => {
     delete process.env.AVG_COMFYUI_URL;
     mkdirSync(join(root, ".render"), { recursive: true });

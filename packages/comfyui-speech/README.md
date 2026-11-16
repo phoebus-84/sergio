@@ -3,13 +3,14 @@
 Speech from the Qwen3-TTS nodes of a ComfyUI server
 ([ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS), node
 classes `FB_Qwen3TTS*`), one sentence per graph. A small ComfyUI client and
-four operations, each a workflow template in [`workflows/`](workflows/):
+five operations, each using a JSON template under `workflows/`:
 
 | Operation | Workflow | What it does |
 |---|---|---|
 | `speakWithSpeaker` | `speaker.json` | a CustomVoice preset speaker, with an optional style instruction |
 | `speakWithClonedVoice` | `clone.json` | the voice of a reference recording; with its transcript the model continues it, without one only the timbre is taken |
 | `speakWithSavedVoice` | `saved-voice.json` | a voice the server saved earlier under a name |
+| `cleanVoice` | `clean.json` | cut an optional range and separate its voice, without cloning |
 | `cleanAndClone` | `clean-clone.json` | cut the reference, separate its voice from music and noise (`AudioSeparation`, from [audio-separation-nodes-comfyui](https://github.com/christian-byrne/audio-separation-nodes-comfyui)), learn it, optionally save it under a name, and speak with it |
 
 ```ts
