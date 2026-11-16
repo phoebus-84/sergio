@@ -62,6 +62,20 @@ commands become available through the agent.
   `pva_generate_minimax_h3_video` (~$0.48/clip) for loops and small moving details; keep H3 for
   performances, references and long shots.
 
+- `pva_synthesize_speech` — Local Qwen by default (MLX or Torch). Only when the
+  operator asks for ComfyUI, use `provider: "comfyui-qwen"` (free;
+  `pva_capability_status` says whether it answers): `voice` is a speaker or
+  `saved:<name>`, or `referenceAudioPath` (+ `referenceText`, the exact words)
+  clones a recording of the workspace; `cleanReference: true` first cuts it
+  and separates the voice from music and noise. Clone only a voice whose owner
+  consented: cloned/saved voices require `voiceConsentPath`, an operator-created
+  consent record bound to the reference hash or saved name. Never create or confirm
+  that consent on the operator's behalf. Both Qwen paths need `pva_register_take`, then `pva_align_take`
+  with an aligner: they return no word timings. Never switch provider on failure.
+- `pva_clean_voice` — Clean only, on the same ComfyUI server: separate a recording's voice
+  from music and noise (optional `start`/`duration` cut) into a new `assets/…wav`, with a
+  `.clean.json` record. Nothing is cloned.
+
 ### Films
 
 A request for a film, a short, a trailer, a music video, a documentary — one work,

@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "video-studio",
@@ -51,6 +50,15 @@
         "typescript": "^5.7.0",
       },
     },
+    "packages/comfyui-speech": {
+      "name": "@av/comfyui-speech",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^20.11.0",
+        "typescript": "^5.3.3",
+        "vitest": "^1.2.0",
+      },
+    },
     "packages/elevenlabs": {
       "name": "@av/elevenlabs",
       "version": "0.1.0",
@@ -87,7 +95,7 @@
       "name": "@av/infographics",
       "version": "0.1.0",
       "bin": {
-        "render-infographic": "./dist/cli.js",
+        "render-infographic": "./dist/cli.js"
       },
       "dependencies": {
         "@remotion/bundler": "4.0.505",
@@ -110,9 +118,7 @@
       "name": "@av/remotion-composer",
       "version": "0.3.0",
       "bin": {
-        "render-timeline": "./dist/cli.js",
-        "layout-sheet": "./dist/sheet-cli.js",
-      },
+        "render-timeline": "./dist/cli.js",        "layout-sheet": "./dist/sheet-cli.js"      },
       "dependencies": {
         "@fontsource/anton": "5.3.0",
         "@fontsource/fraunces": "5.3.0",
@@ -187,6 +193,7 @@
         "@av/audio-edit": "workspace:*",
         "@av/blender": "workspace:*",
         "@av/codex-image": "workspace:*",
+        "@av/comfyui-speech": "workspace:*",
         "@av/fal-media": "workspace:*",
         "@av/remotion-composer": "workspace:*",
         "@av/render-worker": "workspace:*",
@@ -307,7 +314,7 @@
       "name": "@studio/runtime",
       "version": "0.1.0",
       "bin": {
-        "vpr": "./dist/src/cli.js",
+        "vpr": "./dist/src/cli.js"
       },
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1152.0",
@@ -424,6 +431,8 @@
     "@av/blender": ["@av/blender@workspace:packages/blender"],
 
     "@av/codex-image": ["@av/codex-image@workspace:packages/codex-image"],
+
+    "@av/comfyui-speech": ["@av/comfyui-speech@workspace:packages/comfyui-speech"],
 
     "@av/elevenlabs": ["@av/elevenlabs@workspace:packages/elevenlabs"],
 

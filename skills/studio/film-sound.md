@@ -74,7 +74,11 @@ For each line, in the order it is spoken:
 2. **Otherwise synthesise it**, with the voice the bible gives the
    character: `pva_voices`, then `pva_synthesize_speech` on the scene's
    unit, one file per line or per speech, the `delivery` from the shot as
-   the direction for the read.
+   the direction for the read. The local worker (MLX or Torch) is the default.
+   Only when the operator asks for ComfyUI, pass `provider: "comfyui-qwen"`;
+   cloned or saved voices require an operator-created `voiceConsentPath`
+   bound to the reference or saved name. Never choose it as a fallback or
+   create consent on the operator's behalf. The same take flow follows.
 3. **Register and verify the take** — `pva_register_take`,
    `pva_align_take`, `pva_verify_take` (the `narration` skill has the
    detail). Verification reads the take back and compares it with the line:

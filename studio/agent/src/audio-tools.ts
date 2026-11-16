@@ -9,7 +9,9 @@ import { Type } from "typebox";
 import { join } from "node:path";
 import { analyzeAudio, sourcePath } from "@av/audio-edit";
 import { editAudio, type EditRecipe } from "@studio/episode";
-import { WORKSPACE_PARAMS, workspaceOf } from "./workspace-target.js";
+import { WORKSPACE_PARAMS, guardWorkspacePath, workspaceOf } from "./workspace-target.js";
+import { COMFYUI_PROVIDER, cleanVoiceWithComfyUi } from "./comfyui-speech.js";
+import { existsSync } from "node:fs";
 
 const fail = (error: unknown) => ({
   content: [{ type: "text" as const, text: `❌ ${(error as { code?: string }).code ? `${(error as { code: string }).code}: ` : ""}${error instanceof Error ? error.message : String(error)}` }],
@@ -47,6 +49,53 @@ export function registerAudioTools(pi: ExtensionAPI): void {
           ...r.concerns.map((c) => `- ${c}`),
         ];
         return { content: [{ type: "text" as const, text: lines.join("\n") }], details: { recordPath, record } as unknown as Record<string, unknown> };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: "pva_clean_voice",
+    label: "Clean Voice",
+    description:
+      `Separate the voice of a recording from its music and noise, on the operator's ComfyUI server (provider "${COMFYUI_PROVIDER}", free; ` +
+      "pva_capability_status says whether it answers): optionally cut it first, then keep the separated voice as a new WAV under the workspace's assets/, " +
+      "with <file>.clean.json beside it (input and output by hash, the cut, the server's job). Nothing is cloned or said: to clone a voice, " +
+      "pva_synthesize_speech with referenceAudioPath (and cleanReference to clean it in the same call).",
+    parameters: Type.Object({
+      ...WORKSPACE_PARAMS,
+      inputPath: Type.String({ description: "The recording, relative to the workspace (audio or video)" }),
+      outputPath: Type.String({ description: "Where the cleaned voice goes, relative to the workspace: a new .wav under assets/ (e.g. assets/sounds/voice-clean.wav)" }),
+      start: Type.Optional(Type.Number({ description: "Cut first: where the part starts, in seconds (default 0)" })),
+      duration: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "Cut first: how long the part is, in seconds (default: to the end)" })),
+    }),
+    async execute(_id, params, signal) {
+      try {
+        const root = libraryRoot();
+        const ws = workspaceOf(root, params);
+        const out = params.outputPath.replace(/\\/g, "/");
+        if (!out.startsWith("assets/") || !out.toLowerCase().endsWith(".wav")) throw new Error("outputPath must be a .wav under assets/");
+        for (const [what, rel] of [["inputPath", params.inputPath], ["outputPath", out]] as const) {
+          const guard = await guardWorkspacePath(root, ws, rel);
+          if (!guard.allowed) throw new Error(`${what}: ${guard.reason ?? "rejected"}`);
+        }
+        const input = join(ws.dir, params.inputPath);
+        if (!existsSync(input)) throw new Error(`there is no ${params.inputPath} in ${ws.label}`);
+        const output = join(ws.dir, out);
+        if (existsSync(output)) throw new Error(`${out} already exists: name a new file`);
+        const made = await cleanVoiceWithComfyUi({
+          libraryRoot: root,
+          input: { absolutePath: input, relativePath: params.inputPath },
+          output: { absolutePath: output, relativePath: out },
+          ...(params.start !== undefined ? { start: params.start } : {}),
+          ...(params.duration !== undefined ? { duration: params.duration } : {}),
+          ...(signal ? { signal } : {}),
+        });
+        return {
+          content: [{ type: "text" as const, text: `✅ ${out}: ${made.durationSeconds.toFixed(2)} s of voice, separated on the ComfyUI server in ${made.elapsedSeconds.toFixed(1)} s, $0 → ${made.recordPath}` }],
+          details: { outputPath: output, recordPath: made.recordPath, record: made.record } as Record<string, unknown>,
+        };
       } catch (error) {
         return fail(error);
       }

@@ -32,6 +32,7 @@ import {
 import { CodexImageClient } from "@av/codex-image";
 import { createFalClient, getProfile, FalHttpError, FalValidationError } from "@av/fal-media";
 import { paidCall, providerCost, type SpendCall } from "./spend.js";
+import { COMFYUI_PROVIDER, comfyUiSpeechStatus, comfyUiSpeechTerms, comfyUiVoices, synthesizeWithComfyUi } from "./comfyui-speech.js";
 import { SpendRefused, toMicros } from "@studio/contracts/src/budget.mjs";
 import {
   CODEX_PROVIDER,
@@ -212,6 +213,8 @@ async function generateImage(
 
 // ── TTS synthesis ──────────────────────────────────────────────────────────
 
+/** Who can speak for pva_synthesize_speech; the first is the default, and never replaced silently. */
+export const SPEECH_PROVIDERS = ["qwen-local", COMFYUI_PROVIDER] as const;
 /** The Qwen3-TTS CustomVoice speakers the worker's model knows, and its aliases (avg-vzb). */
 export const QWEN_SPEAKERS = ["aiden", "dylan", "eric", "ono_anna", "ryan", "serena", "sohee", "uncle_fu", "vivian"] as const;
 export const QWEN_SPEAKER_ALIASES = ["default", "narrator", "girl", "grandmother", "wolf", "woodcutter"] as const;
@@ -993,17 +996,29 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "pva_synthesize_speech",
     label: "Synthesize Speech",
-    description: "Synthesize speech audio via the local Qwen3-TTS worker. Saves to episode artifacts/narration/.",
+    description: "Synthesize speech audio via the local Qwen3-TTS worker by default (MLX or Torch). " +
+      `Only with provider "${COMFYUI_PROVIDER}", use the operator's ComfyUI server instead (${comfyUiSpeechTerms()}); clone only a voice whose owner consented. ` +
+      "The provider is never switched automatically. Saves artifacts/narration/<sceneId>.wav and <sceneId>.synthesis.json. " +
+      "Register the WAV with pva_register_take, then pva_align_take with an aligner; neither Qwen provider returns word timings.",
     parameters: Type.Object({
       ...WORKSPACE_PARAMS,
       sceneId: Type.String({ description: "Scene ID (e.g. n1, n2)" }),
       text: Type.String({ description: "Text to synthesize as speech" }),
+      provider: Type.Optional(StringEnum(SPEECH_PROVIDERS, { default: SPEECH_PROVIDERS[0], description: "qwen-local: the worker (default). comfyui-qwen: the operator's ComfyUI server, needs voice or referenceAudioPath" })),
       voice: Type.Optional(Type.String({
         default: "default",
         description: `Qwen CustomVoice speaker: ${QWEN_SPEAKERS.join(", ")}; or an alias: ${QWEN_SPEAKER_ALIASES.join(", ")}; ` +
-          "or an enrolled clone voice as clone:<voice id> (see pva_voices; the channel's voices/registry names its characters' voices)",
+          "or an enrolled clone voice as clone:<voice id> (see pva_voices; the channel's voices/registry names its characters' voices). " +
+          "comfyui-qwen: a speaker, or saved:<name> for a voice saved on the ComfyUI server (no aliases, no clone:<id>)",
       })),
-      seed: Type.Optional(Type.Integer({ minimum: 0, description: "Clone voices: a seed, to make the same take again" })),
+      referenceAudioPath: Type.Optional(Type.String({ description: "comfyui-qwen only: workspace-relative recording whose voice is cloned (instead of voice); 5-15 s of one person speaking" })),
+      voiceConsentPath: Type.Optional(Type.String({ description: "comfyui-qwen clone/saved voices only: workspace-relative JSON consent record created by the operator, bound to reference_audio_sha256 or saved_voice. Never create or confirm consent on the operator's behalf." })),
+      referenceText: Type.Optional(Type.String({ description: "comfyui-qwen only: exactly what the reference says, word for word (of the part kept, when it is cut); without it only the timbre is cloned" })),
+      cleanReference: Type.Optional(Type.Boolean({ description: "comfyui-qwen only: before cloning, cut the reference and separate its voice from music and noise on the server; the cleaned voice is saved beside the WAV as <sceneId>.cleaned-reference.flac" })),
+      referenceStart: Type.Optional(Type.Number({ description: "cleanReference only: where the part to learn from starts, in seconds (default 0)" })),
+      referenceDuration: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "cleanReference only: how long that part is, in seconds (default 15)" })),
+      saveVoiceAs: Type.Optional(Type.String({ description: "cleanReference only: also save the learned voice on the ComfyUI server under this name, to speak with later as voice saved:<name>" })),
+      seed: Type.Optional(Type.Integer({ minimum: 0, description: "Qwen speech: a seed, to make the same take again" })),
       temperature: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 2, description: "Sampling temperature (worker default 0.7): higher is more varied, lower more even" })),
       repetitionPenalty: Type.Optional(Type.Number({ minimum: 1, maximum: 3, description: "Repetition penalty (worker default: 1.5 for a clone, 1.05 for a preset). A recited poem read better at 1.1 with a clone, one stanza per call with its verses on their own lines" })),
       language: Type.Optional(StringEnum([...QWEN_LANGUAGES], {
@@ -1012,13 +1027,62 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       speed: Type.Optional(Type.Number({ default: 1.0, description: "Must be 1.0: Qwen does not change speed" })),
       instruct: Type.Optional(Type.String({ description: "Emotion/character instruction. Use for multi-character scenes: 'Speak with a sly, cunning voice like a wolf', 'Speak warmly like a grandmother', 'Speak with a young innocent girl voice'" })),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
       try {
         if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(params.sceneId)) {
           throw new Error("sceneId must contain only letters, numbers, underscores, and hyphens");
         }
         // Where it goes first: a wrong episode or source fails before the synthesis, not after.
         const dir = where(params).dir;
+        const provider = params.provider ?? SPEECH_PROVIDERS[0];
+        if (!SPEECH_PROVIDERS.includes(provider)) throw new Error(`unsupported speech provider: ${provider}`);
+        const comfyUiOnly = (["referenceAudioPath", "voiceConsentPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => params[k] !== undefined);
+        if (provider !== COMFYUI_PROVIDER && comfyUiOnly.length > 0) {
+          throw new Error(`${comfyUiOnly.join(", ")} ${comfyUiOnly.length > 1 ? "are" : "is"} for provider "${COMFYUI_PROVIDER}", and this call speaks with ${provider}: add provider: "${COMFYUI_PROVIDER}" to use the ComfyUI server, or drop ${comfyUiOnly.length > 1 ? "them" : "it"}`);
+        }
+        if (provider === COMFYUI_PROVIDER) {
+          if (params.speed !== undefined && params.speed !== 1) throw new Error("speed must be 1.0: Qwen does not change speed");
+          const sampling = samplingOf(params);
+          let reference: { absolutePath: string; relativePath: string } | undefined;
+          if (params.referenceAudioPath !== undefined) {
+            const guard = await guardWorkspacePath(LIBRARY_ROOT, where(params), params.referenceAudioPath);
+            if (!guard.allowed) throw new Error(guard.reason ?? "referenceAudioPath rejected");
+            const absolutePath = join(dir, params.referenceAudioPath);
+            if (!existsSync(absolutePath)) throw new Error(`there is no ${params.referenceAudioPath} in ${where(params).label}`);
+            reference = { absolutePath, relativePath: params.referenceAudioPath };
+          }
+          let consent: { absolutePath: string; relativePath: string } | undefined;
+          if (params.voiceConsentPath !== undefined) {
+            const guard = await guardWorkspacePath(LIBRARY_ROOT, where(params), params.voiceConsentPath);
+            if (!guard.allowed) throw new Error(guard.reason ?? "voiceConsentPath rejected");
+            consent = { absolutePath: join(dir, params.voiceConsentPath), relativePath: params.voiceConsentPath };
+          }
+          const made = await synthesizeWithComfyUi({
+            dir,
+            libraryRoot: LIBRARY_ROOT,
+            sceneId: params.sceneId,
+            text: params.text,
+            ...(params.voice !== undefined ? { voice: params.voice } : {}),
+            ...(reference ? { reference } : {}),
+            ...(consent ? { consent } : {}),
+            ...(params.referenceText !== undefined ? { referenceText: params.referenceText } : {}),
+            ...(params.cleanReference !== undefined ? { cleanReference: params.cleanReference } : {}),
+            ...(params.referenceStart !== undefined ? { referenceStart: params.referenceStart } : {}),
+            ...(params.referenceDuration !== undefined ? { referenceDuration: params.referenceDuration } : {}),
+            ...(params.saveVoiceAs !== undefined ? { saveVoiceAs: params.saveVoiceAs } : {}),
+            ...(params.language ? { language: params.language } : {}),
+            ...(params.seed !== undefined ? { seed: params.seed } : {}),
+            ...sampling,
+            ...(params.instruct ? { instruct: params.instruct } : {}),
+            ...(signal ? { signal } : {}),
+          });
+          const voiceSaid = reference ? `the voice of ${params.referenceAudioPath}${params.cleanReference ? " (cleaned)" : ""}` : `voice ${params.voice}`;
+          return {
+            content: [{ type: "text" as const, text: `✅ ${params.sceneId} — ${made.durationSeconds.toFixed(1)}s, ${COMFYUI_PROVIDER} ${voiceSaid}, seed ${String(made.receipt.seed)}, made in ${made.elapsedSeconds.toFixed(1)}s, $0 → ${made.audioPath}; receipt ${made.receiptPath}` +
+              `${made.cleanedReferencePath ? `; the cleaned reference to listen to: ${made.cleanedReferencePath}` : ""}; no word timings: pva_register_take, then pva_align_take with an aligner` }],
+            details: { audioPath: made.audioPath, durationSec: made.durationSeconds, receiptPath: made.receiptPath, receipt: made.receipt, ...(made.cleanedReferencePath ? { cleanedReferencePath: made.cleanedReferencePath } : {}) },
+          };
+        }
         const voice = params.voice ?? "default";
         const narrationDir = join(dir, "artifacts", "narration");
         const destPath = join(narrationDir, `${params.sceneId}.wav`);
@@ -1109,16 +1173,31 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "pva_voices",
     label: "List Voices",
-    description: "List the voice worker's voice profiles: presets, designed voices and enrolled clone voices (with their id, to use as voice: clone:<id> in pva_synthesize_speech). Enrolling a clone needs the operator's consent and is done by the operator, not here.",
+    description: "List the voice worker's voice profiles: presets, designed voices and enrolled clone voices (with their id, to use as voice: clone:<id> in pva_synthesize_speech). Enrolling a clone needs the operator's consent and is done by the operator, not here. " +
+      `When a ComfyUI server is configured, also its speakers and saved voices (voice: saved:<name> with provider "${COMFYUI_PROVIDER}").`,
     parameters: Type.Object({}),
     async execute() {
       try {
+        // The ComfyUI server's voices, when one is configured: listed beside the worker's, never instead of an error of its own.
+        const comfy = await comfyUiVoices(LIBRARY_ROOT).then(
+          (v) => v && { ...v, text: `ComfyUI server (provider "${COMFYUI_PROVIDER}"):\n- speakers: ${v.speakers.join(", ") || "none"}\n- saved voices: ${v.savedVoices.map((n) => `saved:${n}`).join(", ") || "none"}` },
+          (e: unknown) => ({ speakers: [] as string[], savedVoices: [] as string[], text: `ComfyUI server: ${e instanceof Error ? e.message : String(e)}`, error: true }),
+        );
         const ttsUrl = process.env.AVG_TTS_WORKER_URL || DEFAULT_TTS_WORKER_URL;
-        const res = await fetch(`${ttsUrl}/voices`);
-        if (!res.ok) throw new Error(`the voice worker answered ${res.status} for /voices`);
-        const voices = await res.json() as { id: string; name: string; mode: string; language: string }[];
-        const text = voices.length === 0 ? "no voice profiles" : voices.map((v) => `- ${v.name}: ${v.mode === "clone" ? `clone:${v.id}` : `${v.mode} ${v.id}`} (${v.language})`).join("\n");
-        return { content: [{ type: "text" as const, text }], details: { voices } as Record<string, unknown> };
+        let voices: { id: string; name: string; mode: string; language: string }[] = [];
+        let text: string;
+        try {
+          const res = await fetch(`${ttsUrl}/voices`);
+          if (!res.ok) throw new Error(`the voice worker answered ${res.status} for /voices`);
+          voices = await res.json() as typeof voices;
+          text = voices.length === 0 ? "no voice profiles" : voices.map((v) => `- ${v.name}: ${v.mode === "clone" ? `clone:${v.id}` : `${v.mode} ${v.id}`} (${v.language})`).join("\n");
+        } catch (e) {
+          // Without a ComfyUI server to list, the worker's failure is the answer, as before.
+          if (!comfy || "error" in comfy) throw e;
+          text = `voice worker: ${e instanceof Error ? e.message : String(e)}`;
+        }
+        if (comfy) text = `${text}\n${comfy.text}`;
+        return { content: [{ type: "text" as const, text }], details: { voices, ...(comfy ? { comfyUi: { speakers: comfy.speakers, savedVoices: comfy.savedVoices } } : {}) } as Record<string, unknown> };
       } catch (err) {
         return { content: [{ type: "text" as const, text: `❌ ${err instanceof Error ? err.message : String(err)}` }], details: {}, isError: true as unknown as boolean };
       }
@@ -2056,6 +2135,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       caps["speech-align-elevenlabs"] = process.env.ELEVENLABS_API_KEY
         ? { available: true, detail: "ELEVENLABS_API_KEY set" }
         : { available: false, detail: "ELEVENLABS_API_KEY not set" };
+      // Speech from a ComfyUI server: optional, never a fallback for the worker.
+      caps[`text-to-speech-${COMFYUI_PROVIDER}`] = await comfyUiSpeechStatus(LIBRARY_ROOT);
 
       // FFmpeg
       try {

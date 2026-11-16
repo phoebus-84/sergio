@@ -320,6 +320,60 @@ The voice worker can speak with an enrolled clone voice, through the Qwen3-TTS
   model, the seed, and the sampling when it was set.
 - **A channel's characters** name their voice in `voices/registry.local.json`.
 
+### Speech from a ComfyUI server
+
+`pva_synthesize_speech` with `provider: "comfyui-qwen"` speaks through the
+Qwen3-TTS nodes of a ComfyUI server you run (`packages/comfyui-speech`): free,
+no spend ledger, and never chosen on its own.
+- **The address** is `AVG_COMFYUI_URL`, or `url` in the library's
+  `.render/comfyui.json` (`AVG_COMFYUI_CONFIG` names another file). That file
+  also sets the nodes: `model`, `device`, `precision`, `attention`,
+  `unloadModelAfterGenerate`, `outputPrefix`, `inputSubfolder`,
+  `timeoutSeconds`.
+- **A server that listens only on its own loopback** needs a tunnel you open:
+  `ssh -N -L 18188:127.0.0.1:8188 <host>`, then
+  `AVG_COMFYUI_URL=http://127.0.0.1:18188`.
+- **Voices:** `voice` is a preset speaker or `saved:<name>` (a voice saved on
+  the server); `referenceAudioPath` clones a recording of the workspace, with
+  `referenceText` its exact words; `cleanReference: true` cuts it
+  (`referenceStart`, `referenceDuration`) and separates the voice from music
+  and noise first, `saveVoiceAs` keeps the learned voice on the server.
+- **Consent is checked before upload or execution.** A reference clone or
+  `saved:<name>` requires `voiceConsentPath`, a workspace-relative JSON file
+  **created by the operator**, never approved by the agent on their behalf:
+  ```json
+  {
+    "confirmed": true,
+    "source": "synthetic",
+    "statement": "I authorize this synthetic reference for this production.",
+    "license_or_terms": "Applicable reference licence or permission",
+    "recorded_at": "2026-11-16T00:00:00Z",
+    "reference_audio_sha256": "<SHA-256 of the original reference file>"
+  }
+  ```
+  `source` is `self_recorded`, `licensed` or `synthetic`. For a saved voice,
+  replace `reference_audio_sha256` with `"saved_voice": "saved:<name>"`, exactly
+  matching the request. Removing the file or setting `confirmed: false`
+  blocks subsequent calls. This records authorization; it cannot independently
+  prove ownership. Saved names can change on the server and have no verified
+  waveform identity. Uploads and optionally saved voices remain on ComfyUI;
+  revoking this local record does not delete them there.
+- **The receipt** names the workflow hash, consent-record hash, reference
+  hashes, seed and sampling. `requestedRuntime` is what the studio asked for;
+  `runtimeVerified: false` means ComfyUI did not attest the actual checkpoint
+  hashes or resolved runtime versions. Speech is validated non-silent mono
+  PCM16/24 kHz WAV. Qwen times no words: register with `pva_register_take`,
+  then align with `pva_align_take` and verify the take.
+- **Same flow, explicit choice:** omitting `provider` keeps the local worker
+  (MLX or Torch); `comfyui-qwen` is never a fallback. Episodes, channel sources
+  and film units use the same synthesis/register/align/verify tools. This does
+  not replace the worker's durable `/attempt-jobs` and mastering contracts.
+- `pva_capability_status` says whether the server answers, which workflows it
+  has the nodes for, and its saved voices; `pva_voices` lists them.
+- **Clean only:** `pva_clean_voice` separates a recording's voice from music
+  and noise on the same server (optionally cut first) into a new WAV under
+  `assets/`, with `<file>.clean.json` beside it. Nothing is cloned.
+
 ### Editing audio
 
 `pva_edit_audio` makes one audio file from others, from a recipe saved

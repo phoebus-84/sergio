@@ -19,8 +19,9 @@ capabilities:
 
 # Narration
 
-Synthesize narration audio from the script using the Qwen3-TTS CustomVoice 8-bit model
-running on the local TTS worker (`http://127.0.0.1:5197`).
+Synthesize narration audio from the script using the local Qwen3-TTS worker
+(MLX on Apple Silicon, or the explicitly selected Torch CPU/CUDA/ROCm backend).
+The selected profile, not the agent, decides the checkpoint and runtime.
 
 ## Process
 
@@ -31,6 +32,25 @@ running on the local TTS worker (`http://127.0.0.1:5197`).
 5. Process accepted attempts into linked speech/pause artifacts without changing raw WAVs.
 6. Submit explicit manifest order to `/narrations/master` and write the returned canonical `narration-manifest.json` plus `narration-full.wav`.
 7. Generate captions/timing from manifest order and measured WAV durations, never filename order.
+
+## Optional ComfyUI takes
+
+When the operator explicitly asks for ComfyUI in a per-take workflow,
+`pva_synthesize_speech` accepts `provider: "comfyui-qwen"` with the same
+workspace and scene identifiers. Without it, the local worker remains the
+provider; never switch on failure. Use the requested preset or a reference
+clone, optionally cleaned first with `cleanReference`. A reference or saved
+voice also requires `voiceConsentPath`: an operator-created, matching consent
+record (see `docs/running.md`, "Speech from a ComfyUI server"). Never create
+or confirm that authorization on the operator's behalf.
+
+Register, align and verify the resulting canonical WAV just like a worker
+take; neither Qwen provider returns word timings. Preserve its synthesis
+receipt, including the explicit limits on remote runtime verification.
+For an episode assembled from these per-take WAVs, write the manifest with
+`pva_write_narration_manifest`. This option does **not** implement the durable
+`/attempt-jobs`/mastering API or relax a sealed series' pinned provider/profile:
+keep that contract unless the operator has explicitly revised the workflow.
 
 ## Writing the manifest
 

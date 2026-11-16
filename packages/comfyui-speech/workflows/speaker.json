@@ -1,0 +1,27 @@
+{
+  "description": "One sentence with a Qwen3-TTS CustomVoice preset speaker.",
+  "outputs": { "speech": "2" },
+  "prompt": {
+    "1": {
+      "class_type": "FB_Qwen3TTSCustomVoice",
+      "inputs": {
+        "text": "{{text}}",
+        "speaker": "{{speaker}}",
+        "model_choice": "{{model}}",
+        "device": "{{device}}",
+        "precision": "{{precision}}",
+        "language": "{{language}}",
+        "seed": "{{seed}}",
+        "instruct": "{{instruct}}",
+        "temperature": "{{temperature}}",
+        "repetition_penalty": "{{repetitionPenalty}}",
+        "attention": "{{attention}}",
+        "unload_model_after_generate": "{{unloadModel}}"
+      }
+    },
+    "2": {
+      "class_type": "SaveAudio",
+      "inputs": { "audio": ["1", 0], "filename_prefix": "{{outputPrefix}}" }
+    }
+  }
+}
