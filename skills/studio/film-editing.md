@@ -79,9 +79,12 @@ frame rate is the film's, in the cut's `format`.
 ## Editing
 
 `pva_edit_cut` takes a list of operations applied **together or not at
-all**: the result must be a valid cut. Pass the `expectedRevision` you read
-— if a person saved an edit meanwhile, yours is refused rather than laid
-over theirs; read the cut again and redo it on what is there.
+all**: the result must be a valid cut. Pass the `expectedRevision` you read:
+`pva_check_cut` and every edit print it as `cut revision N`, and a unit with
+no cut yet is at 0. It is required — if a person saved an edit meanwhile,
+yours is refused rather than laid over theirs; read the cut again and redo
+it on what is there. `latest: true` in its place edits the cut as it now is:
+only for an edit that is right whatever the cut holds, such as a marker.
 
 | operation | does |
 | --- | --- |

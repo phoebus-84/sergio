@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { FILM_FORMATS, SCENE_SETTINGS, SHOT_ANGLES, SHOT_MOVEMENTS, SHOT_SIZES, SHOT_SOUNDS, SHOT_SOURCES, formatRuntime, timecode } from "@studio/contracts/src/film.mjs";
 import { CUT_TIMELINE_PATH, TRANSITIONS, type CutProblem, type CutTimeline } from "@studio/contracts/src/cut-timeline.mjs";
 import {
-  FOOTAGE_ORIGINS, annotateFootage, assembleCut, checkUnitCut, createFilm, createScene, createShot, cutPath, cutStatus, editCut,
+  FOOTAGE_ORIGINS, FilmError, annotateFootage, assembleCut, checkUnitCut, createFilm, createScene, createShot, cutPath, cutStatus, editCut,
   filmTree, ingestFootage, inspectMedia, levelOf, listEffects, listFilms, nextSteps, readCut, renderUnit, renderUnitFrame, searchFootage,
   setOrder, unitKey, unitLabel, unitOf, updateManifest, sceneNode,
   type CutOp, type CutStatus, type FilmTree, type SceneNode, type UnitNode, type UnitRef, type UnitRender,
@@ -499,16 +499,26 @@ export function registerFilmTools(pi: ExtensionAPI): void {
       "transitionIn?, transitionOut?, effects?, audio?: { mute?, gain?, fadeIn?, fadeOut?, effects? }, gain?, fadeIn?, fadeOut? }, after?: clipId, ripple? } · " +
       "set-clip { clip, set } · remove-clip { clip, ripple? } · move-clip { clip, at?, track?, after?, ripple? } · split-clip { clip, at, newId } · " +
       "set-master { set: { video?, audio?, loudness? } } · set-marker { marker: { id, at, label?, note? } } · remove-marker { marker }. In `set`, null removes a field. " +
-      "An effect is { type, params } from pva_cut_effects. A clip or track a person locked is theirs: an operation on it is refused. Load the film-editing skill.",
+      "An effect is { type, params } from pva_cut_effects. A clip or track a person locked is theirs: an operation on it is refused. " +
+      "Say which cut you are editing: expectedRevision, the `cut revision N` that pva_check_cut and every edit print (0 for a unit with no cut yet). " +
+      "The edit is refused if a person changed the cut since. Load the film-editing skill.",
     parameters: Type.Object({
       ...UNIT_PARAMS,
       ops: Type.Array(Type.Any(), { minItems: 1, description: "The operations, in order" }),
-      expectedRevision: Type.Optional(Type.Integer({ description: "The revision you read: the edit is refused if the cut moved on since" })),
+      expectedRevision: Type.Optional(Type.Integer({ minimum: 0, description: "The revision you read: the edit is refused if the cut moved on since. Required, unless latest is true" })),
+      latest: Type.Optional(Type.Boolean({ description: "Edit the cut as it now is, whatever its revision. Only for an edit that is right on any revision, such as adding a marker" })),
     }),
     async execute(_id, params) {
       try {
         const library = await root();
         const ref = unit(params);
+        if (params.expectedRevision === undefined && params.latest !== true) {
+          throw new FilmError(
+            `pva_edit_cut needs the revision of the cut you read: pass expectedRevision (pva_check_cut prints it as "cut revision N"; 0 when ${unitLabel(ref)} has no cut yet), ` +
+            "so the edit is refused rather than laid over a change a person made meanwhile. Pass latest: true only for an edit that is right on any revision",
+            "revision-required",
+          );
+        }
         return await withFileMutationQueue(cutPath(library, ref), async () => {
           const result = editCut(library, ref, params.ops as CutOp[], {
             editor: "agent", ...(params.expectedRevision !== undefined ? { expectedRevision: params.expectedRevision } : {}),

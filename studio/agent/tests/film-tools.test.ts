@@ -91,16 +91,19 @@ describe("film tools", () => {
   });
 
   it("edits a cut by operations, as the agent: a person's lock holds", async () => {
-    const edited = await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", ops: [
+    const unread = await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", ops: [{ op: "set-marker", marker: { id: "m", at: 0 } }] });
+    expect(unread.isError).toBe(true);
+    expect(unread.text).toMatch(/revision-required: pva_edit_cut needs the revision of the cut you read/);
+    const edited = await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", expectedRevision: 0, ops: [
       { op: "add-clip", track: "v1", clip: { id: "sky", source: { color: "#203050" }, duration: 24, effects: [{ type: "vignette" }] } },
     ] });
     expect(edited.isError).toBeUndefined();
     expect(edited.text).toContain("00:00:00:00 +24f  sky ← #203050 [vignette]");
-    await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "020-sea", ops: [{ op: "add-clip", track: "v1", clip: { id: "sea", source: { color: "#104030" }, duration: 12 } }] });
-    const bad = await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", ops: [{ op: "set-clip", clip: "sky", set: { effects: [{ type: "sparkle" }] } }, { op: "remove-clip", clip: "nobody" }] });
+    await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "020-sea", expectedRevision: 0, ops: [{ op: "add-clip", track: "v1", clip: { id: "sea", source: { color: "#104030" }, duration: 12 } }] });
+    const bad = await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", expectedRevision: 1, ops: [{ op: "set-clip", clip: "sky", set: { effects: [{ type: "sparkle" }] } }, { op: "remove-clip", clip: "nobody" }] });
     expect(bad.isError).toBe(true);
     expect(bad.text).toMatch(/operation 2 \(remove-clip\)/);
-    expect((await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", ops: [{ op: "set-clip", clip: "sky", set: { locked: true } }] })).text).toMatch(/only a person locks/);
+    expect((await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", expectedRevision: 1, ops: [{ op: "set-clip", clip: "sky", set: { locked: true } }] })).text).toMatch(/only a person locks/);
     expect((await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "010-sky", expectedRevision: 7, ops: [{ op: "set-clip", clip: "sky", set: { opacity: 1 } }] })).text).toMatch(/revision-conflict/);
   });
 
@@ -133,7 +136,7 @@ describe("film tools", () => {
     expect(after.text).toContain("● tide — Tide · 1.3s · current");
     expect(after.text).toContain(`The film is rendered: ${path}`);
 
-    await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "020-sea", ops: [{ op: "set-clip", clip: "sea", set: { effects: [{ type: "monochrome" }] } }] });
+    expect((await run("pva_edit_cut", { film: "tide", scene: "010-shore", shot: "020-sea", latest: true, ops: [{ op: "set-clip", clip: "sea", set: { effects: [{ type: "monochrome" }] } }] })).isError).toBeUndefined();
     expect((await run("pva_film", { film: "tide", scene: "010-shore" })).text).toContain("↻ 020-sea");
     const again = await run("pva_render_cut", { film: "tide" });
     expect(again.text.split("\n").map((line: string) => line.trim().split(" → ")[0])).toEqual(["✅ rendered tide/010-shore/020-sea", "✅ rendered tide/010-shore", "✅ rendered tide"]);
