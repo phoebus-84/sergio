@@ -182,9 +182,13 @@ carry what `artifacts/score.json` and the footage log's licences require.
 
 ## What is a person's
 
-A clip or a track with `locked: true` was locked by a person. Assembly
-leaves it exactly as it is; any operation that would change it is refused.
-Work around it: that is what the lock asks for. If a locked clip makes the
+A clip or a track with `locked: true` was locked by a person. Any operation
+that would change it is refused. Assembly keeps what a locked clip shows —
+its source, trim, length, effects and transitions — and gives it no
+transition of its own; on the picture track it still starts where the clip
+before it ends, so it moves in time when an earlier clip changes length, and
+assembly's notes say when it did. A locked track is not reassembled at all.
+Work around a lock: that is what it asks for. If a locked clip makes the
 cut impossible (it overlaps what must go there), stop and say so, with the
 clip's id and what is in the way.
 
