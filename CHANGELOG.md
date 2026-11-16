@@ -29,6 +29,13 @@ something. `0.1.0` was never tagged: it is whatever `main` was before this.
   beside MLX.
 - **Speech through a ComfyUI server** (#98), with voice cloning and
   clean-then-clone.
+- **Characters** (ADR-0052): a character is a record apart from how it
+  appears, owned by a channel, a series or a film. It takes any form — a rig,
+  sprites, a drawing made by code, a photograph, a dot, a sound, a voice alone
+  — released in folders recorded with their hashes, and a series or a film
+  casts it in a role, pinned to the release it wears. `pva_characters`,
+  `pva_create_character`, `pva_update_character`, `pva_cast`, and the skills
+  `character-development` and `character-forms`.
 - **Retake** (`bench/retake`): the specification of a benchmark for what
   happens after the first take. No harness and no numbers yet.
 

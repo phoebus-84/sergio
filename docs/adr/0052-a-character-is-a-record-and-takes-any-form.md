@@ -7,8 +7,8 @@ Proposed. Implemented with it:
 - `@studio/cast`: characters on disk, their forms' releases, a production's
   cast resolved to what it pins;
 - the character tools (`pva_characters`, `pva_create_character`,
-  `pva_update_character`, `pva_release_character_form`, `pva_cast`) and the
-  skills `character-development` and `character-forms`.
+  `pva_update_character`, `pva_cast`) and the skills `character-development`
+  and `character-forms`.
 
 Not implemented: the browser's view of a cast, and the capabilities that make
 a form (image to 3D model, automatic rigging, motion from text, motion from a
@@ -82,8 +82,9 @@ plays the same part across a series, or different parts across projects.
 
 - **Likeness is written down.** A character drawn from a real person — a
   face, a voice, a name — says whose, and what permits it. The studio does
-  not judge the permission; it refuses to release a form of such a character
-  while the field is empty.
+  not judge the permission and cannot know who is real: it warns of a
+  photograph on a character that states no likeness, and the skills tell the
+  agent to stop and ask rather than invent one.
 
 - **Making a form is a capability, not a pipeline.** What turns a picture
   into a model, a model into a rig, words or a video into motion is a

@@ -201,6 +201,7 @@
         "@av/terminal-recorder": "workspace:*",
         "@av/video-composer": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.32.1",
+        "@studio/cast": "workspace:*",
         "@studio/contracts": "workspace:*",
         "@studio/episode": "workspace:*",
         "@studio/film": "workspace:*",
