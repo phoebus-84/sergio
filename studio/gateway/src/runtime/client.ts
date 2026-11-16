@@ -103,16 +103,37 @@ export class RuntimeClient {
     }
   }
 
-  /** Check if the runtime is reachable. */
-  async health(): Promise<{ reachable: boolean; version?: string; error?: string }> {
+  /**
+   * Check if the runtime is reachable.
+   *
+   * The doctor exits non-zero when the library has findings. It ran and it
+   * answered: the runtime is there, and what it found is the state of the
+   * library, not of the runtime. Reporting that as "down" made every library
+   * with one old episode short of a folder look like a broken install.
+   */
+  async health(): Promise<{ reachable: boolean; version?: string; error?: string; library?: { errors: number; warnings: number } }> {
     try {
       const result = await this.doctor();
       if (result.ok && result.data) {
         return { reachable: true, version: (result.data as Record<string, unknown>).version as string };
       }
+      const library = RuntimeClient.libraryFindings(result.stdout);
+      if (library) return { reachable: true, library };
       return { reachable: false, error: result.error ?? "Doctor command failed" };
     } catch (err) {
       return { reachable: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  /** How many errors and warnings a doctor report holds, or null when the text is not one. */
+  static libraryFindings(stdout: string): { errors: number; warnings: number } | null {
+    try {
+      const report = JSON.parse(stdout) as { findings?: { code?: unknown }[] };
+      if (!Array.isArray(report.findings)) return null;
+      const errors = report.findings.filter((finding) => typeof finding.code === "string" && finding.code.startsWith("E_")).length;
+      return { errors, warnings: report.findings.length - errors };
+    } catch {
+      return null;
     }
   }
 
