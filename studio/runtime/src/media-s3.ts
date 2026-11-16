@@ -78,6 +78,9 @@ export function s3MediaStore(options: S3MediaOptions): MediaObjectStore {
       return result.Body as Readable;
     },
     async put(Key, file, entry) {
+      // Refuse before opening a stream: guarded() will not hand it to the SDK
+      // once the remote is down, leaving its asynchronous open error unhandled.
+      if (down) throw down;
       if (entry.size <= PART_SIZE) {
         const body = createReadStream(file);
         try {

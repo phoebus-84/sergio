@@ -165,7 +165,10 @@ describe("S3 conditional and multipart writes", { timeout: 30_000 }, () => {
       await expect(store.head("a")).rejects.toThrow(/is unreachable/);
       await new Promise<void>((done) => late.listen(port, "127.0.0.1", done));
       await expect(store.head("b")).rejects.toThrow(/is unreachable/);
-      await expect(store.put("c", join(root, "sample", IMAGE), { hash: sha(Buffer.from("plate")), size: 5 })).rejects.toThrow(/is unreachable/);
+      // A cached connection failure must not open a file at all. In particular,
+      // a missing file must not emit an unhandled stream error after this test.
+      await expect(store.put("c", join(root, "does-not-exist"), { hash: sha(Buffer.from("plate")), size: 5 })).rejects.toThrow(/is unreachable/);
+      await new Promise<void>((done) => setImmediate(done));
       expect(requests).toBe(0);
     } finally {
       store.close?.();
