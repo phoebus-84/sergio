@@ -1,0 +1,37 @@
+{
+  "subject": "tally",
+  "note": "What is true of tally, for scoring a video that explains it. A claim in a script is checked against `statements`; a command shown on screen is checked against `commands` by running it in this folder.",
+  "statements": [
+    { "id": "what", "text": "tally counts the words of text files" },
+    { "id": "one-file", "text": "it is a single file with no dependencies" },
+    { "id": "node", "text": "it runs on Node 22 or later" },
+    { "id": "total", "text": "with several files it prints a count for each and a total" },
+    { "id": "no-total", "text": "with one file it prints no total" },
+    { "id": "top", "text": "--top N lists the N most frequent words across all the files" },
+    { "id": "top-ties", "text": "words with the same count are listed in alphabetical order" },
+    { "id": "min", "text": "--min L counts only words of at least L letters" },
+    { "id": "json", "text": "--json prints the same answer as JSON" },
+    { "id": "stdin", "text": "with no file it reads standard input" },
+    { "id": "case", "text": "words are compared in lower case: The and the are the same word" },
+    { "id": "apostrophe", "text": "an apostrophe is part of a word: keeper's is one word, and is not keeper" },
+    { "id": "exit-codes", "text": "it exits 0 on success, 1 when a file cannot be read, 2 when the options are wrong" }
+  ],
+  "false": [
+    { "id": "not-lines", "text": "tally counts lines or characters" },
+    { "id": "not-recursive", "text": "tally reads folders" },
+    { "id": "not-stemming", "text": "tally treats keeper and keeper's, or count and counts, as the same word" },
+    { "id": "not-installed", "text": "tally is installed with npm or is a command on the PATH" }
+  ],
+  "commands": [
+    { "run": "node tally.mjs sample.txt", "stdout": "    21  sample.txt\n", "exit": 0 },
+    { "run": "node tally.mjs sample.txt notes.txt", "stdout": "    21  sample.txt\n    12  notes.txt\n    33  total\n", "exit": 0 },
+    { "run": "node tally.mjs --top 3 sample.txt", "stdout": "     5  the\n     2  counts\n     2  keeper\n", "exit": 0 },
+    { "run": "node tally.mjs --top 3 --min 4 sample.txt notes.txt", "stdout": "     3  tide\n     2  counts\n     2  keeper\n", "exit": 0 },
+    { "run": "node tally.mjs --json sample.txt", "stdout": "{\"file\":\"sample.txt\",\"words\":21}\n", "exit": 0 },
+    { "run": "node tally.mjs --json sample.txt notes.txt", "stdout": "{\"files\":[{\"file\":\"sample.txt\",\"words\":21},{\"file\":\"notes.txt\",\"words\":12}],\"total\":33}\n", "exit": 0 },
+    { "run": "node tally.mjs --top 2 --json notes.txt", "stdout": "[{\"word\":\"the\",\"count\":2},{\"word\":\"count\",\"count\":1}]\n", "exit": 0 },
+    { "run": "node tally.mjs --top 0 sample.txt", "stdout": "", "exit": 2 },
+    { "run": "node tally.mjs --loud sample.txt", "stdout": "", "exit": 2 },
+    { "run": "node tally.mjs missing.txt", "stdout": "", "exit": 1 }
+  ]
+}

@@ -1,0 +1,57 @@
+id: first-take
+number: 1
+version: "0.1"
+title: Explain a small program in a minute
+
+given:
+  subject: fixtures/tally          # copied into the run's working folder, read-only
+  facts: fixtures/tally/facts.json # for scoring only: no arm sees it
+
+ask: |
+  Make a narrated video that explains `tally`, the program in this folder, to
+  someone who has never seen it and uses a terminal. English. Between 60 and
+  75 seconds, 1920×1080 at 30 frames a second.
+
+  It must say what tally is for, show it counting the words of a file, and
+  show `--top` with the real output. Every command on screen must be one that
+  works, with the output it really prints.
+
+  Deliver: the video (H.264 and AAC in MP4, −14 LUFS), captions for every
+  sentence, the script you narrated, and a list of everything in the video
+  that you did not make, with its licence.
+
+limits:
+  spend_usd: 1.00
+  wall_clock_minutes: 30
+  operator_turns: 0        # nobody answers a question in this task
+
+measure:
+  - completion
+  - spec.container
+  - spec.duration: { min_seconds: 60, max_seconds: 75 }
+  - spec.loudness
+  - spec.captions
+  - speech.wer
+  - captions.sync
+  - defects.black
+  - defects.frozen
+  - defects.silence
+  - defects.clipping
+  - defects.overflow
+  - accuracy.commands
+  - accuracy.claims
+  - accuracy.false
+  - accuracy.coverage: { statements: [what, total, top] }
+  - cost.providers
+  - cost.model
+  - time.wall
+  - preference
+
+accepted_when: >
+  completion, spec.* and accuracy.commands pass, accuracy.false is 0 and the
+  required statements are covered. An accepted video is what task 03 gives
+  the same arm, model and run.
+
+report:
+  headline: [completion, accuracy.claims, preference]
+  per_cell: median and range over 5 runs of every measure

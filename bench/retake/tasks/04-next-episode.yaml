@@ -1,0 +1,57 @@
+id: next-episode
+number: 4
+version: "0.1"
+title: Make the fourth episode of a series that has three
+
+given:
+  series: fixtures/series/one-command
+  # To be made once, reviewed by a person and frozen before the first run:
+  #   episodes/01-count, 02-top, 03-json   each with its video, script, captions
+  #                                          and the project it was made from
+  #   format/                               what the three share, as the system
+  #                                          that made them keeps it
+  # Every arm gets the three episodes with their scripts, captions and project
+  # files. The `studio` arm also gets format/ as a pinned series release,
+  # because that is what it would have. The other arms get the same content as
+  # plain files.
+  subject: fixtures/tally
+
+ask: |
+  This is a series: one short episode for each thing `tally` does. Three
+  episodes exist. Make the fourth, about `--min`. It must look and sound like
+  the next episode of this series, not like a new one: the same shape, the
+  same voice, the same way of showing a command.
+
+  Deliver the video, its captions and its script.
+
+limits:
+  spend_usd: 1.00
+  wall_clock_minutes: 30
+  operator_turns: 0
+
+measure:
+  - completion
+  - spec.container
+  - spec.loudness
+  - spec.captions
+  - speech.wer
+  - series.form
+  - series.beats
+  - series.look
+  - series.voice
+  - series.spread
+  - series.preference
+  - accuracy.commands
+  - accuracy.false
+  - accuracy.coverage: { statements: [min] }
+  - cost.providers
+  - cost.model
+  - time.wall
+
+accepted_when: >
+  completion, spec.*, series.form and series.beats pass, accuracy.commands
+  passes and accuracy.false is 0.
+
+report:
+  headline: [series.spread, series.preference, cost.accepted_minute]
+  per_cell: the five fourth episodes on one sheet beside the three given
