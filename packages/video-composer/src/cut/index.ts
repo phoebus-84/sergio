@@ -11,3 +11,4 @@ export type { Window } from "./plan.js";
 export { renderCut, renderCutFrame, checkCut, probeCut, renderSize, CutError } from "./render.js";
 export { probeFile, extractStill, contactSheet, detectSegments, makeProxy, measureLoudness, MediaError } from "./media.js";
 export type { ContactSheet, DetectedSegment, Loudness, Tools } from "./media.js";
+export { fileIdentity, fileIdentitySync } from "./identity.js";

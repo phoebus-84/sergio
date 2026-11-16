@@ -10,6 +10,7 @@
 import { stat, mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { runProcess } from "../process-runner.js";
+import { fileIdentity } from "./identity.js";
 import type { MediaInfo } from "./types.js";
 
 const STILL_CODECS = new Set([
@@ -89,6 +90,7 @@ export async function probeFile(file: string, tools: Tools = {}): Promise<MediaI
     hasAlpha: !!video && ALPHA_PIXEL_FORMATS.test(String(video.pix_fmt ?? "")),
     size: info.size,
     mtimeMs: Math.round(info.mtimeMs),
+    identity: await fileIdentity(file),
   };
 }
 

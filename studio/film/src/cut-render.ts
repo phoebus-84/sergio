@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkCut, extractStill, renderCut, renderCutFrame, CutError,
+  checkCut, extractStill, fileIdentitySync, renderCut, renderCutFrame, CutError,
   type Cut, type CutClip as RenderClip, type CutProblem as RenderProblem, type RenderCutResult, type RenderProgress, type RenderQuality,
 } from "@av/video-composer";
 import { filmPath } from "@studio/contracts/src/layout.mjs";
@@ -74,7 +74,8 @@ export function readPointer(root: string, ref: UnitRef, quality: RenderQuality):
   };
 }
 
-const fileState = (file: string): [number, number] | null => {
+/** How a file was named in fingerprints before its identity was: its size and date. */
+const sizeAndDate = (file: string): [number, number] | null => {
   try {
     const info = statSync(file);
     return info.isFile() ? [info.size, Math.round(info.mtimeMs)] : null;
@@ -88,8 +89,18 @@ export interface ResolvedCut {
   cut: Cut;
   /** What stops the cut from being resolved or rendered, and what to know about it. */
   problems: CutProblem[];
-  /** What the render depends on: the cut and the state of every file it reads. */
+  /**
+   * What the render depends on: the cut and which file every source is
+   * (`fileIdentitySync`: a file replaced by other bytes is another file,
+   * whatever its size and date).
+   */
   fingerprint: string;
+  /**
+   * The fingerprint as renders made before carried it, from each file's size
+   * and date. Only read, never written: it lets those renders stay current
+   * until their unit is rendered again.
+   */
+  earlierFingerprint: string;
   /** The units below that the cut reads, with the render each resolved to (null: it has none usable). */
   children: { unit: UnitRef; slug: string; renderId: string | null; quality: RenderQuality | null; fresh: boolean }[];
   /** An effect's file (a LUT) as a path, looked for in the unit and then in the film. */
@@ -128,6 +139,7 @@ export function resolveCut(root: string, ref: UnitRef, timeline: CutTimeline, op
   const problems: CutProblem[] = [];
   const children: ResolvedCut["children"] = [];
   const states: unknown[] = [];
+  const earlierStates: unknown[] = [];
   const add = (code: string, path: string, message: string, severity: CutProblem["severity"] = "error") => problems.push({ code, path, message, severity });
 
   const nested = new Map<string, { file: string; audioFile?: string } | null>();
@@ -176,8 +188,7 @@ export function resolveCut(root: string, ref: UnitRef, timeline: CutTimeline, op
         media = nest(clip.source.unit!, path);
       } else if (kind === "path" || kind === "project") {
         const file = kind === "path" ? join(dir, clip.source.path!) : join(film, clip.source.project!);
-        const state = fileState(file);
-        if (!state) add("missing-file", path, `${kind === "path" ? clip.source.path : `the film's ${clip.source.project}`} is not there`);
+        if (!fileIdentitySync(file)) add("missing-file", path, `${kind === "path" ? clip.source.path : `the film's ${clip.source.project}`} is not there`);
         else media = { file };
       }
       if (!media) return [];
@@ -213,7 +224,8 @@ export function resolveCut(root: string, ref: UnitRef, timeline: CutTimeline, op
   const stateOf = (file: string): void => {
     if (seen.has(file)) return;
     seen.add(file);
-    states.push([libraryRelative(root, file), fileState(file)]);
+    states.push([libraryRelative(root, file), fileIdentitySync(file)]);
+    earlierStates.push([libraryRelative(root, file), sizeAndDate(file)]);
   };
   const portable = JSON.stringify(cut, (_key, value: unknown) => {
     if (typeof value === "string" && (value.startsWith(root) || value.startsWith(dir))) {
@@ -228,8 +240,15 @@ export function resolveCut(root: string, ref: UnitRef, timeline: CutTimeline, op
       if (typeof file === "string") stateOf(resolveFile(file));
     }
   }
-  const fingerprint = sha256(JSON.stringify([portable, states.sort((a, b) => String((a as unknown[])[0]).localeCompare(String((b as unknown[])[0])))]));
-  return { cut, problems, fingerprint, children, resolveFile };
+  const byPath = (a: unknown, b: unknown): number => String((a as unknown[])[0]).localeCompare(String((b as unknown[])[0]));
+  const fingerprint = sha256(JSON.stringify([portable, states.sort(byPath)]));
+  const earlierFingerprint = sha256(JSON.stringify([portable, earlierStates.sort(byPath)]));
+  return { cut, problems, fingerprint, earlierFingerprint, children, resolveFile };
+}
+
+/** Whether a render's fingerprint is the one its unit would be rendered with now. */
+function rendersTheSame(resolved: ResolvedCut, pointer: RenderPointer): boolean {
+  return pointer.fingerprint === resolved.fingerprint || pointer.fingerprint === resolved.earlierFingerprint;
 }
 
 /** Whether a render is still what its unit would render: the cut and every file it read are as they were. */
@@ -238,7 +257,7 @@ export function isFresh(root: string, ref: UnitRef, pointer: RenderPointer): boo
   if (!stored.cut || hasCutErrors(stored.problems)) return false;
   const resolved = resolveCut(root, ref, stored.cut, { quality: pointer.quality });
   if (hasCutErrors(resolved.problems)) return false;
-  return resolved.fingerprint === pointer.fingerprint;
+  return rendersTheSame(resolved, pointer);
 }
 
 export type RenderState = "no-cut" | "invalid-cut" | "blocked" | "not-rendered" | "stale" | "preview" | "current";
@@ -277,8 +296,8 @@ export function cutStatus(root: string, ref: UnitRef): CutStatus {
   };
   const forFinal = resolveCut(root, ref, timeline, { quality: "final" });
   const forPreview = resolveCut(root, ref, timeline, { quality: "preview" });
-  const final = pointers.final ? { ...pointers.final, fresh: !hasCutErrors(forFinal.problems) && forFinal.fingerprint === pointers.final.fingerprint } : null;
-  const preview = pointers.preview ? { ...pointers.preview, fresh: !hasCutErrors(forPreview.problems) && forPreview.fingerprint === pointers.preview.fingerprint } : null;
+  const final = pointers.final ? { ...pointers.final, fresh: !hasCutErrors(forFinal.problems) && rendersTheSame(forFinal, pointers.final) } : null;
+  const preview = pointers.preview ? { ...pointers.preview, fresh: !hasCutErrors(forPreview.problems) && rendersTheSame(forPreview, pointers.preview) } : null;
   const problems = [...stored.problems, ...forFinal.problems];
   const base = { cut, problems, final, preview, children: forFinal.children };
 
@@ -383,7 +402,7 @@ export async function renderUnit(root: string, ref: UnitRef, options: RenderUnit
 
   if (!options.range && !options.force) {
     const pointer = readPointer(root, ref, quality);
-    if (pointer && pointer.fingerprint === resolved.fingerprint) return asUnitRender(root, ref, pointer, cascaded);
+    if (pointer && rendersTheSame(resolved, pointer)) return asUnitRender(root, ref, pointer, cascaded);
   }
 
   const outputDir = join(dir, "output");

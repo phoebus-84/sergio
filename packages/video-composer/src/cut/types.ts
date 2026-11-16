@@ -123,6 +123,8 @@ export interface MediaInfo {
   hasAlpha: boolean;
   size: number;
   mtimeMs: number;
+  /** Which file was read (identity.ts): what a piece rendered from it is named by. */
+  identity: string;
 }
 
 export type RenderQuality = "preview" | "final";
