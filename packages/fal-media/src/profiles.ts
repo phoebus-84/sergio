@@ -761,29 +761,84 @@ export const minimaxH3TextToVideo: EndpointProfile = defineProfile({
   pricing: H3_PRICING,
 });
 
+// The image-to-video endpoints, read from fal's live pages (llms.txt) on
+// 2026-11-07: the closing frame is `end_image_url` (the old `last_image_url`
+// was not a field fal knows, so the end frame was silently dropped), and
+// prompt expansion is `prompt_expansion_mode`, not a boolean.
+
+/** Per-second prices (USD) of the image-to-video endpoints, by resolution. */
+export const H3_PRICES_PER_SECOND_USD: Readonly<Record<"480P" | "768P" | "2K" | "4K", number>> = Object.freeze({
+  "480P": 0.05,
+  "768P": 0.06,
+  "2K": 0.13,
+  "4K": 0.16,
+});
+
+/**
+ * H3 Max Turbo, list price from 2026-11-16 (a promotion runs below it until
+ * then; the reservation keeps the list price, the ledger settles at fal's).
+ */
+export const H3_MAX_TURBO_PRICES_PER_SECOND_USD: Readonly<Record<"480P" | "768P" | "1080P", number>> = Object.freeze({
+  "480P": 0.025,
+  "768P": 0.04,
+  "1080P": 0.08,
+});
+
+const H3_I2V_FRAMES: ParameterField[] = [
+  {
+    name: "image_url",
+    type: "string",
+    required: true,
+    description: "Opening frame. Sets the canvas (aspect ratio follows the image).",
+  },
+  {
+    name: "end_image_url",
+    type: "string",
+    required: false,
+    description: "Closing frame. The same image as image_url closes an exact loop.",
+  },
+];
+
+const H3_I2V_COMMON: ParameterField[] = [
+  ...H3_COMMON.filter((f) => f.name !== "enable_prompt_expansion"),
+  {
+    name: "prompt_expansion_mode",
+    type: "enum",
+    required: false,
+    defaultValue: "balanced",
+    enumValues: ["disabled", "fast", "balanced", "quality"],
+    description: "Prompt expansion. 'disabled' keeps an exact prompt from drifting.",
+  },
+  ...H3_I2V_FRAMES,
+];
+
 /** MiniMax H3 — image to video, including first/last frame. */
 export const minimaxH3ImageToVideo: EndpointProfile = defineProfile({
   profileId: "minimax/h3/image-to-video@v1",
   endpointId: "minimax/h3/image-to-video",
   operation: "image-to-video",
   contractVersion: "v1",
-  parameterSchema: [
-    ...H3_COMMON,
-    {
-      name: "image_url",
-      type: "string",
-      required: true,
-      description: "Opening frame.",
-    },
-    {
-      name: "last_image_url",
-      type: "string",
-      required: false,
-      description: "Closing frame. Supplying it turns the generation into a transition between two exact boundary states.",
-    },
-  ],
+  parameterSchema: H3_I2V_COMMON,
   capabilities: { ...H3_CAPABILITIES, supportsReferenceImages: true, maxReferenceImages: 2 },
   pricing: H3_PRICING,
+});
+
+/** MiniMax H3 Max Turbo — image to video, first/last frame, cheaper and faster, up to 1080P. */
+export const minimaxH3MaxTurboImageToVideo: EndpointProfile = defineProfile({
+  profileId: "minimax/h3-max-turbo/image-to-video@v1",
+  endpointId: "minimax/h3-max-turbo/image-to-video",
+  operation: "image-to-video",
+  contractVersion: "v1",
+  parameterSchema: H3_I2V_COMMON.map((f) => {
+    if (f.name === "resolution") {
+      return { ...f, defaultValue: "768P", enumValues: ["480P", "768P", "1080P"] };
+    }
+    if (f.name === "duration") return { ...f, type: "number" as const, min: 1, max: 15 };
+    if (f.name === "prompt_expansion_mode") return { ...f, enumValues: ["disabled", "balanced", "quality"] };
+    return f;
+  }),
+  capabilities: { ...H3_CAPABILITIES, supportsReferenceImages: true, maxReferenceImages: 2 },
+  pricing: { unit: "inference", estimatedUnitCost: H3_MAX_TURBO_PRICES_PER_SECOND_USD["768P"] * 5, currency: "USD" },
 });
 
 /** MiniMax H3 — reference to video, driven by multimodal references. */
@@ -826,6 +881,92 @@ export const minimaxH3ReferenceToVideo: EndpointProfile = defineProfile({
   ],
   capabilities: { ...H3_CAPABILITIES, supportsReferenceImages: true, maxReferenceImages: 9 },
   pricing: H3_PRICING,
+});
+
+// ─── MiniMax H3 Max lip-sync ───────────────────────────────────────────
+//
+// A photo and a voice recording in, the person in the photo saying it out.
+// Schema, limits and prices from fal's live API page,
+// https://fal.ai/models/minimax/h3-max/lip-sync/image-to-video/api
+// (read 2026-11-11). The video is as long as the audio, and the price is per
+// second of it, so everything a caller needs to price and to refuse a request
+// before it is sent is here, beside the profile, and nowhere else.
+
+export type H3MaxLipSyncResolution = "480P" | "768P" | "1080P" | "2K";
+
+export const H3_MAX_LIP_SYNC: Readonly<{
+  /** USD per second of output video, by resolution. */
+  pricesPerSecondUsd: Readonly<Record<H3MaxLipSyncResolution, number>>;
+  defaultResolution: H3MaxLipSyncResolution;
+  /** A video longer than `overSeconds` costs `priceMultiplier` times the per-second price, all of it. */
+  longVideo: Readonly<{ overSeconds: number; priceMultiplier: number }>;
+  /** The audio fal accepts (`min`), and the longest one call is given (`max`). */
+  audioSeconds: Readonly<{ min: number; max: number }>;
+  /** Width / height the image must stay within. */
+  imageAspectRatio: Readonly<{ min: number; max: number }>;
+}> = Object.freeze({
+  pricesPerSecondUsd: Object.freeze({ "480P": 0.05, "768P": 0.08, "1080P": 0.16, "2K": 0.32 }),
+  defaultResolution: "768P",
+  longVideo: Object.freeze({ overSeconds: 15, priceMultiplier: 1.2 }),
+  audioSeconds: Object.freeze({ min: 5, max: 60 }),
+  imageAspectRatio: Object.freeze({ min: 0.4, max: 2.5 }),
+});
+
+/** What `seconds` of lip-synced video cost at a resolution, in USD. */
+export function h3MaxLipSyncPriceUsd(resolution: H3MaxLipSyncResolution, seconds: number): number {
+  const perSecond = H3_MAX_LIP_SYNC.pricesPerSecondUsd[resolution];
+  if (perSecond === undefined) throw new FalValidationError(`MiniMax H3 Max lip-sync does not offer ${String(resolution)}`, { resolution });
+  if (!Number.isFinite(seconds) || seconds <= 0) throw new FalValidationError("a lip-sync price needs a positive duration", { seconds });
+  const { overSeconds, priceMultiplier } = H3_MAX_LIP_SYNC.longVideo;
+  const usd = perSecond * seconds * (seconds > overSeconds ? priceMultiplier : 1);
+  return Math.round(usd * 1e6) / 1e6;
+}
+
+/** MiniMax H3 Max — lip-sync: one image and one audio to a talking video. */
+export const minimaxH3MaxLipSync: EndpointProfile = defineProfile({
+  profileId: "minimax/h3-max/lip-sync/image-to-video@v1",
+  endpointId: "minimax/h3-max/lip-sync/image-to-video",
+  operation: "image-to-video",
+  contractVersion: "v1",
+  parameterSchema: [
+    {
+      name: "image_url",
+      type: "string",
+      required: true,
+      description: `The person who speaks. Aspect ratio ${H3_MAX_LIP_SYNC.imageAspectRatio.min}–${H3_MAX_LIP_SYNC.imageAspectRatio.max}.`,
+    },
+    {
+      name: "audio_url",
+      type: "string",
+      required: true,
+      description: `What they say: at least ${H3_MAX_LIP_SYNC.audioSeconds.min} s. The video is as long as the audio.`,
+    },
+    {
+      name: "resolution",
+      type: "enum",
+      required: false,
+      defaultValue: H3_MAX_LIP_SYNC.defaultResolution,
+      enumValues: Object.keys(H3_MAX_LIP_SYNC.pricesPerSecondUsd),
+      description: "Output resolution; it sets the price per second.",
+    },
+    {
+      name: "enable_transcription",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Transcribe the audio to guide the mouth.",
+    },
+    { name: "seed", type: "integer", required: false, description: "Fixing this makes a generation reproducible." },
+    { name: "enable_safety_checker", type: "boolean", required: false, defaultValue: true, description: "Provider-side safety filter." },
+  ],
+  capabilities: { ...H3_CAPABILITIES, supportsReferenceImages: true, maxReferenceImages: 1 },
+  // The shortest video at the default resolution. A caller reserves
+  // h3MaxLipSyncPriceUsd(resolution, the audio's seconds) instead.
+  pricing: {
+    unit: "inference",
+    estimatedUnitCost: H3_MAX_LIP_SYNC.pricesPerSecondUsd[H3_MAX_LIP_SYNC.defaultResolution] * H3_MAX_LIP_SYNC.audioSeconds.min,
+    currency: "USD",
+  },
 });
 
 // ─── Wan 2.2 A14B (turbo) ──────────────────────────────────────────────
@@ -927,7 +1068,9 @@ const PROFILES: readonly EndpointProfile[] = Object.freeze([
   flux3MaxImageToVideo,
   minimaxH3TextToVideo,
   minimaxH3ImageToVideo,
+  minimaxH3MaxTurboImageToVideo,
   minimaxH3ReferenceToVideo,
+  minimaxH3MaxLipSync,
   wan22TurboImageToVideo,
   deprecationExample,
 ]);

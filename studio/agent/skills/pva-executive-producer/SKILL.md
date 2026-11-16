@@ -62,6 +62,15 @@ commands become available through the agent.
   `pva_generate_minimax_h3_video` (~$0.48/clip) for loops and small moving details; keep H3 for
   performances, references and long shots.
 
+- `pva_generate_avatar_speech` — A photo + 5–60 s audio to a talking video through
+  MiniMax H3 Max lip-sync. Check `pva_budget_status` first; prices and duration
+  surcharge are in the tool description. `imageSource` selects a shared channel
+  source; `imagePath` is relative to it, while `audioPath` stays episode-relative.
+  Writes `assets/video/<shotId>.mp4` and a provenance sidecar. A new spoken line
+  requires a new clip; shared look photos do not imply reusable dialogue. It makes a
+  person say words they did not say: it requires `likenessConsentPath`, a consent
+  record the operator wrote for that photograph, bound to it by `image_sha256`. Never
+  create or confirm that consent on the operator's behalf: without one, stop and ask.
 - `pva_synthesize_speech` — Local Qwen by default (MLX or Torch). Only when the
   operator asks for ComfyUI, use `provider: "comfyui-qwen"` (free;
   `pva_capability_status` says whether it answers): `voice` is a speaker or
@@ -72,6 +81,10 @@ commands become available through the agent.
   consent record bound to the reference hash or saved name. Never create or confirm
   that consent on the operator's behalf. Both Qwen paths need `pva_register_take`, then `pva_align_take`
   with an aligner: they return no word timings. Never switch provider on failure.
+  Only when ElevenLabs is asked for by name, use `provider: "elevenlabs"` with
+  `voiceId` (paid, spend ledger): its record keeps each word's timing, so after
+  `pva_register_take`, `pva_align_take` with `provider: "synthesis"` times the take
+  from it, with no second paid call.
 - `pva_clean_voice` — Clean only, on the same ComfyUI server: separate a recording's voice
   from music and noise (optional `start`/`duration` cut) into a new `assets/…wav`, with a
   `.clean.json` record. Nothing is cloned.

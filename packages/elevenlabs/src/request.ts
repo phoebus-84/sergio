@@ -69,13 +69,28 @@ function waitFor(response: Response, attempt: number): number {
 
 /** POST `path` with `body` and return the parsed JSON answer. */
 export function postForm(path: string, body: () => FormData, options: RequestOptions): Promise<unknown> {
+  return post(path, () => ({ body: body() }), options).then((answer) => answer.json);
+}
+
+/** POST `path` with a JSON `body`; the answer, and the request id ElevenLabs gave it. */
+export function postJson(path: string, body: unknown, options: RequestOptions): Promise<{ json: unknown; requestId?: string }> {
+  const text = JSON.stringify(body);
+  return post(path, () => ({ body: text, headers: { "content-type": "application/json" } }), options);
+}
+
+function post(
+  path: string,
+  make: () => { body: FormData | string; headers?: Record<string, string> },
+  options: RequestOptions,
+): Promise<{ json: unknown; requestId?: string }> {
   const sleep = options.sleep ?? defaultSleep;
   const url = `${options.baseUrl ?? DEFAULT_BASE_URL}${path}`;
   return oneAtATime(async () => {
     for (let attempt = 0; ; attempt++) {
       let response: Response;
       try {
-        response = await fetch(url, { method: "POST", headers: { "xi-api-key": options.apiKey }, body: body(), signal: options.signal ?? null });
+        const { body, headers } = make();
+        response = await fetch(url, { method: "POST", headers: { ...headers, "xi-api-key": options.apiKey }, body, signal: options.signal ?? null });
       } catch (error) {
         if (options.signal?.aborted) throw error;
         const code = causeCode(error);
@@ -84,7 +99,9 @@ export function postForm(path: string, body: () => FormData, options: RequestOpt
       }
       if (response.ok) {
         try {
-          return await response.json();
+          const json = await response.json();
+          const requestId = response.headers.get("request-id");
+          return { json, ...(requestId ? { requestId } : {}) };
         } catch {
           throw new ElevenLabsError("uncertain", "ElevenLabs answered, but not with JSON; the request may have been processed");
         }

@@ -78,7 +78,8 @@ export interface HttpRequest {
   readonly method: string;
   readonly url: string;
   readonly headers: Record<string, string>;
-  readonly body?: string;
+  /** JSON as text, or the bytes of a file being uploaded. */
+  readonly body?: string | Uint8Array;
 }
 
 export interface HttpResponse {

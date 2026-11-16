@@ -79,8 +79,14 @@ export {
   flux3MaxImageToVideo,
   wan22TurboImageToVideo,
   WAN_22_TURBO_PRICES_USD,
+  H3_PRICES_PER_SECOND_USD,
+  H3_MAX_TURBO_PRICES_PER_SECOND_USD,
+  H3_MAX_LIP_SYNC,
+  h3MaxLipSyncPriceUsd,
+  minimaxH3MaxLipSync,
 } from "./profiles.js";
 
 // Client
 export { FalClientImpl, createFalClient } from "./client.js";
-export type { FalClient } from "./client.js";
+export type { FalClient, FalUpload } from "./client.js";
+export type { H3MaxLipSyncResolution } from "./profiles.js";

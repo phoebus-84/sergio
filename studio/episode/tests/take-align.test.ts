@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateWordTiming } from "@studio/contracts/src/word-timing.mjs";
@@ -197,5 +197,41 @@ describe("alignTake with ElevenLabs", () => {
     await expect(alignTake(dir(), { take: "light", language: "en", provider: "elevenlabs", elevenlabs: { apiKey: "sk_test", baseUrl, pay: refuse } }))
       .rejects.toMatchObject({ code: "budget" });
     expect(apiCalls).toBe(0);
+  });
+});
+
+describe("alignTake with the words a synthesis returned", () => {
+  /** A synthesis record about the take's audio, with the take's words spread evenly. */
+  const record = (extra: Record<string, unknown> = {}) => {
+    const take = takes().takes.find((t: { id: string }) => t.id === "light");
+    const tokens = String(take.text).split(/\s+/);
+    const step = 2.6 / tokens.length;
+    mkdirSync(at("artifacts/narration"), { recursive: true });
+    writeFileSync(at("artifacts/narration/light.synthesis.json"), JSON.stringify({
+      provider: "fake-tts", model: "fake-model-1",
+      wavSha256: String(take.audio.hash).replace(/^sha256:/, ""),
+      words: tokens.map((text, i) => ({ text, start: i * step, end: (i + 1) * step })),
+      ...extra,
+    }));
+    return tokens;
+  };
+
+  it("times the take from its synthesis record, calling no aligner", async () => {
+    const tokens = record();
+    const result = await alignTake(dir(), { take: "light", language: "en", provider: "synthesis" });
+    expect(result.timing.words.map((w) => w.text)).toEqual(tokens);
+    expect(result.timing.alignment).toMatchObject({ provider: "fake-tts", model: "fake-model-1", method: "forced" });
+    expect(validateWordTiming(result.timing)).toEqual([]);
+    expect(takes().takes.find((t: { id: string }) => t.id === "light").timing.path).toBe(result.path);
+    expect(workerCalls).toEqual([]);
+  });
+
+  it("says so when no record is about this audio, or it has no words", async () => {
+    await expect(alignTake(dir(), { take: "light", language: "en", provider: "synthesis" })).rejects.toMatchObject({ code: "no-synthesis" });
+    record({ wavSha256: "0".repeat(64) });
+    await expect(alignTake(dir(), { take: "light", language: "en", provider: "synthesis" })).rejects.toMatchObject({ code: "no-synthesis" });
+    record({ words: [] });
+    await expect(alignTake(dir(), { take: "light", language: "en", provider: "synthesis" })).rejects.toThrow(/no word timings/);
+    expect(workerCalls).toEqual([]);
   });
 });
