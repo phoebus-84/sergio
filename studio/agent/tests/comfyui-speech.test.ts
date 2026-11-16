@@ -32,7 +32,7 @@ const ENV = ["AVG_LIBRARY_ROOT", "AVG_COMFYUI_URL", "AVG_COMFYUI_CONFIG", "AVG_T
 beforeAll(async () => {
   const work = mkdtempSync(join(tmpdir(), "pva-comfy-flac-"));
   const out = join(work, "two-seconds.flac");
-  const made = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=300:sample_rate=24000:duration=2", "-ac", "1", out], { windowsHide: true });
+  const made = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=300:sample_rate=44100:duration=2", "-ac", "2", out], { windowsHide: true });
   if (made.status !== 0) throw new Error("these tests need ffmpeg on PATH");
   flac = readFileSync(out);
   rmSync(work, { recursive: true, force: true });
@@ -55,6 +55,14 @@ const speak = (params: Record<string, unknown> = {}) =>
   call("pva_synthesize_speech", { sceneId: "line-1", text: TEXT, provider: COMFYUI_PROVIDER, ...params });
 const narration = (file: string) => join(dir, "artifacts", "narration", file);
 const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
+const consentFor = (subject: Buffer | string) => {
+  const path = "assets/voice-consent.json";
+  mkdirSync(join(dir, "assets"), { recursive: true });
+  writeFileSync(join(dir, path), JSON.stringify({ confirmed: true, source: "synthetic",
+    statement: "Only a synthetic fixture voice is used in this test.", license_or_terms: "Synthetic test fixture",
+    recorded_at: "2026-11-16T00:00:00Z", ...(typeof subject === "string" ? { saved_voice: subject } : { reference_audio_sha256: sha(subject) }) }));
+  return path;
+};
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "pva-comfy-"));
@@ -128,6 +136,8 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(queued[0]!["1"]!.inputs).toMatchObject({ text: TEXT, speaker: "Serena", language: "Italian", seed: 7, instruct: "calm", temperature: 0.8, repetition_penalty: 1.05, model_choice: "1.7B", unload_model_after_generate: true });
     const wav = readFileSync(narration("line-1.wav"));
     expect(wav.toString("latin1", 0, 4)).toBe("RIFF");
+    expect(wav.readUInt16LE(22)).toBe(1);
+    expect(wav.readUInt32LE(24)).toBe(24000);
     const receipt = JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"));
     expect(receipt).toMatchObject({
       provider: COMFYUI_PROVIDER, method: "preset-speaker", workflow: "speaker", promptId: "p1", model: "qwen3-tts-1.7B", requestedVoice: "serena",
@@ -136,6 +146,9 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     });
     expect(receipt.durationSeconds).toBeCloseTo(2, 2);
     expect(receipt.words).toBeUndefined();
+    expect(receipt.requestedRuntime).toMatchObject({ device: "auto", precision: "bf16", attention: "auto" });
+    expect(receipt.runtimeVerified).toBe(false);
+    expect(receipt.workflowSha256).toBe(sha(JSON.stringify(queued[0])));
     expect(result.details.durationSec).toBeCloseTo(2, 2);
     expect(result.content[0].text).toContain("$0");
     // the server's address is configuration: it is in no file the tool wrote
@@ -153,18 +166,18 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
   });
 
   it("speaks with a voice saved on the server", async () => {
-    const result = await speak({ voice: "saved:anna" });
+    const result = await speak({ voice: "saved:anna", voiceConsentPath: consentFor("saved:anna") });
     expect(result.isError).toBeFalsy();
     expect(queued[0]!["1"]).toEqual({ class_type: "FB_Qwen3TTSLoadSpeaker", inputs: { filename: "Anna.wav" } });
     expect(JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"))).toMatchObject({ method: "saved-voice", requestedVoice: "saved:anna" });
-    expect((await speak({ voice: "saved:nobody" })).content[0].text).toContain('no saved voice "nobody"; it has Anna');
+    expect((await speak({ voice: "saved:nobody", voiceConsentPath: consentFor("saved:nobody") })).content[0].text).toContain('no saved voice "nobody"; it has Anna');
   });
 
   it("clones a recording of the workspace, uploaded under its content's hash", async () => {
     const reference = Buffer.from("a recording of someone who consented");
     mkdirSync(join(dir, "assets", "voices"), { recursive: true });
     writeFileSync(join(dir, "assets", "voices", "Their Name.wav"), reference);
-    const result = await speak({ referenceAudioPath: "assets/voices/Their Name.wav", referenceText: "What they say.", seed: 3 });
+    const result = await speak({ referenceAudioPath: "assets/voices/Their Name.wav", referenceText: "What they say.", seed: 3, voiceConsentPath: consentFor(reference) });
     expect(result.isError).toBeFalsy();
     expect(uploads).toHaveLength(1);
     expect(uploads[0]).toMatchObject({ name: `${sha(reference).slice(0, 32)}.wav`, subfolder: "studio-speech" });
@@ -174,12 +187,13 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     const receipt = JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"));
     expect(receipt).toMatchObject({ method: "voice-clone", reference: { path: "assets/voices/Their Name.wav", audioSha256: sha(reference), textSha256: sha("What they say.") } });
     expect(receipt.requestedVoice).toBeUndefined();
+    expect(receipt.consent).toMatchObject({ path: "assets/voice-consent.json", source: "synthetic", referenceAudioSha256: sha(reference) });
   });
 
   it("cleans the reference, then clones it, and keeps the cleaned voice to listen to", async () => {
     mkdirSync(join(dir, "assets"), { recursive: true });
     writeFileSync(join(dir, "assets", "noisy.mp3"), Buffer.from("speech over music"));
-    const result = await speak({ referenceAudioPath: "assets/noisy.mp3", referenceText: "What they say.", cleanReference: true, referenceStart: 4, referenceDuration: 11.5, saveVoiceAs: "New_Voice" });
+    const result = await speak({ referenceAudioPath: "assets/noisy.mp3", referenceText: "What they say.", voiceConsentPath: consentFor(Buffer.from("speech over music")), cleanReference: true, referenceStart: 4, referenceDuration: 11.5, saveVoiceAs: "New_Voice" });
     expect(result.isError).toBeFalsy();
     const g = queued[0]!;
     expect(Object.values(g).map((n) => n.class_type)).toEqual(["LoadAudio", "TrimAudioDuration", "AudioSeparation", "SaveAudio", "FB_Qwen3TTSVoiceClonePrompt", "FB_Qwen3TTSSaveVoice", "FB_Qwen3TTSVoiceClone", "SaveAudio"]);
@@ -202,7 +216,7 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(await said({})).toContain("needs voice");
     expect(await said({ voice: "clone:0b0e7c3a-1111-2222-3333-444455556666" })).toContain("enrolled in the local voice worker");
     expect(await said({ voice: "Ryan", referenceText: "x" })).toContain("referenceText needs referenceAudioPath");
-    expect(await said({ voice: "Ryan", voiceId: "abc" })).toContain('voiceId is for provider "elevenlabs"');
+    expect(await said({ provider: "elevenlabs" })).toContain("unsupported speech provider");
     expect(await said({ referenceAudioPath: "assets/none.wav" })).toContain("there is no assets/none.wav");
     expect(await said({ referenceAudioPath: "../../../outside.wav" })).not.toContain("✅");
     mkdirSync(join(dir, "assets"), { recursive: true });
@@ -212,6 +226,45 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(await said({ referenceAudioPath: "assets/ref.wav", instruct: "angry" })).toContain("takes no instruct");
     expect(paths).toEqual([]);
     expect(existsSync(narration("line-1.wav"))).toBe(false);
+  });
+
+  it("requires matching operator consent for raw and saved clones, and honours revocation", async () => {
+    mkdirSync(join(dir, "assets"), { recursive: true });
+    const reference = Buffer.from("synthetic reference");
+    writeFileSync(join(dir, "assets/ref.wav"), reference);
+    const params = { referenceAudioPath: "assets/ref.wav" };
+    expect((await speak(params)).content[0].text).toContain("needs voiceConsentPath");
+    expect((await speak({ voice: "saved:anna" })).content[0].text).toContain("needs voiceConsentPath");
+    const voiceConsentPath = consentFor(Buffer.from("different reference"));
+    expect((await speak({ ...params, voiceConsentPath })).content[0].text).toContain("does not match");
+    const consent = JSON.parse(readFileSync(join(dir, consentFor(reference)), "utf-8"));
+    writeFileSync(join(dir, voiceConsentPath), JSON.stringify({ ...consent, confirmed: false }));
+    expect((await speak({ ...params, voiceConsentPath })).content[0].text).toContain("confirmed:true");
+    expect((await speak({ ...params, voiceConsentPath: "../../../outside.json" })).isError).toBe(true);
+    expect(uploads).toHaveLength(0);
+    expect(queued).toHaveLength(0);
+    consentFor(reference);
+    expect((await speak({ ...params, voiceConsentPath })).isError).toBeFalsy();
+    rmSync(join(dir, voiceConsentPath));
+    expect((await speak({ ...params, voiceConsentPath })).isError).toBe(true);
+    expect(uploads).toHaveLength(1);
+    expect(queued).toHaveLength(1);
+  });
+
+  it("rejects silent or invalid speech before publishing a WAV or receipt", async () => {
+    const work = mkdtempSync(join(tmpdir(), "pva-silent-"));
+    const original = flac;
+    try {
+      const file = join(work, "silent.flac");
+      const made = spawnSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", "1", file]);
+      expect(made.status).toBe(0);
+      flac = readFileSync(file);
+      expect((await speak({ voice: "Ryan" })).content[0].text).toContain("silent speech");
+      expect(existsSync(narration("line-1.wav"))).toBe(false);
+      flac = Buffer.from("not audio");
+      expect((await speak({ voice: "Ryan" })).isError).toBe(true);
+      expect(existsSync(narration("line-1.synthesis.json"))).toBe(false);
+    } finally { flac = original; rmSync(work, { recursive: true, force: true }); }
   });
 
   it("keeps its parameters away from the other providers, and is never chosen for them", async () => {

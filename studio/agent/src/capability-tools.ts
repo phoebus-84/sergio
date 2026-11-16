@@ -1010,6 +1010,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
           "comfyui-qwen: a speaker, or saved:<name> for a voice saved on the ComfyUI server (no aliases, no clone:<id>)",
       })),
       referenceAudioPath: Type.Optional(Type.String({ description: "comfyui-qwen only: workspace-relative recording whose voice is cloned (instead of voice); 5-15 s of one person speaking" })),
+      voiceConsentPath: Type.Optional(Type.String({ description: "comfyui-qwen clone/saved voices only: workspace-relative JSON consent record created by the operator, bound to reference_audio_sha256 or saved_voice. Never create or confirm consent on the operator's behalf." })),
       referenceText: Type.Optional(Type.String({ description: "comfyui-qwen only: exactly what the reference says, word for word (of the part kept, when it is cut); without it only the timbre is cloned" })),
       cleanReference: Type.Optional(Type.Boolean({ description: "comfyui-qwen only: before cloning, cut the reference and separate its voice from music and noise on the server; the cleaned voice is saved beside the WAV as <sceneId>.cleaned-reference.flac" })),
       referenceStart: Type.Optional(Type.Number({ description: "cleanReference only: where the part to learn from starts, in seconds (default 0)" })),
@@ -1033,7 +1034,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         const dir = where(params).dir;
         const provider = params.provider ?? SPEECH_PROVIDERS[0];
         if (!SPEECH_PROVIDERS.includes(provider)) throw new Error(`unsupported speech provider: ${provider}`);
-        const comfyUiOnly = (["referenceAudioPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => params[k] !== undefined);
+        const comfyUiOnly = (["referenceAudioPath", "voiceConsentPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => params[k] !== undefined);
         if (provider !== COMFYUI_PROVIDER && comfyUiOnly.length > 0) {
           throw new Error(`${comfyUiOnly.join(", ")} ${comfyUiOnly.length > 1 ? "are" : "is"} for provider "${COMFYUI_PROVIDER}", and this call speaks with ${provider}: add provider: "${COMFYUI_PROVIDER}" to use the ComfyUI server, or drop ${comfyUiOnly.length > 1 ? "them" : "it"}`);
         }
@@ -1048,6 +1049,12 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             if (!existsSync(absolutePath)) throw new Error(`there is no ${params.referenceAudioPath} in ${where(params).label}`);
             reference = { absolutePath, relativePath: params.referenceAudioPath };
           }
+          let consent: { absolutePath: string; relativePath: string } | undefined;
+          if (params.voiceConsentPath !== undefined) {
+            const guard = await guardWorkspacePath(LIBRARY_ROOT, where(params), params.voiceConsentPath);
+            if (!guard.allowed) throw new Error(guard.reason ?? "voiceConsentPath rejected");
+            consent = { absolutePath: join(dir, params.voiceConsentPath), relativePath: params.voiceConsentPath };
+          }
           const made = await synthesizeWithComfyUi({
             dir,
             libraryRoot: LIBRARY_ROOT,
@@ -1055,6 +1062,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             text: params.text,
             ...(params.voice !== undefined ? { voice: params.voice } : {}),
             ...(reference ? { reference } : {}),
+            ...(consent ? { consent } : {}),
             ...(params.referenceText !== undefined ? { referenceText: params.referenceText } : {}),
             ...(params.cleanReference !== undefined ? { cleanReference: params.cleanReference } : {}),
             ...(params.referenceStart !== undefined ? { referenceStart: params.referenceStart } : {}),

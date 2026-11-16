@@ -66,7 +66,7 @@ const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set and the library's ${COMFYU
 export function comfyUiSpeechTerms(): string {
   return `free, on the operator's own ComfyUI server (${COMFYUI_URL_ENV}); voice is a speaker (${QWEN_NODE_SPEAKERS.join(", ")}) or saved:<name> for a voice saved there; ` +
     "or referenceAudioPath clones the voice of a recording in this workspace (referenceText: exactly what it says — much closer with it), " +
-    `and cleanReference first cuts it (referenceStart, referenceDuration, default the first ${DEFAULT_REFERENCE_SECONDS} s) and separates the voice from music and noise`;
+    `and cleanReference first cuts it (referenceStart, referenceDuration, default the first ${DEFAULT_REFERENCE_SECONDS} s) and separates the voice from music and noise; cloned and saved voices require voiceConsentPath, an operator-created consent record bound to the reference hash or saved name`;
 }
 
 /** Whether the server answers and what it can do, for pva_capability_status. */
@@ -107,14 +107,15 @@ export async function comfyUiVoices(libraryRoot: string): Promise<{ speakers: st
 }
 
 /** FLAC to 16-bit PCM WAV, at the rate and channels it has. */
-async function flacToWav(flac: Buffer): Promise<Buffer> {
+async function flacToWav(flac: Buffer, canonical = false, signal?: AbortSignal): Promise<Buffer> {
+  signal?.throwIfAborted();
   const work = mkdtempSync(join(tmpdir(), "pva-comfyui-speech-"));
   try {
     const input = join(work, "speech.flac");
     const output = join(work, "speech.wav");
     writeFileSync(input, flac);
     const { status, stderr } = await new Promise<{ status: number | null; stderr: string }>((resolve) => {
-      const child = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", input, "-map_metadata", "-1", "-c:a", "pcm_s16le", output], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+      const child = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", input, "-map_metadata", "-1", ...(canonical ? ["-ar", "24000", "-ac", "1"] : []), "-c:a", "pcm_s16le", output], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000) });
       let err = "";
       child.stderr.on("data", (chunk: Buffer) => { err += chunk.toString("utf-8"); });
       child.on("error", (e) => resolve({ status: null, stderr: e.message }));
@@ -127,12 +128,27 @@ async function flacToWav(flac: Buffer): Promise<Buffer> {
   }
 }
 
-/** Seconds of a canonical PCM WAV, from its header. */
-function wavSeconds(wav: Buffer): number {
-  const data = wav.indexOf("data", 12, "latin1");
-  const byteRate = wav.readUInt32LE(28);
-  if (data < 0 || byteRate === 0) return 0;
-  return Math.min(wav.readUInt32LE(data + 4), wav.length - data - 8) / byteRate;
+/** Read RIFF chunks rather than searching for a word inside metadata or samples. */
+function wavSeconds(wav: Buffer, requireSpeech = false): number {
+  if (wav.length < 12 || wav.toString("ascii", 0, 4) !== "RIFF" || wav.toString("ascii", 8, 12) !== "WAVE") throw new Error("FFmpeg returned no PCM WAV");
+  let byteRate = 0;
+  let samples: Buffer | undefined;
+  for (let at = 12; at + 8 <= wav.length;) {
+    const id = wav.toString("ascii", at, at + 4);
+    const size = wav.readUInt32LE(at + 4);
+    const end = at + 8 + size;
+    if (end > wav.length) throw new Error("FFmpeg returned a truncated WAV");
+    if (id === "fmt " && size >= 16) {
+      if (wav.readUInt16LE(at + 8) !== 1 || wav.readUInt16LE(at + 22) !== 16) throw new Error("Expected PCM16 WAV");
+      if (requireSpeech && (wav.readUInt16LE(at + 10) !== 1 || wav.readUInt32LE(at + 12) !== 24000)) throw new Error("Expected mono 24 kHz speech");
+      byteRate = wav.readUInt32LE(at + 16);
+    }
+    if (id === "data") samples = wav.subarray(at + 8, end);
+    at = end + (size % 2);
+  }
+  if (!byteRate || !samples?.length) throw new Error("FFmpeg returned an empty WAV");
+  if (requireSpeech && !samples.some((byte) => byte !== 0)) throw new Error("ComfyUI returned silent speech");
+  return samples.length / byteRate;
 }
 
 export interface ComfyUiSpeechRequest {
@@ -146,6 +162,8 @@ export interface ComfyUiSpeechRequest {
   /** The recording to clone, already checked to be inside the workspace. */
   reference?: { absolutePath: string; relativePath: string };
   referenceText?: string;
+  /** Operator-maintained consent record, guarded to this workspace. */
+  consent?: { absolutePath: string; relativePath: string };
   cleanReference?: boolean;
   referenceStart?: number;
   referenceDuration?: number;
@@ -170,6 +188,32 @@ export interface ComfyUiSpeechResult {
 
 const sha256 = (data: Buffer | string) => createHash("sha256").update(data).digest("hex");
 
+/** A clone cannot bypass consent merely by choosing a different provider. */
+function cloneConsent(r: ComfyUiSpeechRequest, referenceBytes?: Buffer): Record<string, unknown> | undefined {
+  const cloning = Boolean(r.reference || r.voice?.startsWith(SAVED_PREFIX));
+  if (!cloning) {
+    if (r.consent) throw new Error("voiceConsentPath is only for a cloned or saved voice");
+    return undefined;
+  }
+  if (!r.consent) throw new Error("cloning needs voiceConsentPath: an operator-created consent record bound to this reference or saved voice");
+  const bytes = readFileSync(r.consent.absolutePath);
+  if (bytes.length > 16_384) throw new Error("voice consent record exceeds 16 KiB");
+  const value: unknown = JSON.parse(bytes.toString("utf-8"));
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("voice consent must be a JSON object");
+  const c = value as Record<string, unknown>;
+  if (c.confirmed !== true || typeof c.source !== "string" || !["self_recorded", "licensed", "synthetic"].includes(c.source) ||
+      typeof c.statement !== "string" || c.statement.length < 10 || c.statement.length > 1000 ||
+      typeof c.license_or_terms !== "string" || c.license_or_terms.length < 2 || c.license_or_terms.length > 500 ||
+      typeof c.recorded_at !== "string" || !Number.isFinite(Date.parse(c.recorded_at))) {
+    throw new Error("voice consent needs confirmed:true, source, statement (10–1000 chars), license_or_terms (2–500 chars), and recorded_at");
+  }
+  if (referenceBytes ? c.reference_audio_sha256 !== sha256(referenceBytes) : c.saved_voice !== r.voice) {
+    throw new Error("voice consent does not match this reference_audio_sha256 or saved_voice");
+  }
+  return { path: r.consent.relativePath.replace(/\\/g, "/"), sha256: sha256(bytes), source: c.source, recordedAt: c.recorded_at,
+    ...(referenceBytes ? { referenceAudioSha256: c.reference_audio_sha256 } : { savedVoice: c.saved_voice }) };
+}
+
 export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<ComfyUiSpeechResult> {
   // Everything that can be refused is refused before the server is asked.
   const cleaning = (["referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => r[k] !== undefined);
@@ -186,6 +230,9 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
   const saved = r.voice?.startsWith(SAVED_PREFIX) ? r.voice.slice(SAVED_PREFIX.length) : undefined;
   if (saved !== undefined && r.instruct) throw new Error("a saved voice takes no instruct: its manner is the reference's");
 
+  const referenceBytes = r.reference ? readFileSync(r.reference.absolutePath) : undefined;
+  const consent = cloneConsent(r, referenceBytes);
+  r.signal?.throwIfAborted();
   const config = comfyUiConfig(r.libraryRoot);
   if (!config.url) throw new Error(NOT_CONFIGURED);
   const client = createComfyUiClient({ baseUrl: config.url });
@@ -205,13 +252,11 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
 
   let speech: SpeechResult;
   let method: string;
-  let referenceBytes: Buffer | undefined;
   try {
     if (r.reference) {
-      referenceBytes = readFileSync(r.reference.absolutePath);
       const reference = {
         // Only the extension leaves this machine: the package names the upload by its content's hash.
-        reference: { bytes: referenceBytes, filename: basename(r.reference.absolutePath) },
+        reference: { bytes: referenceBytes!, filename: basename(r.reference.absolutePath) },
         ...(r.referenceText ? { referenceText: r.referenceText } : {}),
         ...(config.inputSubfolder ? { inputSubfolder: config.inputSubfolder } : {}),
       };
@@ -240,7 +285,9 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     throw e;
   }
 
-  const wav = await flacToWav(speech.audio);
+  const wav = await flacToWav(speech.audio, true, r.signal);
+  const durationSeconds = Math.round(wavSeconds(wav, true) * 1000) / 1000;
+  r.signal?.throwIfAborted();
   const narrationDir = join(r.dir, "artifacts", "narration");
   const audioPath = join(narrationDir, `${r.sceneId}.wav`);
   const receiptPath = join(narrationDir, `${r.sceneId}.synthesis.json`);
@@ -250,7 +297,6 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
   const cleanedName = `${r.sceneId}.cleaned-reference.flac`;
   if (speech.cleanedReference) writeFileSync(join(narrationDir, cleanedName), speech.cleanedReference.audio);
 
-  const durationSeconds = Math.round(wavSeconds(wav) * 1000) / 1000;
   const sampling = {
     ...(r.temperature !== undefined ? { temperature: r.temperature } : {}),
     ...(r.repetitionPenalty !== undefined ? { repetitionPenalty: r.repetitionPenalty } : {}),
@@ -260,6 +306,10 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     method,
     workflow: speech.workflow,
     promptId: speech.promptId,
+    workflowSha256: sha256(JSON.stringify(speech.prompt)),
+    requestedRuntime: settings,
+    runtimeVerified: false, // The server does not report exact checkpoint hashes or resolved runtime versions.
+    ...(consent ? { consent } : {}),
     model: `qwen3-tts-${settings.model}`,
     precision: settings.precision,
     ...(r.voice !== undefined ? { requestedVoice: r.voice } : {}),
@@ -338,7 +388,8 @@ export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ r
     if (e instanceof ComfyUiError && e.code === "unreachable") throw new Error(`${e.message}: is the server running, and the operator's tunnel to it open?`);
     throw e;
   }
-  const wav = await flacToWav(cleaned.audio);
+  const wav = await flacToWav(cleaned.audio, false, r.signal);
+  r.signal?.throwIfAborted();
   mkdirSync(dirname(r.output.absolutePath), { recursive: true });
   writeFileSync(r.output.absolutePath, wav);
   const durationSeconds = Math.round(wavSeconds(wav) * 1000) / 1000;

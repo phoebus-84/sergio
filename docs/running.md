@@ -337,10 +337,37 @@ no spend ledger, and never chosen on its own.
   the server); `referenceAudioPath` clones a recording of the workspace, with
   `referenceText` its exact words; `cleanReference: true` cuts it
   (`referenceStart`, `referenceDuration`) and separates the voice from music
-  and noise first, `saveVoiceAs` keeps the learned voice on the server. Clone
-  only a voice whose owner consented.
-- **The receipt** names the workflow, the reference's hashes, the seed and the
-  sampling. Qwen times no words: align the take with `pva_align_take`.
+  and noise first, `saveVoiceAs` keeps the learned voice on the server.
+- **Consent is checked before upload or execution.** A reference clone or
+  `saved:<name>` requires `voiceConsentPath`, a workspace-relative JSON file
+  **created by the operator**, never approved by the agent on their behalf:
+  ```json
+  {
+    "confirmed": true,
+    "source": "synthetic",
+    "statement": "I authorize this synthetic reference for this production.",
+    "license_or_terms": "Applicable reference licence or permission",
+    "recorded_at": "2026-11-16T00:00:00Z",
+    "reference_audio_sha256": "<SHA-256 of the original reference file>"
+  }
+  ```
+  `source` is `self_recorded`, `licensed` or `synthetic`. For a saved voice,
+  replace `reference_audio_sha256` with `"saved_voice": "saved:<name>"`, exactly
+  matching the request. Removing the file or setting `confirmed: false`
+  blocks subsequent calls. This records authorization; it cannot independently
+  prove ownership. Saved names can change on the server and have no verified
+  waveform identity. Uploads and optionally saved voices remain on ComfyUI;
+  revoking this local record does not delete them there.
+- **The receipt** names the workflow hash, consent-record hash, reference
+  hashes, seed and sampling. `requestedRuntime` is what the studio asked for;
+  `runtimeVerified: false` means ComfyUI did not attest the actual checkpoint
+  hashes or resolved runtime versions. Speech is validated non-silent mono
+  PCM16/24 kHz WAV. Qwen times no words: register with `pva_register_take`,
+  then align with `pva_align_take` and verify the take.
+- **Same flow, explicit choice:** omitting `provider` keeps the local worker
+  (MLX or Torch); `comfyui-qwen` is never a fallback. Episodes, channel sources
+  and film units use the same synthesis/register/align/verify tools. This does
+  not replace the worker's durable `/attempt-jobs` and mastering contracts.
 - `pva_capability_status` says whether the server answers, which workflows it
   has the nodes for, and its saved voices; `pva_voices` lists them.
 - **Clean only:** `pva_clean_voice` separates a recording's voice from music

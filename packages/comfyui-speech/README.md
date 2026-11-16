@@ -82,4 +82,9 @@ then the local end.
 - Output is FLAC as the server wrote it; converting is the caller's.
 - No word timings: Qwen3-TTS returns none.
 - VoiceDesign, dialogue and fine-tuning nodes are not used.
-- Clone only a voice whose owner consented; this package cannot check it.
+- Clone only a voice whose owner consented; authorization policy belongs to
+  the caller. The studio adapter requires an operator-created `voiceConsentPath`
+  before executing a reference or saved-voice clone.
+- A node accepts requested runtime settings, but this API does not attest
+  resolved dependency versions or checkpoint hashes. The studio records that
+  limitation rather than treating requested settings as verified provenance.
