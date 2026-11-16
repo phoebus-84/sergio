@@ -5,6 +5,8 @@
 
   interface Props {
     channelSlug: string;
+    /** The kind of project the series is in: in a film it is a scene, and what is under it are shots. */
+    kind?: "channel" | "film";
     series: ResolvedSeries;
     autoExpand?: boolean;
     /** Hold the branch open regardless of local state, e.g. while filtering. */
@@ -13,6 +15,7 @@
 
   let {
     channelSlug,
+    kind = "channel",
     series,
     autoExpand = false,
     forceExpand = false,
@@ -67,8 +70,8 @@
       onkeydown={onKeydown}
     >
       <span class="series-name">{series.title}</span>
-      <span class="series-count" aria-label="{series.episodes.length} episodes">
-        {series.episodes.length === 0 ? "empty" : `${series.episodes.length} ep`}
+      <span class="series-count" aria-label="{series.episodes.length} {kind === "film" ? "shots" : "episodes"}">
+        {series.episodes.length === 0 ? "empty" : `${series.episodes.length} ${kind === "film" ? (series.episodes.length === 1 ? "shot" : "shots") : "ep"}`}
       </span>
     </button>
     {#if series.error}

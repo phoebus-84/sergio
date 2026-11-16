@@ -28,7 +28,7 @@ import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { appendJournalEvent, parseJournal, JOURNAL_RELATIVE_PATH, ulid } from "./journal.mjs";
-import { channelPath, seriesPath, episodePath } from "./layout.mjs";
+import { channelPath, seriesPath, episodePath, projectKind, SELF } from "./layout.mjs";
 
 /** Capabilities that cost money when a stage performs them. */
 export const PAID_CAPABILITIES = Object.freeze(["image.generate", "image.edit", "video.generate"]);
@@ -91,19 +91,50 @@ export function envelopeFromSettings(doc) {
   return { currency, limitMicros: raw.limitMicros, warnAtMicros: warn };
 }
 
-/** Where an episode's budget may be declared, nearest first. */
+/**
+ * Where a unit's budget may be declared, nearest first.
+ *
+ * In a film the three levels are the shot, its scene and the film; a scene's
+ * own unit starts at the scene, the film's at the film.
+ */
 export function budgetSettingsFiles(root, ref) {
-  return [
-    { file: path.join(episodePath(root, ref.channel, ref.series, ref.episode), "settings.yaml"), level: "episode" },
-    { file: path.join(seriesPath(root, ref.channel, ref.series), "settings.yaml"), level: "series" },
-    { file: path.join(channelPath(root, ref.channel), "settings.yaml"), level: "channel" },
-  ];
+  const film = projectKind(root, ref.channel) === "film";
+  const levels = film ? ["shot", "scene", "film"] : ["episode", "series", "channel"];
+  const files = [];
+  if (!film || (ref.series !== SELF && ref.episode !== SELF)) {
+    files.push({ file: path.join(episodePath(root, ref.channel, ref.series, ref.episode), "settings.yaml"), level: levels[0] });
+  }
+  if (!film || ref.series !== SELF) {
+    files.push({ file: path.join(seriesPath(root, ref.channel, ref.series), "settings.yaml"), level: levels[1] });
+  }
+  files.push({ file: path.join(channelPath(root, ref.channel), "settings.yaml"), level: levels[2] });
+  return files;
 }
 
 /**
- * The budget governing an episode: the nearest declaration wins, and nothing
+ * The directory whose journal is a unit's spend ledger.
+ *
+ * An episode's is its own: a channel's or a series' budget is an allowance
+ * each episode has. A film is one work with one purse: the ledger is the
+ * journal of the level that declares the budget — the film's when the film
+ * declares it or nothing does — so a film's limit is checked against what
+ * every shot of it spent, and a scene or a shot that declares its own budget
+ * keeps its own ledger.
+ *
+ * @param from the level `resolveBudgetEnvelope` found the budget at, or null
+ */
+export function budgetLedgerDir(root, ref, from = null) {
+  if (projectKind(root, ref.channel) !== "film") return episodePath(root, ref.channel, ref.series, ref.episode);
+  if (from === "shot") return episodePath(root, ref.channel, ref.series, ref.episode);
+  if (from === "scene") return seriesPath(root, ref.channel, ref.series);
+  return channelPath(root, ref.channel);
+}
+
+/**
+ * The budget governing a unit: the nearest declaration wins, and nothing
  * is defaulted. `parse` turns YAML text into an object — contracts carries no
- * parser of its own, and every caller already has one.
+ * parser of its own, and every caller already has one. `ledgerDir` is where
+ * that budget's spend is recorded (`budgetLedgerDir`).
  */
 export async function resolveBudgetEnvelope(root, ref, parse) {
   for (const { file, level } of budgetSettingsFiles(root, ref)) {
@@ -120,9 +151,9 @@ export async function resolveBudgetEnvelope(root, ref, parse) {
       continue;
     }
     const envelope = envelopeFromSettings(doc);
-    if (envelope) return { envelope, from: level };
+    if (envelope) return { envelope, from: level, ledgerDir: budgetLedgerDir(root, ref, level) };
   }
-  return { envelope: null, from: null };
+  return { envelope: null, from: null, ledgerDir: budgetLedgerDir(root, ref, null) };
 }
 
 // ── What was spent before there was a ledger ───────────────────────────────

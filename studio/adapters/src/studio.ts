@@ -13,6 +13,7 @@ import { narrationCaptions } from "./adapters/captions.js";
 import { narrationTiming } from "./adapters/timing.js";
 import { renderQa } from "./adapters/render-qa.js";
 import { seriesCheck, seriesRender, seriesSheet, seriesTimeline } from "./adapters/series.js";
+import { cutRender } from "./adapters/film.js";
 
 export const STUDIO_ADAPTERS: readonly StageAdapter[] = Object.freeze([
   illustrationsFromAssets,
@@ -23,6 +24,7 @@ export const STUDIO_ADAPTERS: readonly StageAdapter[] = Object.freeze([
   seriesCheck,
   seriesSheet,
   seriesRender,
+  cutRender,
 ]);
 
 export function createStudioRegistry(): AdapterRegistry {

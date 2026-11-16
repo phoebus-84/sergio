@@ -15,6 +15,7 @@ import fastifyMultipart from "@fastify/multipart";
 import { registerWorkspaceFileRoutes } from "./routes/workspace-files.js";
 import { registerAssetRoutes } from "./routes/assets.js";
 import { registerBudgetRoutes } from "./routes/budget.js";
+import { registerFilmRoutes } from "./routes/films.js";
 import * as path from "node:path";
 import { realpathSync } from "node:fs";
 import { registerOpenApiRoute } from "./contract/index.js";
@@ -241,6 +242,9 @@ export async function createGateway(
   ] as const) {
     registerWorkspaceFileRoutes(app, { root: libraryRoot, level, prefix });
   }
+
+  // Films: the tree, the footage, the cuts and their renders (ADR-0050).
+  registerFilmRoutes(app, { root: libraryRoot, bus: events.bus });
 
   // Choosing which attempt fulfils a production role, persisted.
   registerAssetRoutes(app, libraryRoot);

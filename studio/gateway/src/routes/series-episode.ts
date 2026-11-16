@@ -29,7 +29,8 @@ const TAKES = "artifacts/narration/takes.json";
 
 function parseEpisode(params: Record<string, string>): EpisodeRef {
   const ref = { channel: params.channel ?? "", series: params.series ?? "", episode: params.episode ?? "" };
-  if (![ref.channel, ref.series, ref.episode].every((part) => SLUG.test(part))) {
+  // In a film, `_` in the second and third place names the level itself (ADR-0050).
+  if (!SLUG.test(ref.channel) || ![ref.series, ref.episode].every((part) => part === "_" || SLUG.test(part))) {
     throw new GatewayError({ code: ErrorCode.BAD_REQUEST, message: "channel, series and episode must be slugs" });
   }
   return ref;

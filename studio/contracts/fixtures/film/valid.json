@@ -1,0 +1,72 @@
+{
+  "films": [
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "Film",
+      "slug": "the-long-shift",
+      "title": "The Long Shift",
+      "logline": "A night nurse finds the ward she works in is one hour behind the rest of the city.",
+      "genre": "drama",
+      "language": "en",
+      "runtimeTargetSeconds": 5400,
+      "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24, "aspect": "16:9", "loudness": { "integrated": -16, "truePeak": -1, "range": 15 } },
+      "sequences": [
+        { "id": "arrival", "title": "Arrival", "act": "I", "scenes": ["010-car-park", "020-ward"] },
+        { "id": "the-hour", "title": "The missing hour", "act": "II", "scenes": ["030-corridor"] }
+      ],
+      "createdAt": "2026-11-11T09:00:00.000Z"
+    },
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "Film",
+      "slug": "tide",
+      "title": "Tide",
+      "format": { "id": "tide-super8", "width": 1440, "height": 1080, "fps": 24 }
+    }
+  ],
+  "scenes": [
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "Scene",
+      "slug": "010-car-park",
+      "number": "10",
+      "title": "Car park",
+      "heading": "EXT. HOSPITAL CAR PARK - NIGHT",
+      "setting": "ext",
+      "location": "hospital",
+      "timeOfDay": "night",
+      "summary": "Mara arrives late and sees every clock in the building is wrong.",
+      "characters": ["mara"],
+      "durationTargetSeconds": 45,
+      "shots": ["010-wide", "020-close-mara"]
+    },
+    { "apiVersion": "studio.video/v1alpha1", "kind": "Scene", "slug": "020-ward", "number": "20A", "title": "Ward" }
+  ],
+  "shots": [
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "Shot",
+      "slug": "010-wide",
+      "number": "1",
+      "title": "The car park, empty",
+      "description": "A sodium-lit car park; one car pulls in.",
+      "source": "footage",
+      "size": "wide",
+      "angle": "high",
+      "movement": "static",
+      "lens": "24mm",
+      "durationSeconds": 6,
+      "sound": "sync"
+    },
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "Shot",
+      "slug": "020-close-mara",
+      "title": "Mara looks up",
+      "source": "generated",
+      "size": "close",
+      "characters": ["mara"],
+      "dialogue": [{ "character": "mara", "line": "That can't be right.", "delivery": "under her breath" }]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+[
+  {
+    "id": "hd-24",
+    "title": "HD 16:9, 24 fps",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "aspect": "16:9",
+    "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+  },
+  {
+    "id": "hd-25",
+    "title": "HD 16:9, 25 fps",
+    "width": 1920,
+    "height": 1080,
+    "fps": 25,
+    "aspect": "16:9",
+    "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+  },
+  {
+    "id": "hd-30",
+    "title": "HD 16:9, 30 fps",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "aspect": "16:9",
+    "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+  },
+  {
+    "id": "uhd-24",
+    "title": "UHD 16:9, 24 fps",
+    "width": 3840,
+    "height": 2160,
+    "fps": 24,
+    "aspect": "16:9",
+    "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+  },
+  {
+    "id": "scope-24",
+    "title": "Scope 2.39:1, 24 fps",
+    "width": 2048,
+    "height": 858,
+    "fps": 24,
+    "aspect": "2.39:1",
+    "loudness": { "integrated": -24, "truePeak": -2, "range": 20 }
+  },
+  {
+    "id": "flat-24",
+    "title": "Flat 1.85:1, 24 fps",
+    "width": 1998,
+    "height": 1080,
+    "fps": 24,
+    "aspect": "1.85:1",
+    "loudness": { "integrated": -24, "truePeak": -2, "range": 20 }
+  },
+  {
+    "id": "academy-24",
+    "title": "Academy 4:3, 24 fps",
+    "width": 1440,
+    "height": 1080,
+    "fps": 24,
+    "aspect": "4:3",
+    "loudness": { "integrated": -16, "truePeak": -1, "range": 15 }
+  },
+  {
+    "id": "vertical-30",
+    "title": "Vertical 9:16, 30 fps",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "aspect": "9:16",
+    "loudness": { "integrated": -14, "truePeak": -1, "range": 11 }
+  },
+  {
+    "id": "square-30",
+    "title": "Square 1:1, 30 fps",
+    "width": 1080,
+    "height": 1080,
+    "fps": 30,
+    "aspect": "1:1",
+    "loudness": { "integrated": -14, "truePeak": -1, "range": 11 }
+  }
+]

@@ -1,4 +1,4 @@
-import type { EpisodeStatus } from "$contracts/gateway";
+import type { EpisodeStatus, ProjectKind } from "$contracts/gateway";
 
 /** A resolved library tree with all three levels populated. */
 export interface LibraryTree {
@@ -8,6 +8,8 @@ export interface LibraryTree {
 export interface ResolvedChannel {
   slug: string;
   title: string;
+  /** A channel, or a film: the same three levels read as film, scene and shot. */
+  kind: ProjectKind;
   series: ResolvedSeries[];
   error?: string;
 }
@@ -16,6 +18,9 @@ export interface ResolvedSeries {
   slug: string;
   title: string;
   channel: string;
+  /** A scene: the sequence and the act of the film it is in. */
+  sequence?: string | null;
+  act?: string | null;
   episodes: ResolvedEpisode[];
   error?: string;
 }
@@ -76,4 +81,10 @@ export const STATUS_ORDER: Record<EpisodeDisplayStatus, number> = {
   idle: 6,
   cancelled: 7,
   malformed: 8,
+};
+
+/** What each level of a project is called, by the project's kind. */
+export const LEVEL_NAMES: Record<ProjectKind, { project: string; group: string; unit: string; groups: string; units: string }> = {
+  channel: { project: "channel", group: "series", unit: "episode", groups: "series", units: "episodes" },
+  film: { project: "film", group: "scene", unit: "shot", groups: "scenes", units: "shots" },
 };

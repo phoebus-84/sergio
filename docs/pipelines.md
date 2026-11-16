@@ -46,6 +46,7 @@ see [ADR-0001](adr/0001-series-pipelines-use-explicit-inheritance.md).
 | `fairy-tale-adaptation` | Tale ingestion, audience adaptation and reviews plus the narrated path |
 | `repository-documentation` | Repository-grounded explanation plus the narrated path |
 | `blender-animation` | Shot plan → editable scene → preview/artist handoff → animation → shot acceptance |
+| `film-project`, `film-scene`, `film-shot` and their variants | A film at its three levels — see [the film families](#the-film-families) |
 
 `blender-animation` is a **Pi-directed silent-shot workflow**. It does not require
 fal, voice synthesis or VHS, and it does not add production handlers to the legacy
@@ -71,6 +72,48 @@ gateway, so with no gateway running they fail. A declared gate holds a
 stage's completion, not the production tools: `pva_generate_image` and the
 other capability tools are bounded by the spend ledger, not by a gate. See the
 [harness review](harness-review.md) before unattended execution.
+
+## The film families
+
+A film is produced at three levels, and each level runs a pipeline of its
+own (ADR-0050). The families differ only in where they wait for a person.
+
+| Level | ID | Stages | A person approves |
+|---|---|---|---|
+| film | `film-project` | development → screenplay → look and sound → breakdown → scenes · music → cut → render → final review | every creative stage and the final review |
+| film | `film-project-auto` | the same | the final review only |
+| scene | `film-scene` | direction → shots · sound → cut → render | the direction and the cut |
+| scene | `film-scene-auto` | the same | nothing |
+| shot | `film-shot` | plan → media → cut → render | the choice of take |
+| shot | `film-shot-auto` | the same | nothing |
+| shot | `film-shot-directed` | the same | the plan, the take and the cut |
+
+The film's `scenes` stage and a scene's `shots` stage are where one level
+runs the next: the agent runs each unit under it through that unit's own
+pipeline and records the render each reached. `render` is the only
+capability stage: `studio/adapters` performs it with the cut renderer, and it
+renders first whatever under the unit is out of date.
+
+When nothing declares otherwise a film runs `film-project`, a scene
+`film-scene` and a shot `film-shot`. A unit's `pipeline.yaml` names its own
+pipeline and may name the one the levels under it run; the nearest
+declaration wins:
+
+```yaml
+# library/<film>/pipeline.yaml
+pipeline: film-project-auto
+scenes: film-scene-auto
+shots: film-shot-auto        # every shot, unless its scene or the shot says otherwise
+```
+
+```yaml
+# library/<film>/scenes/<scene>/pipeline.yaml — this one scene, by hand
+pipeline: film-scene
+shots: film-shot-directed
+```
+
+The browser studio sets these from each level's **Who decides** panel. A clip
+or a track a person locked in a cut stays theirs whatever the pipeline.
 
 ## The series-production family
 

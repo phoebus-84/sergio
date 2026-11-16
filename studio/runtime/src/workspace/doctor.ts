@@ -4,13 +4,14 @@
 
 import type { FileSystem } from "../ports/filesystem.js";
 import { TREE_BY_KIND } from "./tree.js";
-import { SERIES_CONTAINER, EPISODES_CONTAINER } from "@studio/contracts/src/layout.mjs";
+import { SERIES_CONTAINER, EPISODES_CONTAINER, SCENES_CONTAINER, FILM_MANIFEST } from "@studio/contracts/src/layout.mjs";
 import type { WorkspaceKind } from "./types.js";
 
 // ---- Types -----------------------------------------------------------------
 
 export interface DoctorFinding {
-  level: WorkspaceKind;
+  /** The level the finding is about. A film is the other kind of project a library holds (ADR-0050). */
+  level: WorkspaceKind | "film";
   path: string;
   code: string;
   message: string;
@@ -60,6 +61,15 @@ export async function doctor(opts: DoctorOptions): Promise<DoctorReport> {
 
   for (const channelSlug of channels) {
     const channelPath = `${opts.libraryRoot}/${channelSlug}`;
+
+    // A film is not a channel short of a channel.md and a series/: it is the
+    // other kind of project, and is held to what a film has.
+    const filmManifest = await opts.fs.exists(`${channelPath}/${FILM_MANIFEST}`);
+    if (filmManifest.ok && filmManifest.value) {
+      await checkFilm(opts.fs, channelPath, findings);
+      continue;
+    }
+
     await checkLevel(opts.fs, channelPath, "channel", findings);
 
     // Layout 2: descend through the explicit containers, so a channel's own
@@ -97,6 +107,23 @@ export async function doctor(opts: DoctorOptions): Promise<DoctorReport> {
 
   const ok = !findings.some((f) => f.code.startsWith("E_"));
   return { ok, findings };
+}
+
+// ---- A film ----------------------------------------------------------------
+
+/**
+ * A film's own manifest made the directory a film; what else it must have is
+ * the container its scenes live in. Its scenes and shots are checked where
+ * they are produced — by their manifests' contract and their cuts' — not here.
+ */
+async function checkFilm(fs: FileSystem, filmPath: string, findings: DoctorFinding[]): Promise<void> {
+  const scenes = `${filmPath}/${SCENES_CONTAINER}`;
+  const exists = await fs.exists(scenes);
+  if (!exists.ok) {
+    findings.push({ level: "film", path: scenes, code: "E_IO_ERROR", message: `Failed to check existence: ${exists.error.message}` });
+  } else if (!exists.value) {
+    findings.push({ level: "film", path: scenes, code: "E_MISSING_REQUIRED", message: `Required film file/directory missing: ${SCENES_CONTAINER}` });
+  }
 }
 
 // ---- Level check -----------------------------------------------------------

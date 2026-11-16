@@ -129,7 +129,30 @@ export const agent = new AgentStore();
 export function suggestionsFor(
   view: string,
   viewer: string | undefined,
+  filmLevel?: "film" | "scene" | "shot",
 ): string[] {
+  /* A film's views ask different things of the agent than an episode's: the
+     work is shots, cuts and renders at three levels. */
+  if (filmLevel && view !== "files") {
+    switch (view) {
+      case "cut":
+        return filmLevel === "shot"
+          ? ["Grade this to match the scene", "Trim the head and tail", "Try another take"]
+          : filmLevel === "scene"
+            ? ["Tighten the cutting", "Lay room tone under the dialogue", "Smooth the cuts with J and L edits"]
+            : ["Score this and duck it under dialogue", "Even out the grade across scenes", "Mix to the delivery loudness"];
+      case "footage":
+        return ["Log these takes and pick the best", "Match the footage to the shot list", "Find archive footage for a missing shot"];
+      case "stages":
+        return ["Why did this stop?", "Run this level on its own", "Summarise where this stands"];
+      default:
+        return filmLevel === "shot"
+          ? ["Make this shot", "Write its prompt from the plan", "Cut it from the footage"]
+          : filmLevel === "scene"
+            ? ["Break this scene into shots", "Make every shot that is missing", "Render the scene"]
+            : ["Break the screenplay into scenes", "What stands between the film and its render?", "Render everything that is out of date"];
+    }
+  }
   if (view === "files") {
     switch (viewer) {
       case "image":

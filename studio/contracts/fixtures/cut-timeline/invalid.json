@@ -1,0 +1,1382 @@
+[
+  {
+    "name": "no tracks",
+    "code": "minItems",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": []
+    }
+  },
+  {
+    "name": "a fractional frame",
+    "code": "type",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 1.5,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "an unknown rate",
+    "code": "enum",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 23
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "two tracks with one id",
+    "code": "duplicate-track",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "v1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "two clips with one id",
+    "code": "duplicate-clip",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a clip with two sources",
+    "code": "clip-source",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a",
+                "path": "x.mp4"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a clip with no source",
+    "code": "clip-source",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {},
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a colour as sound",
+    "code": "clip-source",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "color": "#000000"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "picture clips overlapping without a transition",
+    "code": "clip-overlap",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 40,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "picture clips out of order",
+    "code": "clip-order",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            },
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "an overlap longer than its transition",
+    "code": "clip-overlap",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 30,
+              "duration": 48,
+              "transitionIn": {
+                "type": "dissolve",
+                "duration": 6
+              }
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a transition longer than its clip",
+    "code": "clip-transition",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48,
+              "transitionOut": {
+                "type": "fade",
+                "duration": 60
+              }
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a transition on sound",
+    "code": "clip-transition",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96,
+              "transitionIn": {
+                "type": "fade",
+                "duration": 6
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "fades longer than the clip",
+    "code": "clip-fade",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96,
+              "fadeIn": 60,
+              "fadeOut": 60
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a picture field on sound",
+    "code": "clip-field",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96,
+              "opacity": 0.5
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a sound field on picture",
+    "code": "clip-field",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48,
+              "gain": -3
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a duck under a track that is not there",
+    "code": "duck-unknown",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ],
+          "duck": {
+            "under": [
+              "voice"
+            ],
+            "gain": -10
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "a duck under itself",
+    "code": "duck-self",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ],
+          "duck": {
+            "under": [
+              "a1"
+            ],
+            "gain": -10
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "a sound role on picture",
+    "code": "track-role",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ],
+          "role": "music"
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a path that climbs out",
+    "code": "pattern",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "../other/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "an absolute path",
+    "code": "pattern",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "project": "/etc/passwd"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a speed of zero",
+    "code": "minimum",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48,
+              "speed": 0
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "an effect with a nested parameter",
+    "code": "anyOf",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48,
+              "effects": [
+                {
+                  "type": "lut",
+                  "params": {
+                    "file": {
+                      "path": "x"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "a marker twice",
+    "code": "duplicate-marker",
+    "doc": {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "CutTimeline",
+      "unit": {
+        "channel": "f",
+        "series": "s",
+        "episode": "_"
+      },
+      "revision": 1,
+      "format": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 24
+      },
+      "tracks": [
+        {
+          "id": "v1",
+          "kind": "video",
+          "clips": [
+            {
+              "id": "a",
+              "source": {
+                "unit": "shot-a"
+              },
+              "at": 0,
+              "duration": 48
+            },
+            {
+              "id": "b",
+              "source": {
+                "unit": "shot-b"
+              },
+              "at": 48,
+              "duration": 48
+            }
+          ]
+        },
+        {
+          "id": "a1",
+          "kind": "audio",
+          "clips": [
+            {
+              "id": "m",
+              "source": {
+                "path": "assets/audio/m.wav"
+              },
+              "at": 0,
+              "duration": 96
+            }
+          ]
+        }
+      ],
+      "markers": [
+        {
+          "id": "m",
+          "at": 0
+        },
+        {
+          "id": "m",
+          "at": 3
+        }
+      ]
+    }
+  }
+]

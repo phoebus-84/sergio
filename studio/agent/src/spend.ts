@@ -23,7 +23,6 @@ import {
   withSpend, resolveBudgetEnvelope, toMicros,
   type Money, type SpendCall,
 } from "@studio/contracts/src/budget.mjs";
-import { episodePath } from "@studio/contracts/src/layout.mjs";
 
 export type { SpendCall };
 
@@ -70,8 +69,8 @@ export async function paidCall<T>(
   perform: (spend: SpendCall) => Promise<{ value: T; cost?: Money | null; providerRequestId?: string }>,
 ): Promise<T> {
   const ref = { channel: target.channel, series: target.series, episode: target.episode };
-  const dir = episodePath(target.libraryRoot, ref.channel, ref.series, ref.episode);
-  const { envelope } = await resolveBudgetEnvelope(target.libraryRoot, ref, (text) => loadYaml(text));
+  // The ledger is the episode's journal; in a film, the journal of the level that declares the budget.
+  const { envelope, ledgerDir: dir } = await resolveBudgetEnvelope(target.libraryRoot, ref, (text) => loadYaml(text));
   const { estimate, priced, profile } = call.estimate ?? falEstimate(call.model);
   return withSpend(dir, {
     episode: ref, actor: "pi",

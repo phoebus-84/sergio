@@ -1,0 +1,51 @@
+# film-scene with no gate. Declare it for a film's scenes with `scenes: film-scene-auto` in the film's pipeline.yaml.
+pipeline:
+  id: film-scene-auto
+  version: "1.0.0"
+  description: "One scene of a film, produced without waiting for anyone."
+  extends:
+    pipeline: film-scene
+    version: "1.0.0"
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: direction
+      name: "Scene Direction"
+      type: editorial
+      description: "What the scene is for, how it is covered, the order of its shots and the sound it needs; its shots are created from this."
+      inputs: []
+      outputs:
+        - contract: scene-direction.md
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 1
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+      depends_on: []
+
+    - id: cut
+      name: "Scene Cut"
+      type: editorial
+      description: "Assemble the shots in cutting order and edit the scene: trims, transitions, dialogue, effects and ambience on their tracks, levels and ducking."
+      inputs:
+        - contract: shots-report.json
+          version: "1.0.0"
+        - contract: scene-sound.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [shots, sound]

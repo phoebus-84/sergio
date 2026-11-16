@@ -27,6 +27,11 @@
   import AudioTab from "../audio/AudioTab.svelte";
   import RenderViewer from "../render/RenderViewer.svelte";
   import AgentBar from "../agent/AgentBar.svelte";
+  import FilmBoard from "../film/FilmBoard.svelte";
+  import UnitOverview from "../film/UnitOverview.svelte";
+  import FootageView from "../film/FootageView.svelte";
+  import CutView from "../cut/CutView.svelte";
+  import { film } from "$lib/film-store.svelte.ts";
 
   const channelEntry = $derived(
     library.selectedChannel
@@ -42,22 +47,24 @@
       : null,
   );
 
-  /** The level the files store should be pointed at. */
+  /** The level the files store should be pointed at, with the kind of project it is in. */
   const levelRef = $derived.by(() => {
-    if (library.selectedChannel) {
-      return { level: "channel" as const, channel: library.selectedChannel };
-    }
-    if (library.selectedSeries) {
-      const { channel, series } = library.selectedSeries;
-      return { level: "series" as const, channel, series };
-    }
-    if (library.selectedEpisode) {
-      const [channel, series, ep] = library.selectedEpisode.split("/");
-      if (channel && series && ep) {
-        return { level: "episode" as const, channel, series, episode: ep };
-      }
-    }
-    return null;
+    const selected = library.selection;
+    if (!selected) return null;
+    const base = { level: selected.level, kind: selected.kind, channel: selected.channel };
+    if (selected.level === "channel") return base;
+    if (selected.level === "series") return { ...base, series: selected.series! };
+    return { ...base, series: selected.series!, episode: selected.episode! };
+  });
+
+  /** The film unit selected, when what is selected is in a film (ADR-0050). */
+  const filmUnit = $derived(library.filmUnit);
+
+  /* A film's tree is read when the film is entered, and read again by its own
+     store as it changes; moving between its scenes and shots reads nothing. */
+  $effect(() => {
+    const unit = filmUnit;
+    if (unit && film.film !== unit.film) void film.load(unit.film);
   });
 
   const levelTitle = $derived(
@@ -80,7 +87,7 @@
       return;
     }
 
-    const key = [ref.level, ref.channel, ref.series ?? "", ref.episode ?? ""].join("/");
+    const key = [ref.level, ref.channel, "series" in ref ? ref.series : "", "episode" in ref ? ref.episode : ""].join("/");
     if (key === loadedKey) return;
 
     loadedKey = key;
@@ -96,7 +103,7 @@
   {#if !levelRef}
     <div class="pc-empty">
       <h2>Nothing selected</h2>
-      <p>Choose a channel, series or episode from the library.</p>
+      <p>Choose a film or a channel from the library, or something inside one.</p>
     </div>
   {:else}
     <ViewTabs />
@@ -106,7 +113,17 @@
     {/if}
 
     <div class="pc-body">
-      {#if studio.view === "overview"}
+      {#if studio.view === "overview" && filmUnit}
+        {#if filmUnit.level === "film"}
+          <FilmBoard />
+        {:else}
+          <UnitOverview unit={filmUnit} />
+        {/if}
+      {:else if studio.view === "cut" && filmUnit}
+        <CutView unit={filmUnit} />
+      {:else if studio.view === "footage" && filmUnit}
+        <FootageView />
+      {:else if studio.view === "overview"}
         <LevelOverview ref={levelRef} title={levelTitle} />
       {:else if studio.view === "pipeline"}
         <SeriesPipeline />

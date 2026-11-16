@@ -70,25 +70,25 @@
     });
   });
 
-  /* Wire episode selection from library into the episode workspace. */
-  $effect(() => {
-    const key = library.selectedEpisode;
-    if (!key) return;
+  /* Wire the library's selection into the episode workspace.
 
-    if (episodeMap[key]) {
+     An episode is loaded when one is selected. In a film every level is a
+     production unit with stages of its own, so the film itself and a scene
+     load too, addressed with `_` for the level (ADR-0050). */
+  $effect(() => {
+    const selected = library.selection;
+    if (!selected) return;
+    const key = library.selectedEpisode;
+
+    if (key && episodeMap[key]) {
       episode.load(episodeMap[key]!);
-    } else if (gatewayClient) {
-      const parts = key.split("/");
-      if (parts.length === 3) {
-        const [channel, series, epSlug] = parts;
-        episode.loadFromGateway(gatewayClient, channel!, series!, epSlug!);
-      } else if (parts.length === 2) {
-        // Legacy: channel/episode format — infer series from library tree
-        const [channel, epSlug] = parts;
-        const chEntry = library.tree.channels.find((c) => c.slug === channel);
-        const series = chEntry?.series?.[0]?.slug ?? "unknown";
-        episode.loadFromGateway(gatewayClient, channel!, series, epSlug!);
-      }
+      return;
+    }
+    if (!gatewayClient) return;
+    if (selected.kind === "film") {
+      void episode.loadFromGateway(gatewayClient, selected.channel, selected.series ?? "_", selected.episode ?? "_");
+    } else if (selected.level === "episode") {
+      void episode.loadFromGateway(gatewayClient, selected.channel, selected.series!, selected.episode!);
     }
   });
 

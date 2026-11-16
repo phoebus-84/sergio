@@ -1,4 +1,4 @@
-# ADR-0050: Portable Qwen inference preserves the worker boundary
+# ADR-0051: Portable Qwen inference preserves the worker boundary
 
 ## Status
 

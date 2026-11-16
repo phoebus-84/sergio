@@ -6,6 +6,10 @@ Browser production studio for inspecting and steering every stage of an episode.
 
 Channel and series library, pipeline/stage rail, editable editorial documents, scene timeline, asset attempt comparison, audio and video review, anchored comments, generation progress, staleness explanations, budget/provenance views, approvals, and targeted reruns.
 
+For a film (ADR-0050): its board of scenes and shots with where each stands between its cut and its render, a scene's shot list and a shot's plan and takes, the footage log, each level's manifest as a form, who decides at each level, and the cut editor — sources, monitor, multitrack timeline and inspector — the same at the three levels.
+
+Structured files (JSON, YAML) open as fields and as source; a pipeline manifest opens beside its stage chain.
+
 ## Product constraints
 
 The GUI is a projection over the canonical workspace. Every mutation uses revision checks. It must remain useful while Pi is offline, expose errors and degraded states, support keyboard navigation and accessible media controls, and avoid hiding production history behind a chat-only interface.

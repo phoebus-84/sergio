@@ -67,9 +67,11 @@
     }
 
     for (const channel of library.tree.channels) {
+      // A film's levels are called what they are: film, scene, shot.
+      const film = channel.kind === "film";
       out.push({
         id: `ch:${channel.slug}`,
-        group: "channel",
+        group: film ? "film" : "channel",
         label: channel.title,
         hint: "",
         run: () => library.selectChannel(channel.slug),
@@ -77,7 +79,7 @@
       for (const series of channel.series) {
         out.push({
           id: `se:${channel.slug}/${series.slug}`,
-          group: "series",
+          group: film ? "scene" : "series",
           label: `${channel.title} / ${series.title}`,
           hint: "",
           run: () => library.selectSeries(channel.slug, series.slug),
@@ -85,7 +87,7 @@
         for (const ep of series.episodes) {
           out.push({
             id: `ep:${channel.slug}/${series.slug}/${ep.slug}`,
-            group: "episode",
+            group: film ? "shot" : "episode",
             label: `${series.title} / ${ep.title}`,
             hint: "",
             run: () => library.select(channel.slug, series.slug, ep.slug),
@@ -94,6 +96,13 @@
       }
     }
 
+    out.push({
+      id: "act:toggle-focus",
+      group: "action",
+      label: studio.focus ? "Bring the side panels back" : "Focus: put the side panels away",
+      hint: "⌘\\",
+      run: () => onaction("toggle-focus"),
+    });
     out.push({
       id: "act:rerun-stale",
       group: "action",

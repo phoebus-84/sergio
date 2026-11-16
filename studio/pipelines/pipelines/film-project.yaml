@@ -1,0 +1,187 @@
+# A whole film (ADR-0050): developed, written, designed, broken down into scenes and shots, scored, cut, rendered and reviewed.
+# A person approves each creative step. film-project-auto asks only for the final review.
+pipeline:
+  id: film-project
+  version: "1.0.0"
+  description: "A whole film, short or feature length: development, screenplay, look and sound, breakdown, its scenes, its music, its cut, its render and a final review. A person approves each creative step."
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: development
+      name: "Development"
+      type: editorial
+      description: "The film on paper: logline, synopsis and treatment, from the idea and the material at hand."
+      inputs: []
+      outputs:
+        - contract: treatment.md
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-development
+          version: "0.1.0"
+      depends_on: []
+
+    - id: screenplay
+      name: "Screenplay"
+      type: editorial
+      description: "The screenplay: scenes with their headings, action and dialogue, written to the length the film is meant to run."
+      inputs:
+        - contract: treatment.md
+          version: "1.0.0"
+      outputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-development
+          version: "0.1.0"
+      depends_on: [development]
+
+    - id: bible
+      name: "Look and Sound"
+      type: editorial
+      description: "The film's bible: its look, its characters and their voices, its locations and its sound world, with the references every shot is held to."
+      inputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+      outputs:
+        - contract: bible.md
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+      depends_on: [screenplay]
+
+    - id: breakdown
+      name: "Breakdown"
+      type: editorial
+      description: "The screenplay broken into scenes and shots, each created as a unit with its manifest, in running order; the footage at hand logged and assigned."
+      inputs:
+        - contract: screenplay.md
+          version: "1.0.0"
+        - contract: bible.md
+          version: "1.0.0"
+      outputs:
+        - contract: breakdown.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-breakdown
+          version: "0.1.0"
+        - skill: footage-ingest
+          version: "0.1.0"
+      depends_on: [screenplay, bible]
+
+    - id: scenes
+      name: "Scenes"
+      type: editorial
+      description: "Every scene produced through its own pipeline and rendered; the record names each scene's render."
+      inputs:
+        - contract: breakdown.json
+          version: "1.0.0"
+      outputs:
+        - contract: scenes-report.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: film-producer
+          version: "0.1.0"
+      depends_on: [breakdown]
+
+    - id: score
+      name: "Music"
+      type: editorial
+      description: "The film's music: composed, licensed or generated, spotted against the scenes, kept under music/ with its provenance."
+      inputs:
+        - contract: breakdown.json
+          version: "1.0.0"
+      outputs:
+        - contract: score.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [breakdown]
+
+    - id: cut
+      name: "Film Cut"
+      type: editorial
+      description: "Assemble the scenes in running order and edit the film: the joins between scenes, the music, titles and credits, the grade and the mix."
+      inputs:
+        - contract: scenes-report.json
+          version: "1.0.0"
+        - contract: score.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+        - skill: film-sound
+          version: "0.1.0"
+      depends_on: [scenes, score]
+
+    - id: render
+      name: "Render"
+      type: capability
+      capability: video.compose
+      description: "Render the cut with FFmpeg to an immutable output/<render-id>.mp4, rendering first the units under it that changed; the unit's current render moves only when the file is whole."
+      inputs:
+        - contract: cut.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut-render.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 0
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [cut]
+
+    - id: review
+      name: "Final Review"
+      type: editorial
+      description: "Watch the render through: its sheet read frame by frame, its sound and loudness checked, every problem located by timecode; the film is accepted or sent back."
+      inputs:
+        - contract: cut-render.json
+          version: "1.0.0"
+      outputs:
+        - contract: film-review.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [render]
