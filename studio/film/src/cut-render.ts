@@ -14,7 +14,7 @@
 // were: the report keeps a fingerprint of both.
 // ---------------------------------------------------------------------------
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
   checkCut, extractStill, fileIdentitySync, renderCut, renderCutFrame, CutError,
@@ -25,7 +25,9 @@ import { appendJournalEvent } from "@studio/contracts/src/journal.mjs";
 import { CUT_TIMELINE_PATH, cutDuration, hasCutErrors, sourceKind, type CutProblem, type CutTimeline } from "@studio/contracts/src/cut-timeline.mjs";
 import type { FilmManifest } from "@studio/contracts/src/film.mjs";
 import { writeAtomically } from "./authoring.js";
+import { withCutLock } from "./cut-lock.js";
 import { readCut, serialize, sha256 } from "./cut-store.js";
+import { withRenderLease } from "./render-lease.js";
 import {
   FilmError, childUnit, existingUnitDir, filmUnit, levelOf, libraryRelative, readManifest, unitDir, unitLabel, type UnitRef,
 } from "./units.js";
@@ -375,8 +377,16 @@ function asUnitRender(root: string, ref: UnitRef, pointer: RenderPointer, cascad
  * nothing that already is. A unit with a fresh render is not rendered again.
  */
 export async function renderUnit(root: string, ref: UnitRef, options: RenderUnitOptions = {}): Promise<UnitRender> {
+  existingUnitDir(root, ref);
+  // One render of a film at a time, whoever asks: see render-lease.ts.
+  return withRenderLease(root, ref, options.quality ?? "final", () => renderHeld(root, ref, options));
+}
+
+/** Render a unit and what is under it. The caller holds the film's render lease. */
+async function renderHeld(root: string, ref: UnitRef, options: RenderUnitOptions): Promise<UnitRender> {
   const dir = existingUnitDir(root, ref);
   const quality = options.quality ?? "final";
+  await settleRenderJournal(dir);
   const stored = readCut(root, ref);
   if (!stored.exists || !stored.cut) throw new FilmError(`${unitLabel(ref)} has no cut to render: assemble or write ${CUT_TIMELINE_PATH} first`, "no-cut", stored.problems);
   if (hasCutErrors(stored.problems)) {
@@ -391,7 +401,7 @@ export async function renderUnit(root: string, ref: UnitRef, options: RenderUnit
     const due = resolved.children.filter((child) => !child.fresh && existsSync(unitDir(root, child.unit)));
     for (const child of due) {
       if (options.signal?.aborted) throw new FilmError("the render was cancelled", "cancelled");
-      cascaded.push(await renderUnit(root, child.unit, { ...options, range: undefined, force: false }));
+      cascaded.push(await renderHeld(root, child.unit, { ...options, range: undefined, force: false }));
     }
     if (due.length > 0) resolved = resolveCut(root, ref, timeline, { quality });
   }
@@ -452,25 +462,100 @@ export async function renderUnit(root: string, ref: UnitRef, options: RenderUnit
   }));
 
   // A range is a look at part of the cut: the unit's render stays what it was.
-  const current = !options.range;
+  const warnings: CutProblem[] = [...resolved.problems, ...(result.warnings as CutProblem[])];
+  let current = !options.range;
   if (current) {
     const pointer: RenderPointer = {
       renderId, path: `${renderId}.mp4`, quality, fingerprint: resolved.fingerprint,
       frames: result.frames, durationSeconds: result.durationSeconds, createdAt,
       ...(result.mix ? { mix: `${renderId}.mix.wav` } : {}),
     };
-    writeAtomically(join(outputDir, POINTER[quality]), serialize(pointer));
-    if (quality === "final") {
-      await appendJournalEvent(dir, {
+    // The cut may have been edited while this rendered, and rendered again since.
+    // A render of the cut as it was does not take the place of one that is still current.
+    const pointerPath = join(outputDir, POINTER[quality]);
+    current = withCutLock(pointerPath, unitLabel(ref), (stillHeld) => {
+      const now = readCut(root, ref);
+      if (now.hash !== stored.hash) {
+        const present = readPointer(root, ref, quality);
+        if (present && present.renderId !== renderId && isFresh(root, ref, present)) {
+          warnings.push({
+            code: "render-superseded", path: "$", severity: "warning",
+            message: `the cut of ${unitLabel(ref)} changed while this was rendering (revision ${timeline.revision} → ${now.cut?.revision ?? "?"}) and ${present.renderId} already renders it as it is now: ${renderId} is kept, but is not the unit's render`,
+          });
+          return false;
+        }
+      }
+      stillHeld();
+      writeAtomically(pointerPath, serialize(pointer));
+      return true;
+    });
+    if (current && quality === "final") {
+      const event: RenderJournalEvent = {
         type: "deliverable-current-changed", actor: options.actor ?? "pi", episode: ref,
         data: { renderId, path: `output/${renderId}.mp4`, quality, frames: result.frames, cutRevision: timeline.revision },
-      }).catch(() => undefined);
+      };
+      // `appendJournalEvent` answers null when the line could not be written, and throws when the event
+      // itself is wrong. Neither undoes a render that is made and pointed at; neither goes unsaid.
+      let recorded: unknown = null;
+      let refused: string | null = null;
+      try {
+        recorded = await appendJournalEvent(dir, event);
+      } catch (error) {
+        refused = error instanceof Error ? error.message : String(error);
+      }
+      if (refused !== null) {
+        warnings.push({
+          code: "journal-refused", path: "$", severity: "warning",
+          message: `${renderId} is the render of ${unitLabel(ref)}, but the journal refused its record: ${refused}`,
+        });
+      } else if (recorded === null) {
+        // What is missing is the journal's line. It is kept beside the render and written the next time the unit is rendered.
+        writeAtomically(join(outputDir, `${renderId}${PENDING_JOURNAL}`), serialize(event));
+        warnings.push({
+          code: "journal-not-written", path: "$", severity: "warning",
+          message: `${renderId} is the render of ${unitLabel(ref)}, but the journal could not be written: its line is kept in output/${renderId}${PENDING_JOURNAL} and is written at the next render`,
+        });
+      }
     }
   }
   return {
     unit: ref, renderId, quality, path: libraryRelative(root, output), reportPath: libraryRelative(root, reportPath),
-    reused: false, current, frames: result.frames, durationSeconds: result.durationSeconds, result, warnings: [...resolved.problems, ...(result.warnings as CutProblem[])], cascaded,
+    reused: false, current, frames: result.frames, durationSeconds: result.durationSeconds, result, warnings, cascaded,
   };
+}
+
+const PENDING_JOURNAL = ".journal-pending.json";
+
+interface RenderJournalEvent {
+  type: "deliverable-current-changed";
+  actor: NonNullable<RenderUnitOptions["actor"]>;
+  episode: UnitRef;
+  data: Record<string, unknown>;
+}
+
+/**
+ * Write the journal lines of renders that could not be recorded when they
+ * were made. Returns the renders now recorded; one that still cannot be is
+ * left for the next time.
+ */
+export async function settleRenderJournal(unitDirectory: string): Promise<string[]> {
+  const outputDir = join(unitDirectory, "output");
+  let names: string[];
+  try {
+    names = readdirSync(outputDir).filter((name) => name.endsWith(PENDING_JOURNAL)).sort();
+  } catch {
+    return [];
+  }
+  const settled: string[] = [];
+  for (const name of names) {
+    try {
+      const written = await appendJournalEvent(unitDirectory, JSON.parse(readFileSync(join(outputDir, name), "utf-8")) as RenderJournalEvent);
+      if (written === null) continue; // still not possible: kept
+      rmSync(join(outputDir, name), { force: true });
+      settled.push(name.slice(0, -PENDING_JOURNAL.length));
+    } catch { /* a line the journal refuses, or a file that is not one: kept for a person to look at */ }
+  }
+  return settled;
 }
 
 /** One frame of a unit's cut as an image under artifacts/frames/: what the timeline shows at an instant. */

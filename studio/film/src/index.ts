@@ -6,6 +6,7 @@ export * from "./authoring.js";
 export * from "./cut-store.js";
 export { withCutLock, type CutLockOptions } from "./cut-lock.js";
 export * from "./cut-render.js";
+export { readRenderLease, withRenderLease, type RenderLease } from "./render-lease.js";
 export * from "./cut-assemble.js";
 export * from "./footage.js";
 export * from "./tree.js";

@@ -23,7 +23,7 @@ import { FILM_FORMATS } from "@studio/contracts/src/film.mjs";
 import type { CutTimeline } from "@studio/contracts/src/cut-timeline.mjs";
 import {
   FilmError, assembleCut, checkUnitCut, existingUnitDir, createFilm, createScene, createShot, cutStatus, editCut, filmTree, levelOf, listEffects, listFilms,
-  nextSteps, readCut, readFootage, readManifest, renderUnit, renderUnitFrame, setOrder, unitKey, unitLabel, unitOf, updateManifest, writeCut,
+  nextSteps, readCut, readFootage, readManifest, readRenderLease, renderUnit, renderUnitFrame, setOrder, unitKey, unitLabel, unitOf, updateManifest, writeCut,
   annotateFootage, ingestFootage, filmUnit,
   type CutOp, type FilmTree, type SceneNode, type ShotNode, type UnitNode, type UnitRef, type UnitRender,
 } from "@studio/film";
@@ -46,7 +46,7 @@ const STATUS_OF: Record<string, number> = {
   "bad-slug": 400, "bad-input": 400, "bad-unit": 400, "bad-format": 400, "bad-edit": 400, "bad-manifest": 422, "invalid-cut": 422,
   "no-unit": 404, "not-a-film": 404, "no-footage": 404, "missing-file": 404, "no-cut": 409, "revision-conflict": 409, "cut-exists": 409,
   "name-taken": 409, locked: 409, blocked: 409, "no-media": 409, "no-units": 409, cancelled: 499,
-  "cut-busy": 409,
+  "cut-busy": 409, "render-in-progress": 409,
 };
 
 function sendError(reply: FastifyReply, error: unknown): FastifyReply {
@@ -146,7 +146,10 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
       const { film } = request.params as { film: string };
       const tree = treeForBrowser(filmTree(root, film));
       const render = running.get(film);
-      return { ...tree, rendering: render ? { unit: render.key, quality: render.quality, startedAt: render.startedAt, progress: render.progress } : null };
+      if (render) return { ...tree, rendering: { unit: render.key, quality: render.quality, startedAt: render.startedAt, progress: render.progress } };
+      // A render another process started (the agent's, a stage's): it holds the film's lease, and its progress is its own.
+      const elsewhere = readRenderLease(root, film);
+      return { ...tree, rendering: elsewhere ? { unit: elsewhere.unit, quality: elsewhere.quality, startedAt: elsewhere.startedAt, progress: null } : null };
     } catch (error) {
       return sendError(reply, error);
     }
@@ -396,6 +399,13 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
     const current = running.get(ref.channel);
     if (current) {
       return reply.status(409).send({ error: "render-in-progress", message: `${current.key} is being rendered (${current.quality}): wait for it, or stop it`, rendering: current.key });
+    }
+    const elsewhere = readRenderLease(root, ref.channel);
+    if (elsewhere) {
+      return reply.status(409).send({
+        error: "render-in-progress", rendering: elsewhere.unit,
+        message: `${elsewhere.unit} is being rendered (${elsewhere.quality}) by another process, the agent's or a stage's: wait for it`,
+      });
     }
     const status = cutStatus(root, ref);
     if (status.state === "no-cut" || status.state === "invalid-cut") {
