@@ -13,6 +13,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +22,7 @@ import { toMicros } from "@studio/contracts/src/budget.mjs";
 import { parseJournal, JOURNAL_RELATIVE_PATH } from "@studio/contracts/src/journal.mjs";
 import {
   AVATAR_RESOLUTIONS,
+  likenessConsent,
   avatarAudioProblem,
   avatarImageProblem,
   avatarRequestBody,
@@ -56,6 +58,13 @@ const tone = (name: string, seconds: number) => {
 const picture = (name: string, size: string) => {
   ffmpeg(["-f", "lavfi", "-i", `color=c=gray:s=${size}`, "-frames:v", "1", join(fixtures, name)]);
 };
+
+const sha = (file: string) => createHash("sha256").update(readFileSync(join(fixtures, file))).digest("hex");
+/** A consent record as the operator writes it, for one of the fixture pictures. */
+const consentFor = (picture: string, change: Record<string, unknown> = {}) => ({
+  confirmed: true, source: "licensed", statement: "The presenter agreed to be shown speaking the channel's scripts.",
+  license_or_terms: "Written release, the channel's videos only", recorded_at: "2026-11-01T10:00:00Z", image_sha256: sha(picture), ...change,
+});
 
 beforeAll(() => {
   fixtures = mkdtempSync(join(tmpdir(), "pva-avatar-fixtures-"));
@@ -126,6 +135,9 @@ describe("pva_generate_avatar_speech", () => {
     copyFileSync(join(fixtures, "look.png"), join(dir, "assets", "images", "look.png"));
     copyFileSync(join(fixtures, "banner.png"), join(dir, "assets", "images", "banner.png"));
     copyFileSync(join(fixtures, "look.png"), join(root, CHANNEL, "sources", SOURCE, "looks", "studio.png"));
+    // What the operator wrote: the person in look.png agreed to be shown speaking.
+    writeFileSync(join(dir, "assets", "likeness-consent.json"), JSON.stringify(consentFor("look.png")));
+    writeFileSync(join(root, CHANNEL, "sources", SOURCE, "looks", "consent.json"), JSON.stringify(consentFor("look.png")));
     previous = { root: process.env.AVG_LIBRARY_ROOT, fal: process.env.FAL_KEY };
     process.env.AVG_LIBRARY_ROOT = root;
     process.env.FAL_KEY = "fal-key-for-tests";
@@ -179,7 +191,9 @@ describe("pva_generate_avatar_speech", () => {
     : [];
   const generate = (extra: Record<string, unknown> = {}, onUpdate?: (u: unknown) => void) => tool.execute("call-1", {
     channel: CHANNEL, series: SERIES, episode: EPISODE, shotId: "shot-1",
-    imagePath: "assets/images/look.png", audioPath: "artifacts/narration/line.wav", ...extra,
+    imagePath: "assets/images/look.png", audioPath: "artifacts/narration/line.wav",
+    // Beside the photo: in the episode, or in the source when the photo is read from one.
+    likenessConsentPath: extra.imageSource !== undefined ? "looks/consent.json" : "assets/likeness-consent.json", ...extra,
   }, undefined, onUpdate, {});
   const clip = (shotId = "shot-1") => join(dir, "assets", "video", `${shotId}.mp4`);
 
@@ -205,6 +219,43 @@ describe("pva_generate_avatar_speech", () => {
     });
     expect(updates.length).toBeGreaterThan(0);
     expect(result.details).toMatchObject({ providerRequestId: "req-123", seed: 11, resolution: defaultResolution });
+  });
+
+  it("needs the operator's consent for this photograph before anything is uploaded", async () => {
+    budget(100_000_000);
+    const consent = join(dir, "assets", "likeness-consent.json");
+    const refused = async (params: Record<string, unknown>, why: RegExp) => {
+      await expect(generate({ shotId: "refused", ...params })).rejects.toThrow(why);
+      expect(uploads, "nothing left the machine").toEqual([]);
+      expect(journal(), "nothing was reserved").toEqual([]);
+      expect(existsSync(clip("refused"))).toBe(false);
+    };
+
+    await refused({ likenessConsentPath: undefined }, /needs likenessConsentPath.*stop and ask the operator/);
+    await refused({ likenessConsentPath: "assets/no-such-record.json" }, /there is no consent record/);
+    await refused({ likenessConsentPath: "../../../elsewhere.json" }, /./);
+    // A record for another photograph does not allow this one.
+    await refused({ imagePath: "assets/images/banner.png" }, /crop it first|does not match this photograph/);
+    writeFileSync(consent, JSON.stringify(consentFor("banner.png")));
+    await refused({}, /does not match this photograph/);
+    for (const [change, why] of [
+      [{ confirmed: false }, /needs confirmed:true/], [{ source: "found-online" }, /source \(self, licensed, synthetic\)/],
+      [{ statement: "ok" }, /statement \(10–1000 chars\)/], [{ recorded_at: "some time ago" }, /recorded_at/],
+    ] as const) {
+      writeFileSync(consent, JSON.stringify(consentFor("look.png", change)));
+      await refused({}, why);
+    }
+    writeFileSync(consent, "not json");
+    await refused({}, /must be a JSON object/);
+
+    writeFileSync(consent, JSON.stringify(consentFor("look.png")));
+    await generate({ shotId: "allowed" });
+    const provenance = JSON.parse(readFileSync(join(dir, "assets", "video", "allowed.provenance.json"), "utf-8"));
+    expect(provenance.likenessConsent).toEqual({
+      path: "assets/likeness-consent.json", sha256: createHash("sha256").update(readFileSync(consent)).digest("hex"),
+      source: "licensed", recordedAt: "2026-11-01T10:00:00Z", imageSha256: sha("look.png"),
+    });
+    expect(likenessConsent(readFileSync(consent), "a\\b.json", sha("look.png")).path).toBe("a/b.json");
   });
 
   it("reads the photo from a channel source when imageSource names one", async () => {

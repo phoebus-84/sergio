@@ -67,7 +67,10 @@ commands become available through the agent.
   surcharge are in the tool description. `imageSource` selects a shared channel
   source; `imagePath` is relative to it, while `audioPath` stays episode-relative.
   Writes `assets/video/<shotId>.mp4` and a provenance sidecar. A new spoken line
-  requires a new clip; shared look photos do not imply reusable dialogue.
+  requires a new clip; shared look photos do not imply reusable dialogue. It makes a
+  person say words they did not say: it requires `likenessConsentPath`, a consent
+  record the operator wrote for that photograph, bound to it by `image_sha256`. Never
+  create or confirm that consent on the operator's behalf: without one, stop and ask.
 - `pva_synthesize_speech` — Local Qwen by default (MLX or Torch). Only when the
   operator asks for ComfyUI, use `provider: "comfyui-qwen"` (free;
   `pva_capability_status` says whether it answers): `voice` is a speaker or

@@ -19,6 +19,11 @@
 //
 // Every number — prices, resolutions, the length limits, the long-video
 // surcharge, the picture's shape — is read from the profile in @av/fal-media.
+//
+// It makes a person say words they did not say. So, as a cloned voice does
+// (voiceConsentPath), it needs a consent record the operator wrote, bound to
+// this photograph by its hash, before anything is uploaded; and the clip's
+// provenance says which record allowed it.
 // ---------------------------------------------------------------------------
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -105,6 +110,48 @@ export function avatarImageProblem(width: number, height: number): string | null
   return `the image is ${width}×${height} (width/height ${ratio.toFixed(2)}); lip-sync takes ${min}–${max}: crop it first`;
 }
 
+export const LIKENESS_SOURCES = ["self", "licensed", "synthetic"] as const;
+
+export interface LikenessConsent {
+  path: string;
+  sha256: string;
+  source: (typeof LIKENESS_SOURCES)[number];
+  recordedAt: string;
+  imageSha256: string;
+}
+
+/**
+ * The consent record for the face in a photograph, held to its shape and to
+ * this photograph. Throws when it does not allow this clip. The operator
+ * writes it; nothing here creates or confirms one.
+ *
+ *   { "confirmed": true, "source": "self" | "licensed" | "synthetic",
+ *     "statement": "who agreed to be shown speaking, and to what use",
+ *     "license_or_terms": "…", "recorded_at": "<ISO date>", "image_sha256": "<the photo's>" }
+ */
+export function likenessConsent(recordBytes: Buffer, recordPath: string, imageSha256: string): LikenessConsent {
+  if (recordBytes.length > 16_384) throw new Error("likeness consent record exceeds 16 KiB");
+  let value: unknown;
+  try {
+    value = JSON.parse(recordBytes.toString("utf-8"));
+  } catch {
+    throw new Error("likeness consent must be a JSON object");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("likeness consent must be a JSON object");
+  const c = value as Record<string, unknown>;
+  if (c.confirmed !== true || typeof c.source !== "string" || !(LIKENESS_SOURCES as readonly string[]).includes(c.source) ||
+      typeof c.statement !== "string" || c.statement.length < 10 || c.statement.length > 1000 ||
+      typeof c.license_or_terms !== "string" || c.license_or_terms.length < 2 || c.license_or_terms.length > 500 ||
+      typeof c.recorded_at !== "string" || !Number.isFinite(Date.parse(c.recorded_at))) {
+    throw new Error(`likeness consent needs confirmed:true, source (${LIKENESS_SOURCES.join(", ")}), statement (10–1000 chars), license_or_terms (2–500 chars), and recorded_at`);
+  }
+  if (c.image_sha256 !== imageSha256) throw new Error("likeness consent does not match this photograph: its image_sha256 is another's");
+  return {
+    path: recordPath.replace(/\\/g, "/"), sha256: createHash("sha256").update(recordBytes).digest("hex"),
+    source: c.source as LikenessConsent["source"], recordedAt: c.recorded_at, imageSha256,
+  };
+}
+
 interface Measured { durationSeconds?: number; width?: number; height?: number }
 
 /** A file's length and frame size by ffprobe. */
@@ -145,6 +192,8 @@ export function registerAvatarTools(pi: ExtensionAPI): void {
       `as long as the audio). Paid, ${avatarTerms()}; reserved on the episode's spend ledger at price × the audio's length. ` +
       "The photo is an episode file, or with imageSource a file of a channel source (library/<channel>/sources/<name>), " +
       "where a presenter's look photos are shared by every episode. " +
+      "It makes a person say words they did not say: it needs likenessConsentPath, a consent record the operator wrote for this photograph " +
+      "(bound to it by image_sha256). Never create or confirm that record on the operator's behalf; without one, stop and ask. " +
       "Saves assets/video/<shotId>.mp4 and <shotId>.provenance.json in the episode. Check pva_budget_status first.",
     parameters: Type.Object({
       channel: Type.String({ description: "Channel slug" }),
@@ -153,6 +202,10 @@ export function registerAvatarTools(pi: ExtensionAPI): void {
       shotId: Type.String({ description: "Safe clip name (letters, digits, _ and -), the MP4's filename" }),
       imagePath: Type.String({ description: "The photo of the person (png, jpg or webp): episode-relative, or relative to the source when imageSource is given" }),
       imageSource: Type.Optional(Type.String({ description: "A channel source's name: imagePath is then read from library/<channel>/sources/<name>/" })),
+      likenessConsentPath: Type.String({
+        description: "The consent record for the face in the photo, where the photo is read from (the episode, or the source when imageSource is given): JSON the operator " +
+          `wrote with confirmed:true, source (${LIKENESS_SOURCES.join(" | ")}), statement, license_or_terms, recorded_at and image_sha256 of this photo. Never write or confirm it yourself`,
+      }),
       audioPath: Type.String({ description: `Episode-relative audio the person says (wav, mp3 or m4a), ${H3_MAX_LIP_SYNC.audioSeconds.min}–${H3_MAX_LIP_SYNC.audioSeconds.max} s` }),
       resolution: Type.Optional(StringEnum(AVATAR_RESOLUTIONS, { default: defaultResolution, description: `Sets the price per second: ${avatarPriceList()}` })),
       seed: Type.Optional(Type.Integer({ minimum: 0, description: "Omitted: one is picked and recorded" })),
@@ -176,6 +229,24 @@ export function registerAvatarTools(pi: ExtensionAPI): void {
         const guard = await guardEpisodePath(LIBRARY_ROOT, params.channel, params.series, params.episode, params.imagePath);
         if (!guard.allowed) throw new Error(guard.reason ?? `Image path rejected: ${params.imagePath}`);
         imageFull = join(dir, params.imagePath);
+      }
+      // The consent record is read from where the photograph is: beside the looks it allows.
+      if (typeof params.likenessConsentPath !== "string" || !params.likenessConsentPath.trim()) {
+        throw new Error("pva_generate_avatar_speech needs likenessConsentPath: a consent record the operator wrote for this photograph. Without one, stop and ask the operator");
+      }
+      let consentFull: string;
+      if (params.imageSource !== undefined) {
+        const source = workspaceOf(LIBRARY_ROOT, { channel: params.channel, source: params.imageSource });
+        const guard = await guardWorkspacePath(LIBRARY_ROOT, source, params.likenessConsentPath);
+        if (!guard.allowed) throw new Error(guard.reason ?? `Consent path rejected: ${params.likenessConsentPath}`);
+        consentFull = join(source.dir, params.likenessConsentPath);
+      } else {
+        const guard = await guardEpisodePath(LIBRARY_ROOT, params.channel, params.series, params.episode, params.likenessConsentPath);
+        if (!guard.allowed) throw new Error(guard.reason ?? `Consent path rejected: ${params.likenessConsentPath}`);
+        consentFull = join(dir, params.likenessConsentPath);
+      }
+      if (!existsSync(consentFull) || !statSync(consentFull).isFile()) {
+        throw new Error(`there is no consent record ${params.likenessConsentPath}: the operator writes one for this photograph before it is made to speak`);
       }
       const imageLabel = params.imageSource !== undefined ? `sources/${params.imageSource}/${params.imagePath}` : params.imagePath;
       if (!existsSync(imageFull) || !statSync(imageFull).isFile()) throw new Error(`Image not found: ${imageLabel}`);
@@ -217,6 +288,8 @@ export function registerAvatarTools(pi: ExtensionAPI): void {
       const audioBytes = readFileSync(audioFull);
       const imageSha256 = createHash("sha256").update(imageBytes).digest("hex");
       const audioSha256 = createHash("sha256").update(audioBytes).digest("hex");
+      // Before anything is uploaded: whose face this is, and what allows making it speak.
+      const consent = likenessConsent(readFileSync(consentFull), params.likenessConsentPath, imageSha256);
       // fal does not report the seed through the client's result, so pick it
       // here: the provenance then always says how to make the same clip again.
       const seed = params.seed ?? randomInt(0, 2 ** 31 - 1);
@@ -312,6 +385,7 @@ export function registerAvatarTools(pi: ExtensionAPI): void {
         imagePath: params.imagePath,
         ...(params.imageSource !== undefined ? { imageSource: params.imageSource } : {}),
         imageSha256,
+        likenessConsent: consent,
         imageSize: { width: picture.width, height: picture.height },
         audioPath: params.audioPath,
         audioSha256,
