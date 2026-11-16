@@ -29,6 +29,11 @@ something. `0.1.0` was never tagged: it is whatever `main` was before this.
   beside MLX.
 - **Speech through a ComfyUI server** (#98), with voice cloning and
   clean-then-clone.
+- **A photo that speaks, and ElevenLabs speech** (#96):
+  `pva_generate_avatar_speech` makes a talking clip from a photograph and an
+  audio file, only with a consent record the operator wrote for that
+  photograph; `pva_synthesize_speech` takes `provider: "elevenlabs"`, and its
+  word timings are reused by `pva_align_take` with no second paid call.
 - **Characters** (ADR-0052): a character is a record apart from how it
   appears, owned by a channel, a series or a film. It takes any form — a rig,
   sprites, a drawing made by code, a photograph, a dot, a sound, a voice alone
