@@ -54,6 +54,7 @@ narrate episodes is the studio's business, not the tool's.
 | `studio/series` | Series compilers: episode spec and narration → edit timeline |
 | `studio/episode` | An episode on disk, produced: timeline built or compiled, checked, rendered |
 | `studio/film` | A film on disk, produced: scenes and shots, footage, a cut at each level assembled, edited and rendered |
+| `studio/cast` | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | `studio/runtime` | Snapshots, leases, staleness, journal, policy |
 | `studio/pipelines` | Built-in pipeline manifests |
 | `studio/agent` | The executive-producer tools: a Pi extension, served to Claude Code over MCP |

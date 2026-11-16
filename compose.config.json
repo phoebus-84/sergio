@@ -181,6 +181,15 @@
       "requires": {},
       "docs": "docs/studio/film.md"
     },
+"cast": {
+      "path": "studio/cast",
+      "kind": "node",
+      "standalone": false,
+      "summary": "Characters on disk: who they are, the forms they take released and hashed, and a production's cast resolved to what it pins.",
+      "capabilities": [],
+      "requires": {},
+      "docs": "docs/studio/cast.md"
+    },
     "runtime": {
       "path": "studio/runtime",
       "kind": "node",
@@ -265,6 +274,7 @@
         "series",
         "episode",
         "film",
+        "cast",
         "runtime",
         "pipelines",
         "agent",
@@ -300,6 +310,7 @@
         "series",
         "episode",
         "film",
+        "cast",
         "runtime",
         "pipelines",
         "agent",
@@ -332,6 +343,7 @@
         "series",
         "episode",
         "film",
+        "cast",
         "runtime",
         "pipelines",
         "agent"
@@ -348,7 +360,7 @@
     },
     "blender": {
       "summary": "Local 3D production with the agent and browser; no cloud image or MLX voice requirement.",
-      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "contracts", "series", "episode", "film", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
+      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "contracts", "series", "episode", "film", "cast", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
       "skills": ["shared", "studio"],
       "defaultProviders": {
         "video.compose": "remotion-composer"

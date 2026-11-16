@@ -55,6 +55,7 @@ The product. Depends on `packages/`. All studio-specific integration lives here.
 | [series](./studio/series) | Series compilers: episode spec and narration → edit timeline |
 | [episode](./studio/episode) | An episode on disk, produced: timeline built or compiled, checked, rendered |
 | [film](./studio/film) | A film on disk, produced: scenes and shots, footage, a cut at each level assembled, edited and rendered |
+| [cast](./studio/cast) | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | [runtime](./studio/runtime) | Snapshots, leases, staleness, journal, policy |
 | [pipelines](./studio/pipelines) | Built-in pipeline manifests |
 | [agent](./studio/agent) | The executive-producer package: a Pi extension, served to Claude Code over MCP |
