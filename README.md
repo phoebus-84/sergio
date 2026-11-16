@@ -128,3 +128,9 @@ npm run compose -- --list # available profiles
 npm run doctor            # toolchain, credentials, capability readiness
 npm run resolve:plan -- --help # offline Resolve handoff preflight; live edits use upstream MCP
 ```
+
+## Licence
+
+The reusable tools in `packages/` are Apache-2.0; the studio and everything
+else is AGPL-3.0-only. [LICENSING.md](LICENSING.md) says why, and what neither
+covers (Remotion, vendored code, your library).
