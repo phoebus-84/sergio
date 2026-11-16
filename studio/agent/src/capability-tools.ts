@@ -233,6 +233,7 @@ interface WorkerSynthesis {
   model_identity_sha256?: string | null;
   created_at?: string;
   completed_at?: string | null;
+  runtime?: Record<string, unknown> | null;
 }
 
 /** How the model samples, when the caller names it; the worker's defaults otherwise. */
@@ -253,11 +254,11 @@ const samplingBody = (s: Sampling) => ({
 });
 
 async function synthesizeSpeech(
-  text: string, voice: string, speed: number, instruct?: string, language?: string, sampling: Sampling = {},
+  text: string, voice: string, speed: number, instruct?: string, language?: string, sampling: Sampling = {}, seed?: number,
 ): Promise<{ audioPath: string; durationSec: number; result: WorkerSynthesis }> {
   const ttsUrl = process.env.AVG_TTS_WORKER_URL || DEFAULT_TTS_WORKER_URL;
 
-  const reqBody: Record<string, unknown> = { text, voice, speed, ...samplingBody(sampling) };
+  const reqBody: Record<string, unknown> = { text, voice, speed, ...samplingBody(sampling), ...(seed !== undefined ? { seed } : {}) };
   if (instruct) reqBody.instruct = instruct;
   if (language) reqBody.language = language;
 
@@ -297,6 +298,7 @@ interface CloneSynthesis {
   duration_seconds: number;
   created_at?: string;
   warning?: string | null;
+  runtime?: Record<string, unknown> | null;
 }
 
 const CLONE_LANGUAGES: Record<string, string> = { auto: "auto", italian: "italian", english: "english", german: "german", french: "french", spanish: "spanish", portuguese: "portuguese", russian: "russian", japanese: "japanese", korean: "korean", chinese: "chinese" };
@@ -1039,6 +1041,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             voice: { id: c.voice_id, revisionSha256: c.voice_revision_sha256, referenceAudioSha256: c.reference_audio_sha256, referenceTextSha256: c.reference_text_sha256 },
             model: { profile: c.model_profile, size: c.model_size, revision: c.model_revision ?? null, identitySha256: c.model_identity_sha256 ?? null },
             providerMode: c.provider_mode,
+            ...(c.runtime ? { runtime: c.runtime } : {}),
             requestedVoice: voice,
             language: params.language ?? "auto",
             ...(c.seed !== undefined && c.seed !== null ? { seed: c.seed } : {}),
@@ -1056,7 +1059,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             details: { audioPath: destPath, durationSec: c.duration_seconds, receiptPath, receipt },
           };
         }
-        const result = await synthesizeSpeech(params.text, voice, params.speed ?? 1.0, params.instruct, params.language, sampling);
+        const result = await synthesizeSpeech(params.text, voice, params.speed ?? 1.0, params.instruct, params.language, sampling, params.seed);
 
         // Copy audio to the workspace's artifacts/narration/
         mkdirSync(narrationDir, { recursive: true });
@@ -1069,6 +1072,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
           model: r.model_path ? r.model_path.split("/").pop() : null,
           modelIdentitySha256: r.model_identity_sha256 ?? null,
           providerMode: r.provider_mode ?? null,
+          ...(r.runtime ? { runtime: r.runtime } : {}),
           requestedVoice: voice,
           speaker: r.actual_speaker ?? null,
           language: params.language ?? "auto",
