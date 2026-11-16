@@ -24,7 +24,6 @@ import {
   PAID_CAPABILITIES, formatMoney, readBudget, resolveBudgetEnvelope,
   type BudgetLevel, type BudgetState,
 } from "@studio/contracts/src/budget.mjs";
-import { episodePath } from "@studio/contracts/src/layout.mjs";
 import type { ResolvedStage } from "../pipeline/types.js";
 import type { BudgetGuard, DispatchContext, EpisodeRef, Reservation } from "./types.js";
 
@@ -37,11 +36,16 @@ export interface BudgetReport extends BudgetState {
 /** The YAML reader contracts asks for: it carries no parser of its own. */
 const parseYaml = (text: string): unknown => loadYaml(text);
 
+/** Where a unit's spend is recorded: what `releaseSpend` and the paid tools write to. */
+export async function ledgerDirOf(libraryRoot: string, ref: EpisodeRef): Promise<string> {
+  return (await resolveBudgetEnvelope(libraryRoot, ref, parseYaml)).ledgerDir;
+}
+
 /** Read an episode's budget: its envelope from settings.yaml, its spend from the journal. */
 export async function readEpisodeBudget(libraryRoot: string, ref: EpisodeRef): Promise<BudgetReport> {
-  const { envelope, from } = await resolveBudgetEnvelope(libraryRoot, ref, parseYaml);
-  const dir = episodePath(libraryRoot, ref.channel, ref.series, ref.episode);
-  return { ...(await readBudget(dir, { envelope })), limitFrom: from };
+  // In a film the ledger is the journal of the level that declares the budget, shared by every unit under it.
+  const { envelope, from, ledgerDir } = await resolveBudgetEnvelope(libraryRoot, ref, parseYaml);
+  return { ...(await readBudget(ledgerDir, { envelope })), limitFrom: from };
 }
 
 /** Whether a stage declares a capability that costs money. */

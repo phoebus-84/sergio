@@ -83,10 +83,15 @@ export function registerRoutes(
       gateway: gatewayHealth,
       runtime: async () => {
         const h = await runtime.health();
+        // The runtime answering is the runtime being ready. What its doctor
+        // found in the library is said beside it, not instead of it.
+        const findings = h.library
+          ? `; the library has ${h.library.errors} error(s) and ${h.library.warnings} warning(s): run \`vpr doctor\``
+          : "";
         return {
           status: h.reachable ? "ready" as const : "down" as const,
           detail: h.reachable
-            ? `vpr ${h.version ?? "unknown"}`
+            ? `vpr ${h.version ?? "unknown"}${findings}`
             : (h.error ?? "Runtime not reachable"),
           lastChecked: new Date().toISOString(),
         };

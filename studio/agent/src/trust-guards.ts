@@ -189,8 +189,10 @@ export function sanitizeSlug(slug: string): TrustCheck & { sanitized?: string } 
     return { allowed: false, reason: "Missing slug", code: "INVALID_SLUG" };
   }
 
-  // Slug must match: word-word/word-word/word-word
-  const pattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?\/[a-z0-9]([a-z0-9-]*[a-z0-9])?\/[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+  // Slug must match: word-word/word-word/word-word. In a film, `_` in the
+  // second and third place names the level itself (ADR-0050): film/_/_ is the
+  // film's own unit, film/scene/_ the scene's.
+  const pattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?\/(_|[a-z0-9]([a-z0-9-]*[a-z0-9])?)\/(_|[a-z0-9]([a-z0-9-]*[a-z0-9])?)$/;
 
   if (!pattern.test(slug)) {
     return {

@@ -67,6 +67,13 @@ const CAPABILITIES = {
   pipelines: [
     "blender-animation",
     "fairy-tale-adaptation",
+    "film-project",
+    "film-project-auto",
+    "film-scene",
+    "film-scene-auto",
+    "film-shot",
+    "film-shot-auto",
+    "film-shot-directed",
     "narrated-illustrated-video",
     "repository-documentation",
     "series-production",

@@ -1,0 +1,22 @@
+{
+  "films": [
+    { "name": "no format", "code": "required", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A" } },
+    { "name": "wrong kind", "code": "const", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Channel", "slug": "a", "title": "A", "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24 } } },
+    { "name": "a catalog format with another rate", "code": "format-mismatch", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A", "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 25 } } },
+    { "name": "an odd width", "code": "multipleOf", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A", "format": { "id": "mine", "width": 1921, "height": 1080, "fps": 24 } } },
+    { "name": "a scene in two sequences", "code": "scene-placed-twice", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A", "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24 }, "sequences": [{ "id": "one", "scenes": ["010"] }, { "id": "two", "scenes": ["010"] }] } },
+    { "name": "a sequence twice", "code": "duplicate-sequence", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A", "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24 }, "sequences": [{ "id": "one", "scenes": [] }, { "id": "one", "scenes": [] }] } },
+    { "name": "an unknown field", "code": "additionalProperties", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Film", "slug": "a", "title": "A", "format": { "id": "hd-24", "width": 1920, "height": 1080, "fps": 24 }, "budget": 3 } }
+  ],
+  "scenes": [
+    { "name": "a slug with capitals", "code": "pattern", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Scene", "slug": "Kitchen", "title": "Kitchen" } },
+    { "name": "a shot named twice", "code": "uniqueItems", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Scene", "slug": "010", "title": "Kitchen", "shots": ["a", "a"] } },
+    { "name": "an unknown setting", "code": "enum", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Scene", "slug": "010", "title": "Kitchen", "setting": "outside" } }
+  ],
+  "shots": [
+    { "name": "no source", "code": "required", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Shot", "slug": "010", "title": "Wide" } },
+    { "name": "an unknown source", "code": "enum", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Shot", "slug": "010", "title": "Wide", "source": "painted" } },
+    { "name": "a zero duration", "code": "exclusiveMinimum", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Shot", "slug": "010", "title": "Wide", "source": "stock", "durationSeconds": 0 } },
+    { "name": "a line nobody says", "code": "required", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "Shot", "slug": "010", "title": "Wide", "source": "stock", "dialogue": [{ "line": "Hello" }] } }
+  ]
+}

@@ -93,3 +93,7 @@ export type { QaCheck, QaReport, QaOptions } from "./qa.js";
 // so callers inlined their own ffprobe instead.
 export { probeMedia, normalizeMedia } from "./probe.js";
 export type { MediaProbe, NormalizeOptions, NormalizeResult } from "./probe.js";
+
+// The cut renderer (clips on tracks, effects, mix, master) and the tools for
+// looking at media before cutting it.
+export * from "./cut/index.js";

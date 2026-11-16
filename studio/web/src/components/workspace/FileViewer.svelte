@@ -32,7 +32,10 @@
   );
   const actions = $derived(files.selectedPresentation?.actions ?? []);
   const Viewer = $derived(viewerComponent(viewer));
-  const editable = $derived(isEditableViewer(viewer ?? "") && actions.includes("edit"));
+  /* Whether the file can be edited is the artifact's own declaration. The
+     viewer may have been narrowed since — text shown as fields, or as a
+     manifest — and that is a way of showing it, not a different permission. */
+  const editable = $derived(isEditableViewer(files.selectedPresentation?.viewer ?? "") && actions.includes("edit"));
 
   function formatWhen(iso: string): string {
     return new Date(iso).toLocaleString();

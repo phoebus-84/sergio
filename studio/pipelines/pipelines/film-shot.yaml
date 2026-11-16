@@ -1,0 +1,84 @@
+# One shot of a film (ADR-0050): planned, its takes made or brought in, cut and rendered.
+# A person chooses the take. film-shot-auto asks nobody; film-shot-directed asks at every step.
+pipeline:
+  id: film-shot
+  version: "1.0.0"
+  description: "One shot of a film: its plan, its takes — footage, stock, generated or programmed — its cut and its render. A person chooses the take."
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: plan
+      name: "Shot Plan"
+      type: editorial
+      description: "How the shot is made: where its picture comes from, what it must show, its framing, movement and length, the references it must match, and what would make a take wrong."
+      inputs: []
+      outputs:
+        - contract: shot-plan.md
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 1
+      skills:
+        - skill: shot-production
+          version: "0.1.0"
+      depends_on: []
+
+    - id: media
+      name: "Takes"
+      type: editorial
+      description: "Make or bring in the shot's takes under assets/, with their provenance, look at each, and record the candidates and the one proposed for the cut."
+      inputs:
+        - contract: shot-plan.md
+          version: "1.0.0"
+      outputs:
+        - contract: shot-takes.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 2
+      skills:
+        - skill: shot-production
+          version: "0.1.0"
+      depends_on: [plan]
+
+    - id: cut
+      name: "Shot Cut"
+      type: editorial
+      description: "Cut the shot from its chosen take: trim, speed, framing, stabilisation and the look the film's bible asks for."
+      inputs:
+        - contract: shot-takes.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 1
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [media]
+
+    - id: render
+      name: "Render"
+      type: capability
+      capability: video.compose
+      description: "Render the cut with FFmpeg to an immutable output/<render-id>.mp4, rendering first the units under it that changed; the unit's current render moves only when the file is whole."
+      inputs:
+        - contract: cut.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut-render.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 0
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [cut]

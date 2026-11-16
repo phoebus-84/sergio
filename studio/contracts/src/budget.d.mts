@@ -23,7 +23,7 @@ export interface BudgetEnvelope {
   warnAtMicros: number | null;
 }
 
-export type BudgetLevel = "episode" | "series" | "channel";
+export type BudgetLevel = "episode" | "series" | "channel" | "shot" | "scene" | "film";
 
 export interface LegacySpend {
   byCurrency: Record<string, number>;
@@ -92,7 +92,9 @@ export declare function resolveBudgetEnvelope(
   root: string,
   ref: EpisodeRef,
   parse: (text: string) => unknown,
-): Promise<{ envelope: BudgetEnvelope | null; from: BudgetLevel | null }>;
+): Promise<{ envelope: BudgetEnvelope | null; from: BudgetLevel | null; ledgerDir: string }>;
+/** The directory whose journal is a unit's spend ledger: the episode's own; in a film, the level that declares the budget (the film by default). */
+export declare function budgetLedgerDir(root: string, ref: EpisodeRef, from?: BudgetLevel | null): string;
 
 export declare function readLegacySpend(episodeDir: string): Promise<LegacySpend | null>;
 export declare function deriveBudget(

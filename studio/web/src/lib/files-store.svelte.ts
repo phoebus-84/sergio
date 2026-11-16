@@ -48,6 +48,8 @@ export interface RevisionMeta {
 /** Which level a reference points at, and the API prefix that serves it. */
 export interface LevelRef {
   level: Level;
+  /** The kind of project `channel` names: a film's levels live in scenes/ and shots/. Default: a channel. */
+  kind?: "channel" | "film";
   channel: string;
   series?: string;
   episode?: string;

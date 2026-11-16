@@ -20,6 +20,16 @@
       {view.label}
     </button>
   {/each}
+
+  <button
+    class="view-focus"
+    aria-pressed={studio.focus}
+    title={studio.focus ? "Bring the library and the inspector back (⌘\\)" : "Put the library and the inspector away, for room to work (⌘\\)"}
+    onclick={() => studio.toggleFocus()}
+  >
+    <span class="view-focus-mark" aria-hidden="true">{studio.focus ? "▣" : "▢"}</span>
+    Focus
+  </button>
 </div>
 
 <style>
@@ -48,6 +58,38 @@
 
   .view-tab:hover {
     color: var(--vs-text-primary);
+  }
+
+  .view-focus {
+    margin: auto 0 auto auto;
+    display: flex;
+    align-items: center;
+    gap: var(--vs-space-1);
+    padding: 3px var(--vs-space-2);
+    background: none;
+    border: 1px solid var(--vs-border);
+    border-radius: var(--vs-radius-sm);
+    color: var(--vs-text-secondary);
+    font: inherit;
+    font-size: var(--vs-text-xs);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .view-focus:hover {
+    background: var(--vs-bg-hover);
+    color: var(--vs-text-primary);
+  }
+
+  .view-focus[aria-pressed="true"] {
+    background: var(--vs-bg-selected);
+    border-color: var(--vs-accent);
+    color: var(--vs-accent-strong);
+  }
+
+  .view-focus:focus-visible {
+    outline: 2px solid var(--vs-border-focus);
+    outline-offset: 1px;
   }
 
   .view-tab[aria-selected="true"] {

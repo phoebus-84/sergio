@@ -1,0 +1,30 @@
+# film-shot with no gate: the agent chooses the take. Declare it for a film's shots with `shots: film-shot-auto` in the film's or a scene's pipeline.yaml.
+pipeline:
+  id: film-shot-auto
+  version: "1.0.0"
+  description: "One shot of a film, produced without waiting for anyone: the agent chooses the take."
+  extends:
+    pipeline: film-shot
+    version: "1.0.0"
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: media
+      name: "Takes"
+      type: editorial
+      description: "Make or bring in the shot's takes under assets/, with their provenance, look at each, and record the candidates and the one proposed for the cut."
+      inputs:
+        - contract: shot-plan.md
+          version: "1.0.0"
+      outputs:
+        - contract: shot-takes.json
+          version: "1.0.0"
+      gates:
+        autopilot: true
+        review: none
+        retry_on_failure: 2
+      skills:
+        - skill: shot-production
+          version: "0.1.0"
+      depends_on: [plan]

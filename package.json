@@ -24,6 +24,7 @@
     "studio/contracts",
     "studio/series",
     "studio/episode",
+    "studio/film",
     "studio/runtime",
     "studio/pipelines",
     "studio/adapters",

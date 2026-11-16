@@ -3,6 +3,7 @@
   import { studio } from "$lib/studio-store.svelte.ts";
   import type { LibraryTree } from "$lib/library-types";
   import ChannelItem from "./ChannelItem.svelte";
+  import NewFilm from "../film/NewFilm.svelte";
 
   /**
    * Prune the tree to what matches the filter.
@@ -58,8 +59,9 @@
   {:else if library.phase === "empty"}
     <div class="lib-state">
       <span class="lib-icon" aria-hidden="true">&#9675;</span>
-      <p>No active production.</p>
-      <p class="lib-hint">Start a series or episode in Pi.</p>
+      <p>The library is empty.</p>
+      <p class="lib-hint">Start a film here, or ask the agent for one — or for a channel and its first series.</p>
+      {#if library.live}<NewFilm />{/if}
     </div>
   {:else if filtered.channels.length === 0}
     <div class="lib-state" role="status">
@@ -67,10 +69,23 @@
       <p class="lib-hint">The library still has {library.tree.channels.length} channel{library.tree.channels.length === 1 ? "" : "s"}.</p>
     </div>
   {:else}
-    {#each filtered.channels as channel (channel.slug)}
-      <!-- While filtering, every surviving branch opens: a match you cannot
-           see is not a match. -->
-      <ChannelItem {channel} forceExpand={filtering} />
+    <!-- Films and channels are different kinds of work, so they are listed
+         apart: a film is one piece, a channel keeps making episodes. -->
+    {#each [{ kind: "film", label: "Films" }, { kind: "channel", label: "Channels" }] as section (section.kind)}
+      {@const projects = filtered.channels.filter((c) => c.kind === section.kind)}
+      <!-- The films' section is always there while the library is the real
+           one: it is where a film is started. -->
+      {#if projects.length > 0 || (section.kind === "film" && library.live && !filtering)}
+        <section class="lib-section" aria-label={section.label}>
+          <h2 class="lib-section-title">{section.label}</h2>
+          {#each projects as channel (channel.slug)}
+            <!-- While filtering, every surviving branch opens: a match you cannot
+                 see is not a match. -->
+            <ChannelItem {channel} forceExpand={filtering} />
+          {/each}
+          {#if section.kind === "film" && library.live && !filtering}<NewFilm />{/if}
+        </section>
+      {/if}
     {/each}
   {/if}
 </nav>
@@ -80,6 +95,20 @@
     flex: 1;
     overflow-y: auto;
     user-select: none;
+  }
+
+  .lib-section + .lib-section {
+    margin-top: var(--vs-space-3);
+  }
+
+  .lib-section-title {
+    margin: 0;
+    padding: var(--vs-space-2) var(--vs-space-3) var(--vs-space-1);
+    font-size: 10px;
+    font-weight: var(--vs-font-weight-semibold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--vs-text-tertiary);
   }
 
   .lib-state {

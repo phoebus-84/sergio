@@ -24,7 +24,7 @@ import { SystemClock } from "./ports/clock.js";
 import { FileSystemSnapshotStore } from "./pipeline/fs-snapshot-store.js";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { initChannel, initSeries, initEpisode } from "./workspace/init.js";
-import { ExecutionService, JournalReviewGate, JournalBudgetGuard, readEpisodeBudget } from "./execution/index.js";
+import { ExecutionService, JournalReviewGate, JournalBudgetGuard, readEpisodeBudget, ledgerDirOf } from "./execution/index.js";
 import { releaseSpend } from "@studio/contracts/src/budget.mjs";
 import type { SourceRef } from "@studio/contracts/src/source-pins.mjs";
 import type { ExecutionError, StageEvidence, StageOutcome } from "./execution/index.js";
@@ -38,7 +38,7 @@ import { channelPath, seriesPath } from "@studio/contracts/src/layout.mjs";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { declaredPipeline, PipelineDeclarationError } from "./pipeline/declared.js";
+import { pipelineOf, PipelineDeclarationError } from "./pipeline/declared.js";
 import type { RerunMode } from "./rerun/index.js";
 import { err, ok } from "./result.js";
 import type { Result } from "./result.js";
@@ -51,7 +51,6 @@ const EX_RUNTIME = 2;
 const EX_INVALID = 3;
 
 /** The pipeline of an episode that neither `--pipeline` nor the library names. */
-const DEFAULT_PIPELINE = "narrated-illustrated-video";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -541,7 +540,7 @@ async function cmdBudget(ctx: CliContext, args: string[]): Promise<number> {
     return EX_RUNTIME;
   }
   const note = flagValue(args, "--note");
-  const released = await releaseSpend(episodePath(root, parsed.channel, parsed.series, parsed.episode), {
+  const released = await releaseSpend(await ledgerDirOf(root, parsed), {
     episode: parsed, actor: "human", reserveId,
     reason: note ? `released by the operator: ${note}` : "released by the operator",
   });
@@ -1385,7 +1384,7 @@ function cliOperatorKey(ctx: CliContext): string | null | number {
  * The pipeline a command runs on an episode (avg-sxk): `--pipeline`, else
  * the one the library declares (`pipeline.yaml` in the episode, series or
  * channel — the files the gateway reads, though the gateway passes over one
- * it can't read), else `DEFAULT_PIPELINE`. A declaration that can't be read
+ * it can't read), else the default of what the unit is. A declaration that can't be read
  * is an error here, never the default: the default would run another
  * pipeline's stages on the episode.
  */
@@ -1397,7 +1396,8 @@ function pipelineFor(
 ): string | number {
   if (explicit) return explicit;
   try {
-    return declaredPipeline(libraryFrom(args) || ".", ref)?.name ?? DEFAULT_PIPELINE;
+    // An episode's default is one pipeline; each level of a film has its own (ADR-0050).
+    return pipelineOf(libraryFrom(args) || ".", ref);
   } catch (e) {
     if (!(e instanceof PipelineDeclarationError)) throw e;
     // Before the service is asked anything: a command stopped here wrote nothing.

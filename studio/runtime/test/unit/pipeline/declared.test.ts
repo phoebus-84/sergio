@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { channelPath, episodePath, seriesPath } from "@studio/contracts/src/layout.mjs";
-import { declaredPipeline, PipelineDeclarationError } from "../../../src/pipeline/declared.js";
+import { declaredPipeline, defaultPipeline, pipelineOf, PipelineDeclarationError } from "../../../src/pipeline/declared.js";
 
 /** The pipeline the library declares for an episode (avg-sxk). */
 
@@ -90,5 +90,52 @@ describe("declaredPipeline", () => {
     }
     declare("series", "pipeline: 42\n");
     expect(refusal().message).toContain("42");
+  });
+});
+
+describe("a film's pipelines (ADR-0050)", () => {
+  const film = { channel: "tide", series: "_", episode: "_" };
+  const scene = { channel: "tide", series: "010-shore", episode: "_" };
+  const shot = { channel: "tide", series: "010-shore", episode: "020-wave" };
+  const other = { channel: "tide", series: "020-lamp", episode: "010-flame" };
+  const write = (dir: string, body: string) => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "pipeline.yaml"), body);
+  };
+  beforeEach(() => {
+    mkdirSync(join(root, "tide"), { recursive: true });
+    writeFileSync(join(root, "tide", "film.yaml"), "kind: Film\n");
+    for (const ref of [shot, other]) mkdirSync(episodePath(root, ref.channel, ref.series, ref.episode), { recursive: true });
+  });
+
+  it("gives each level its own default", () => {
+    expect(defaultPipeline(root, film)).toBe("film-project");
+    expect(defaultPipeline(root, scene)).toBe("film-scene");
+    expect(defaultPipeline(root, shot)).toBe("film-shot");
+    expect(defaultPipeline(root, REF)).toBe("narrated-illustrated-video");
+    expect(declaredPipeline(root, shot)).toBeNull();
+    expect(pipelineOf(root, shot)).toBe("film-shot");
+  });
+
+  it("lets a level name the pipeline of the levels below it", () => {
+    write(join(root, "tide"), "pipeline: film-project\nscenes: film-scene-auto\nshots: film-shot-auto\n");
+    // The film's own key is the film's, never its scenes' or shots'.
+    expect(pipelineOf(root, film)).toBe("film-project");
+    expect(declaredPipeline(root, scene)).toEqual({ name: "film-scene-auto", file: "tide/pipeline.yaml" });
+    expect(pipelineOf(root, shot)).toBe("film-shot-auto");
+
+    write(seriesPath(root, "tide", "010-shore"), "pipeline: film-scene\nshots: film-shot\n");
+    expect(pipelineOf(root, scene)).toBe("film-scene");
+    expect(declaredPipeline(root, shot)).toEqual({ name: "film-shot", file: "tide/scenes/010-shore/pipeline.yaml" });
+    // Another scene's shots still follow the film.
+    expect(pipelineOf(root, other)).toBe("film-shot-auto");
+
+    write(episodePath(root, "tide", "010-shore", "020-wave"), "pipeline: blender-animation\n");
+    expect(pipelineOf(root, shot)).toBe("blender-animation");
+  });
+
+  it("refuses a level's declaration that is not a pipeline id, naming the key", () => {
+    write(join(root, "tide"), "shots: [a, b]\n");
+    expect(() => declaredPipeline(root, shot)).toThrow(/tide\/pipeline.yaml declares shots' pipeline/);
   });
 });

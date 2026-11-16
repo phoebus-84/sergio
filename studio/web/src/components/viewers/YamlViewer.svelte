@@ -11,7 +11,10 @@
   import type { ViewerProps } from "$lib/viewer-registry";
   import { parsePipelineManifest } from "$lib/pipeline-manifest";
 
-  let { content, readOnly, onEdit }: ViewerProps = $props();
+  import DataViewer from "./DataViewer.svelte";
+
+  let props: ViewerProps = $props();
+  const { content, readOnly, onEdit } = $derived(props);
 
   /* Editing is off by default: the coloured read view is what this is for, and
      a manifest is usually opened to be understood before it is changed. */
@@ -19,6 +22,10 @@
 
   const lines = $derived(content.split("\n"));
   const parsed = $derived(parsePipelineManifest(content));
+
+  /* Only a pipeline has a chain to draw. Any other YAML — a film's manifest,
+     a series format, a theme — is fields, and is shown and edited as fields. */
+  const isPipeline = $derived(parsed.recognised || parsed.name !== null);
 
   /** Split a line into its key and the rest, so the key can be coloured. */
   function splitKey(text: string): { key: string; rest: string } {
@@ -33,6 +40,9 @@
   }
 </script>
 
+{#if !isPipeline}
+  <DataViewer {...props} />
+{:else}
 <div class="yaml">
   <div class="ya-main">
     <div class="ya-bar">
@@ -116,6 +126,7 @@
     {/if}
   </aside>
 </div>
+{/if}
 
 <style>
   .yaml {

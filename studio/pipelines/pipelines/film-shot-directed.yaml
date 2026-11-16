@@ -1,0 +1,47 @@
+# film-shot with a person at every step: the plan, the take and the cut each wait for approval.
+pipeline:
+  id: film-shot-directed
+  version: "1.0.0"
+  description: "One shot of a film, directed by a person: the plan, the take and the cut each wait for approval."
+  extends:
+    pipeline: film-shot
+    version: "1.0.0"
+  capabilities:
+    - id: video.compose
+      version: "1.0.0"
+  stages:
+    - id: plan
+      name: "Shot Plan"
+      type: editorial
+      description: "How the shot is made: where its picture comes from, what it must show, its framing, movement and length, the references it must match, and what would make a take wrong."
+      inputs: []
+      outputs:
+        - contract: shot-plan.md
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 1
+      skills:
+        - skill: shot-production
+          version: "0.1.0"
+      depends_on: []
+
+    - id: cut
+      name: "Shot Cut"
+      type: editorial
+      description: "Cut the shot from its chosen take: trim, speed, framing, stabilisation and the look the film's bible asks for."
+      inputs:
+        - contract: shot-takes.json
+          version: "1.0.0"
+      outputs:
+        - contract: cut.json
+          version: "1.0.0"
+      gates:
+        autopilot: false
+        review: human
+        retry_on_failure: 1
+      skills:
+        - skill: film-editing
+          version: "0.1.0"
+      depends_on: [media]

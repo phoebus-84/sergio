@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.studio.video/v1alpha1/film.schema.json",
+  "title": "Video Studio film, scene and shot manifests (ADR-0050)",
+  "description": "A film is a self-contained work, short or feature length, produced at three levels: the shot, the scene and the film. Each level's directory carries one of these manifests. Order and containment a schema cannot express are checked by src/film.mjs.",
+  "$defs": {
+    "ResourceVersion": { "type": "string", "const": "studio.video/v1alpha1" },
+    "Slug": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "Number": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12,
+      "pattern": "^[0-9]+[A-Z]?$",
+      "description": "A scene or shot number as a script writes it: 12, 12A."
+    },
+    "Loudness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["integrated", "truePeak"],
+      "properties": {
+        "integrated": { "type": "number", "minimum": -70, "maximum": -5, "description": "Integrated loudness, LUFS." },
+        "truePeak": { "type": "number", "minimum": -9, "maximum": 0, "description": "True peak, dBTP." },
+        "range": { "type": "number", "minimum": 1, "maximum": 30, "description": "Loudness range, LU." }
+      }
+    },
+    "FilmFormat": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the film is delivered as. A whole copy of a catalog format (src/film-formats.json) or the film's own values under its own id.",
+      "required": ["id", "width", "height", "fps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Slug" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "width": { "type": "integer", "minimum": 16, "maximum": 7680, "multipleOf": 2 },
+        "height": { "type": "integer", "minimum": 16, "maximum": 4320, "multipleOf": 2 },
+        "fps": { "type": "integer", "enum": [24, 25, 30, 48, 50, 60] },
+        "aspect": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?:[0-9]+(\\.[0-9]+)?$" },
+        "loudness": { "$ref": "#/$defs/Loudness" }
+      }
+    },
+    "Sequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A run of scenes that belong together. The film's running order is its sequences in order, then each one's scenes in order.",
+      "required": ["id", "scenes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Slug" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "act": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "scenes": { "type": "array", "items": { "$ref": "#/$defs/Slug" }, "uniqueItems": true }
+      }
+    },
+    "Film": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "slug", "title", "format"],
+      "properties": {
+        "apiVersion": { "$ref": "#/$defs/ResourceVersion" },
+        "kind": { "const": "Film" },
+        "slug": { "$ref": "#/$defs/Slug" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "logline": { "type": "string", "maxLength": 600 },
+        "synopsis": { "type": "string", "maxLength": 8000 },
+        "genre": { "type": "string", "maxLength": 120 },
+        "language": { "type": "string", "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$" },
+        "runtimeTargetSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 36000 },
+        "format": { "$ref": "#/$defs/FilmFormat" },
+        "sequences": { "type": "array", "items": { "$ref": "#/$defs/Sequence" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "Scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "slug", "title"],
+      "properties": {
+        "apiVersion": { "$ref": "#/$defs/ResourceVersion" },
+        "kind": { "const": "Scene" },
+        "slug": { "$ref": "#/$defs/Slug" },
+        "number": { "$ref": "#/$defs/Number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "heading": { "type": "string", "maxLength": 200, "description": "The slugline: INT. KITCHEN - DAWN." },
+        "setting": { "type": "string", "enum": ["int", "ext", "int-ext"] },
+        "location": { "type": "string", "maxLength": 120, "description": "A location of the film's locations/, by name." },
+        "timeOfDay": { "type": "string", "maxLength": 60 },
+        "summary": { "type": "string", "maxLength": 4000 },
+        "characters": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "uniqueItems": true },
+        "durationTargetSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 7200 },
+        "shots": { "type": "array", "items": { "$ref": "#/$defs/Slug" }, "uniqueItems": true, "description": "The shots in cutting order. Shots on disk it does not name follow, by slug." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DialogueLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character", "line"],
+      "properties": {
+        "character": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "line": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "delivery": { "type": "string", "maxLength": 400, "description": "How it is said: the parenthetical." },
+        "offscreen": { "type": "boolean" }
+      }
+    },
+    "Shot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "slug", "title", "source"],
+      "properties": {
+        "apiVersion": { "$ref": "#/$defs/ResourceVersion" },
+        "kind": { "const": "Shot" },
+        "slug": { "$ref": "#/$defs/Slug" },
+        "number": { "$ref": "#/$defs/Number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 4000, "description": "What the shot shows and what happens in it." },
+        "source": {
+          "type": "string",
+          "enum": ["footage", "stock", "generated", "animation", "graphics", "screen", "mixed"],
+          "description": "Where its picture comes from: footage shot for the film, stock or archive, an AI model, 3D or 2D animation, programmed graphics, a screen or terminal recording, or several of them."
+        },
+        "size": { "type": "string", "enum": ["extreme-wide", "wide", "full", "medium-wide", "medium", "medium-close", "close", "extreme-close", "insert"] },
+        "angle": { "type": "string", "enum": ["eye-level", "high", "low", "overhead", "ground", "dutch", "over-the-shoulder", "point-of-view"] },
+        "movement": { "type": "string", "enum": ["static", "pan", "tilt", "push-in", "pull-out", "track", "crane", "handheld", "steadicam", "zoom", "orbit", "aerial"] },
+        "lens": { "type": "string", "maxLength": 60 },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 3600, "description": "How long the shot is meant to hold in the cut." },
+        "sound": { "type": "string", "enum": ["sync", "silent", "generated"], "description": "Sound recorded with the picture, none, or made afterwards." },
+        "characters": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "uniqueItems": true },
+        "dialogue": { "type": "array", "items": { "$ref": "#/$defs/DialogueLine" } },
+        "notes": { "type": "string", "maxLength": 4000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object", "additionalProperties": true }
+      }
+    }
+  }
+}

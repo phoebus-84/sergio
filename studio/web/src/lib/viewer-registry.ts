@@ -21,6 +21,7 @@
 import type { Component } from "svelte";
 import TextViewer from "$components/viewers/TextViewer.svelte";
 import YamlViewer from "$components/viewers/YamlViewer.svelte";
+import DataViewer from "$components/viewers/DataViewer.svelte";
 import ImageViewer from "$components/viewers/ImageViewer.svelte";
 import VideoViewer from "$components/viewers/VideoViewer.svelte";
 import AudioViewer from "$components/viewers/AudioViewer.svelte";
@@ -46,6 +47,9 @@ const REGISTRY: Record<string, Component<ViewerProps>> = {
   text: TextViewer,
   markdown: TextViewer,
   yaml: YamlViewer,
+  // JSON as fields and as source. YAML reaches the same component through the
+  // YAML viewer, which keeps pipelines for itself: they have a chain to draw.
+  data: DataViewer,
   image: ImageViewer,
   video: VideoViewer,
   audio: AudioViewer,
@@ -82,6 +86,10 @@ export function resolveViewer(
 
   if (type.includes("yaml") || extension === "yaml" || extension === "yml") {
     return "yaml";
+  }
+  // One JSON value is fields; a `.jsonl` log is lines, and stays text.
+  if (extension === "json" || (type.includes("json") && !type.includes("jsonl") && extension !== "jsonl")) {
+    return "data";
   }
   return name;
 }

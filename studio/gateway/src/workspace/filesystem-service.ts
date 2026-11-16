@@ -5,9 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { promises as fs } from "node:fs";
-import { readFileSync } from "node:fs";
 import * as path from "node:path";
-import * as yaml from "yaml";
 import type { WorkspaceService } from "./service.js";
 // These live in the contracts module; service.ts imports them without
 // re-exporting, so take them from the source rather than through it.
@@ -16,16 +14,28 @@ import { loadNarrationManifest } from "@studio/adapters";
 import {
   SERIES_CONTAINER,
   EPISODES_CONTAINER,
-  channelPath,
   seriesContainerPath,
-  seriesPath,
   episodesContainerPath,
   episodePath,
 } from "@studio/contracts/src/layout.mjs";
+import { projectKind, unitLevel } from "@studio/contracts/src/layout.mjs";
 import { libraryUrlPath } from "@studio/contracts/src/library-url.mjs";
+import { cutStatus, filmUnit, listScenes, listShots, readManifest, sceneUnit, shotUnit, type RenderState } from "@studio/film";
+import { defaultPipeline, pipelineOf } from "@studio/runtime";
 import { materializeSceneSpine, readSceneSpine } from "./scene-spine.js";
 import { parseJournal, JOURNAL_RELATIVE_PATH } from "@studio/contracts/src/journal.mjs";
 import type { JournalEventType } from "@studio/contracts/src/journal.mjs";
+
+/** A film unit's state, in the vocabulary the studio's library lists speak. */
+const FILM_STATUS: Record<RenderState, EpisodeStatus> = {
+  "no-cut": "idle",
+  "invalid-cut": "blocked",
+  blocked: "blocked",
+  "not-rendered": "running",
+  stale: "running",
+  preview: "running",
+  current: "completed",
+};
 
 /**
  * Content directories at a level.
@@ -57,12 +67,23 @@ export class FileSystemWorkspaceService implements WorkspaceService {
         const entries = await fs.readdir(root, { withFileTypes: true });
         for (const entry of entries) {
           if (!isContentDirectory(entry)) continue;
+          if (projectKind(root, entry.name) === "film") {
+            const manifest = readManifest<{ title?: string }>(root, filmUnit(entry.name)).manifest;
+            channels.push({
+              slug: entry.name,
+              title: typeof manifest?.title === "string" && manifest.title ? manifest.title : this.titleFromSlug(entry.name),
+              seriesCount: listScenes(root, entry.name).scenes.length,
+              kind: "film",
+            });
+            continue;
+          }
           const seriesList = await this.countSeries(path.join(root, entry.name));
 
           channels.push({
             slug: entry.name,
             title: this.titleFromSlug(entry.name),
             seriesCount: seriesList.length,
+            kind: "channel",
           });
         }
       } catch { /* root not accessible */ }
@@ -75,6 +96,20 @@ export class FileSystemWorkspaceService implements WorkspaceService {
     const series: SeriesSummary[] = [];
 
     for (const root of this.roots) {
+      if (projectKind(root, channel) === "film") {
+        // A film's scenes, in the order the film runs.
+        for (const { scene, sequence, act } of listScenes(root, channel).scenes) {
+          const manifest = readManifest<{ title?: string }>(root, sceneUnit(channel, scene)).manifest;
+          series.push({
+            slug: scene,
+            title: typeof manifest?.title === "string" && manifest.title ? manifest.title : this.titleFromSlug(scene),
+            episodeCount: listShots(root, channel, scene).order.length,
+            sequence,
+            act,
+          });
+        }
+        continue;
+      }
       // Layout 2: series live in <channel>/series/, never loose in the channel.
       const container = seriesContainerPath(root, channel);
       try {
@@ -101,6 +136,25 @@ export class FileSystemWorkspaceService implements WorkspaceService {
     const episodes: EpisodeSummary[] = [];
 
     for (const root of this.roots) {
+      if (projectKind(root, channel) === "film") {
+        // A scene's shots, in the order they are cut.
+        for (const shot of listShots(root, channel, series).order) {
+          const ref = shotUnit(channel, series, shot);
+          const manifest = readManifest<{ title?: string }>(root, ref).manifest;
+          const state = cutStatus(root, ref).state;
+          episodes.push({
+            slug: shot,
+            title: typeof manifest?.title === "string" && manifest.title ? manifest.title : this.titleFromSlug(shot),
+            status: FILM_STATUS[state],
+            currentDeliverable: state === "current",
+            blocked: state === "blocked" || state === "invalid-cut",
+            staleCount: state === "stale" ? 1 : 0,
+            pipeline: this.resolvePipeline(root, channel, series, shot),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        continue;
+      }
       const seriesPath = episodesContainerPath(root, channel, series);
       try {
         const entries = await fs.readdir(seriesPath, { withFileTypes: true });
@@ -145,6 +199,38 @@ export class FileSystemWorkspaceService implements WorkspaceService {
           pipeline,
           updatedAt: new Date().toISOString(),
         };
+
+        // A film's unit — a shot, a scene, the film — has a cut and renders, not
+        // an episode's scene spine: its detail is its state and its render.
+        if (unitLevel(root, { channel, series, episode }) !== "episode") {
+          const unit = { channel, series, episode };
+          const film = cutStatus(root, unit);
+          const manifest = readManifest<{ title?: string }>(root, unit).manifest;
+          const pick = film.final?.fresh ? film.final : film.preview?.fresh ? film.preview : film.final ?? film.preview;
+          let render: Record<string, unknown> | null = null;
+          if (pick) {
+            const file = path.join(epPath, "output", pick.path);
+            try {
+              const stat = await fs.stat(file);
+              render = {
+                url: libraryUrlPath({ kind: "film", channel, series, episode }, `output/${pick.path}`),
+                file: path.basename(file), size: stat.size, generatedAt: stat.mtime.toISOString(),
+                renderId: pick.renderId, quality: pick.quality, fresh: pick.fresh,
+              };
+            } catch { /* the pointer outlived its file */ }
+          }
+          return {
+            ...base,
+            title: typeof manifest?.title === "string" && manifest.title ? manifest.title : base.title,
+            status: FILM_STATUS[film.state],
+            blocked: film.state === "blocked" || film.state === "invalid-cut",
+            ...(film.state === "blocked" || film.state === "invalid-cut" ? { blockedReason: film.reason } : {}),
+            staleCount: film.state === "stale" ? 1 : 0,
+            scenes: [],
+            render,
+            qaReport: null,
+          };
+        }
 
         // The scene list is derived from whatever production left on disk, not
         // read out of artifacts/episode.json. That file is authored empty and
@@ -369,33 +455,21 @@ export class FileSystemWorkspaceService implements WorkspaceService {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
-  /** Resolve the pipeline name for an episode by reading series pipeline.yaml. */
+  /**
+   * The pipeline an episode runs: the one the library declares for it, else
+   * the default of what it is — one pipeline for an episode, one per level for
+   * a film's units (ADR-0050). The same reading the CLI makes
+   * (`pipelineOf`), so the studio and `vpr` cannot name two pipelines for one
+   * unit. A declaration that cannot be read is passed over here: this is a
+   * listing, and the routes that execute say what is wrong with it.
+   */
   private resolvePipeline(root: string, channel: string, series: string, episode: string): string {
-    // 1. Try episode-level pipeline.yaml
-    const epPipeline = path.join(episodePath(root, channel, series, episode), "pipeline.yaml");
+    const ref = { channel, series, episode };
     try {
-      const raw = readFileSync(epPipeline, "utf-8");
-      const doc = yaml.parse(raw) as Record<string, unknown> | null;
-      if (doc?.pipeline) return String(doc.pipeline);
-    } catch { /* no episode pipeline */ }
-
-    // 2. Try series-level pipeline.yaml
-    const seriesPipeline = path.join(seriesPath(root, channel, series), "pipeline.yaml");
-    try {
-      const raw = readFileSync(seriesPipeline, "utf-8");
-      const doc = yaml.parse(raw) as Record<string, unknown> | null;
-      if (doc?.pipeline) return String(doc.pipeline);
-    } catch { /* no series pipeline */ }
-
-    // 3. Try channel-level pipeline.yaml
-    const chPipeline = path.join(channelPath(root, channel), "pipeline.yaml");
-    try {
-      const raw = readFileSync(chPipeline, "utf-8");
-      const doc = yaml.parse(raw) as Record<string, unknown> | null;
-      if (doc?.pipeline) return String(doc.pipeline);
-    } catch { /* no channel pipeline */ }
-
-    return "narrated-illustrated-video"; // default fallback
+      return pipelineOf(root, ref);
+    } catch {
+      return defaultPipeline(root, ref);
+    }
   }
 
   private async countSeries(channelPath: string): Promise<string[]> {

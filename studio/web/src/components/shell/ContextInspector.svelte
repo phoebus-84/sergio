@@ -25,6 +25,8 @@
   import ProductionPanel from "../episode/ProductionPanel.svelte";
   import ProgressPanel from "../status/ProgressPanel.svelte";
   import StalenessPanel from "../status/StalenessPanel.svelte";
+  import CutInspector from "../cut/CutInspector.svelte";
+  import { cut } from "$lib/cut-store.svelte.ts";
   import { buildAssetGroups } from "$lib/asset-groups";
   import { assets as assetStore } from "$lib/asset-store.svelte.ts";
   import { scenes } from "$lib/scene-store.svelte.ts";
@@ -53,7 +55,7 @@
     });
   });
 
-  const TABS: { key: InspectorTab; label: string }[] = [
+  const BASE_TABS: { key: InspectorTab; label: string }[] = [
     { key: "provenance", label: "Provenance" },
     { key: "versions", label: "Versions" },
     { key: "logs", label: "Logs" },
@@ -61,9 +63,37 @@
     { key: "run", label: "Run" },
   ];
 
+  /* A cut on the canvas makes this panel its inspector: what is selected on
+     the timeline is the thing the person is asking about. The tab is offered
+     only while a cut is showing, and taken when one is opened. */
+  const cutShowing = $derived(studio.view === "cut" && library.filmUnit !== null);
+  const TABS = $derived(cutShowing ? [{ key: "cut" as InspectorTab, label: "Cut" }, ...BASE_TABS] : BASE_TABS);
+
+  $effect(() => {
+    const showing = cutShowing;
+    untrack(() => {
+      if (showing) studio.inspectorTab = "cut";
+      else if (studio.inspectorTab === "cut") studio.inspectorTab = "provenance";
+    });
+  });
+
+  const FILM_LEVEL = { channel: "film", series: "scene", episode: "shot" } as const;
+
   /** What the panel is currently about, named exactly. */
   const subject = $derived.by(() => {
     if (studio.view === "files" && files.selectedPath) return files.selectedPath;
+    if (studio.inspectorTab === "cut" && cutShowing) {
+      const selected = cut.selection;
+      if (selected?.kind === "clip") return `clip · ${selected.id}`;
+      if (selected?.kind === "track") return `track · ${selected.id}`;
+      return "the whole cut";
+    }
+    const unit = library.filmUnit;
+    if (unit) {
+      const slug = unit.level === "film" ? unit.film : unit.level === "scene" ? unit.scene : unit.shot;
+      const stage = episode.selectedStageId;
+      return studio.view === "stages" && stage ? `${slug} · ${stage}` : `${FILM_LEVEL[studio.level]} · ${slug}`;
+    }
     if (studio.level === "episode") {
       const ep = episode.state.phase === "ready" ? episode.state.episode : null;
       const stage = episode.selectedStageId;
@@ -101,7 +131,9 @@
   </div>
 
   <div class="ci-content">
-    {#if studio.inspectorTab === "provenance"}
+    {#if studio.inspectorTab === "cut" && cutShowing}
+      <CutInspector />
+    {:else if studio.inspectorTab === "provenance" || studio.inspectorTab === "cut"}
       <ProvenancePanel />
     {:else if studio.inspectorTab === "versions"}
       <VersionsPanel />

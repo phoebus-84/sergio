@@ -1,13 +1,14 @@
 ---
 name: pva-executive-producer
-description: Operate the Agentic Video Studio as executive producer. Use for channel, series, episode, run, resume, review, and rerun commands. This skill coordinates video production pipelines through the pva_* tools, under Pi or Claude Code.
+description: Operate the Agentic Video Studio as executive producer. Use for channel, series, episode, film, scene, shot, run, resume, review, and rerun commands. This skill coordinates video production pipelines through the pva_* tools, under Pi or Claude Code.
 ---
 
 # PVA Executive Producer
 
 This skill makes the agent — Pi, or Claude Code through the studio's MCP server — the
 executive producer for the Agentic Video Studio. It coordinates the full production
-lifecycle: channels, series, episodes, pipeline runs, reviews, and reruns.
+lifecycle: channels, series and episodes; films, scenes and shots; pipeline runs,
+reviews, and reruns.
 
 ## Setup
 
@@ -34,6 +35,9 @@ commands become available through the agent.
 - **Channel**: Top-level organization unit for a video series or brand.
 - **Series**: A collection of episodes within a channel.
 - **Episode**: A single video production unit with its own pipeline state.
+- **Film**: A self-contained work, short or feature length, beside the channels. It is
+  produced at three levels — the film, its scenes, their shots — each with its own
+  pipeline, cut and renders. **For a film, load the `film-producer` skill first.**
 - **Workspace authoring**: Idempotent creation of channel, series, and episode directories; existing metadata is never overwritten.
 - **Run**: One execution of a pipeline against an episode.
 - **Resume**: Continue a previous run from its last checkpoint.
@@ -57,6 +61,32 @@ commands become available through the agent.
   $0.05 at 480p; on the spend ledger). `loop: true` ends on the same image: a closed loop. Prefer it to
   `pva_generate_minimax_h3_video` (~$0.48/clip) for loops and small moving details; keep H3 for
   performances, references and long shots.
+
+### Films
+
+A request for a film, a short, a trailer, a music video, a documentary — one work,
+not an episode of a series — is a **film**, made with the film tools:
+
+- `pva_create_film`, `pva_create_scene`, `pva_create_shot` — the film and its units.
+- `pva_film` — the film in running order, where every unit stands, and what stands
+  between it and its final render. Read it before deciding what to do next.
+- `pva_update_unit` — a unit's manifest, and the order of what is under it.
+- `pva_ingest_footage`, `pva_footage`, `pva_inspect_media` — real footage, location
+  sound, stock and music brought in, logged and looked at.
+- `pva_assemble_cut`, `pva_edit_cut`, `pva_check_cut`, `pva_cut_frame`,
+  `pva_cut_effects`, `pva_render_cut` — a unit's cut made, edited, checked, looked at
+  and rendered; a render cascades to whatever under it is out of date.
+
+Every other tool takes a film's unit as `channel` / `series` / `episode` with `_` for
+the level itself: a shot is `(film, scene, shot)`, a scene `(film, scene, _)`, the film
+`(film, _, _)`. Pipelines, budget, approvals, generation, voice and archive tools all
+work on a film's units that way.
+
+How much a person decides is declared per level in `pipeline.yaml` (`pipeline:`,
+`scenes:`, `shots:`): from every step (`film-shot-directed`) to only the final review
+(`film-project-auto` with `film-scene-auto` and `film-shot-auto`). The skills are
+`film-producer` (start here), `film-development`, `film-breakdown`, `footage-ingest`,
+`shot-production`, `film-sound` and `film-editing`.
 
 Create parents in order: channel, series, then episode. Creation is intentionally
 non-destructive: revise existing metadata with reviewed file edits rather than

@@ -27,6 +27,26 @@ describe("doctor", () => {
     fs.seed({ "/library/.keep": "" });
   });
 
+  it("holds a film to what a film has, not to what a channel has", async () => {
+    // A film has no channel.md and no series/: it used to be reported as a
+    // channel missing both, which made every library with a film unhealthy.
+    fs.seed({
+      "/library/tide/film.yaml": "kind: Film\n",
+      "/library/tide/.workspace/contract.json": JSON.stringify({ type: "film" }),
+      "/library/tide/scenes/.keep": "",
+      "/library/tide/scenes/010-shore/scene.yaml": "kind: Scene\n",
+    });
+    const whole = await doctor({ fs, libraryRoot: "/library" });
+    expect(whole.findings.filter((f) => f.path.startsWith("/library/tide"))).toEqual([]);
+
+    fs.seed({ "/library/ebb/film.yaml": "kind: Film\n" });
+    const broken = await doctor({ fs, libraryRoot: "/library", channel: "ebb" });
+    expect(broken.ok).toBe(false);
+    expect(broken.findings).toEqual([
+      { level: "film", path: "/library/ebb/scenes", code: "E_MISSING_REQUIRED", message: "Required film file/directory missing: scenes" },
+    ]);
+  });
+
   it("reports healthy on a freshly initialized tree", async () => {
     const opts = makeOpts(fs);
     const chR = await initChannel("/library", "ch", {}, opts);
