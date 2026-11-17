@@ -29,6 +29,14 @@ export interface Stem {
   loudness: Level;
   /** dBFS. */
   peak: Level;
+  /** Peak over RMS, dB. */
+  crest: number;
+  /** Spectral centroid, Hz. */
+  centroid: number;
+  /** Stereo correlation: 1 mono, 0 fully wide, negative cancels in mono. */
+  correlation: number;
+  /** Share of the stem's energy per band, dB. */
+  bands: Record<string, number | null>;
 }
 
 export interface MusicRender {
@@ -72,6 +80,10 @@ export interface MusicRender {
     basis: "loudness" | "peak" | "given" | "none";
     /** The peak ceiling kept the file under the loudness asked for. */
     held: boolean;
+    /** The loudness asked for, LUFS; null when none was. */
+    target: Level;
+    /** The highest peak allowed, dBFS. */
+    ceiling: number;
     /** Integrated, LUFS. */
     loudness: Level;
     /** dBFS. */

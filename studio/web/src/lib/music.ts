@@ -114,11 +114,12 @@ export function shapeLine(record: MusicRenderRecord): string {
   return [`${+o.durationSeconds.toFixed(2)} s`, `cycles ${record.range.from}–${record.range.to}`, end, ...(partial ? [`only ${playing.join(", ")}`] : [])].join(" · ");
 }
 
-/** "−16.0 LUFS · peak −3.1 dBFS · gain +4.2 dB" */
+/** "−18.0 LUFS · peak −3.1 dBFS · gain +4.2 dB", and how far under the loudness asked its peaks kept it. */
 export function levelLine(record: MusicRenderRecord): string {
   const l = record.level;
   const gain = l.basis === "none" ? "its own level" : `gain ${l.gain >= 0 ? "+" : ""}${l.gain} dB`;
-  return [db(l.loudness, "LUFS"), `peak ${db(l.peak, "dBFS")}`, gain, ...(l.held ? ["held by its peaks"] : [])].join(" · ");
+  const short = l.held && l.target !== null && l.loudness !== null ? [`${(l.target - l.loudness).toFixed(1)} dB under the ${l.target} asked`] : [];
+  return [db(l.loudness, "LUFS"), `peak ${db(l.peak, "dBFS")}`, gain, ...short].join(" · ");
 }
 
 const BANDS: [string, string][] = [["sub", "sub"], ["bass", "bass"], ["lowMid", "low-mid"], ["mid", "mid"], ["highMid", "high-mid"], ["high", "high"]];

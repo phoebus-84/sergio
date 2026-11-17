@@ -20,13 +20,17 @@
     "Stem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["part", "path", "hash", "loudness", "peak"],
+      "required": ["part", "path", "hash", "loudness", "peak", "crest", "centroid", "correlation", "bands"],
       "properties": {
         "part": { "type": "string", "minLength": 1 },
         "path": { "$ref": "#/$defs/Path" },
         "hash": { "$ref": "#/$defs/Hash" },
         "loudness": { "$ref": "#/$defs/Level", "description": "Integrated, LUFS, at the gain it has in the mix." },
-        "peak": { "$ref": "#/$defs/Level", "description": "dBFS." }
+        "peak": { "$ref": "#/$defs/Level", "description": "dBFS." },
+        "crest": { "type": "number", "description": "Peak over RMS, dB." },
+        "centroid": { "type": "number", "minimum": 0, "description": "Spectral centroid, Hz." },
+        "correlation": { "type": "number", "minimum": -1, "maximum": 1, "description": "Stereo correlation: 1 mono, 0 fully wide, negative cancels in mono." },
+        "bands": { "type": "object", "additionalProperties": { "type": ["number", "null"] }, "description": "Share of the stem's energy per band, dB." }
       }
     },
     "MusicRender": {
@@ -81,11 +85,13 @@
         "level": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["gain", "basis", "held", "loudness", "peak"],
+          "required": ["gain", "basis", "held", "target", "ceiling", "loudness", "peak"],
           "properties": {
             "gain": { "type": "number", "description": "The one gain applied to the render, dB." },
             "basis": { "enum": ["loudness", "peak", "given", "none"] },
             "held": { "type": "boolean", "description": "The peak ceiling kept the file under the loudness asked for." },
+            "target": { "$ref": "#/$defs/Level", "description": "The loudness asked for, LUFS; null when none was." },
+            "ceiling": { "type": "number", "maximum": 0, "description": "The highest peak allowed, dBFS." },
             "loudness": { "$ref": "#/$defs/Level", "description": "Integrated, LUFS." },
             "peak": { "$ref": "#/$defs/Level", "description": "dBFS." }
           }

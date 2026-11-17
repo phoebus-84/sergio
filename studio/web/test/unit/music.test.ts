@@ -18,7 +18,7 @@ const record: MusicRenderRecord = {
     { name: "bass", muted: false, selected: true, solo: false },
     { name: "idea", muted: true, selected: false, solo: false },
   ],
-  level: { gain: 4.2, basis: "loudness", held: false, loudness: -16, peak: -3.1 },
+  level: { gain: 4.2, basis: "loudness", held: false, loudness: -18, peak: -3.1, target: -18, ceiling: -1 },
   analysis: { bands: { sub: -9, bass: -3, lowMid: -8, mid: -18, highMid: -36, high: -60 } },
   inputs: {},
   fetched: [],
@@ -73,9 +73,10 @@ describe("a render's record in words", () => {
   });
 
   it("says its level, and when its peaks held it back", () => {
-    expect(levelLine(record)).toBe("-16.0 LUFS · peak -3.1 dBFS · gain +4.2 dB");
-    expect(levelLine({ ...record, level: { gain: -2, basis: "loudness", held: true, loudness: -19.5, peak: -1 } })).toBe("-19.5 LUFS · peak -1.0 dBFS · gain -2 dB · held by its peaks");
-    expect(levelLine({ ...record, level: { gain: 0, basis: "none", held: false, loudness: null, peak: null } })).toBe("– LUFS · peak – dBFS · its own level");
+    expect(levelLine(record)).toBe("-18.0 LUFS · peak -3.1 dBFS · gain +4.2 dB");
+    expect(levelLine({ ...record, level: { gain: -2, basis: "loudness", held: true, loudness: -19.5, peak: -1, target: -18, ceiling: -1 } }))
+      .toBe("-19.5 LUFS · peak -1.0 dBFS · gain -2 dB · 1.5 dB under the -18 asked");
+    expect(levelLine({ ...record, level: { gain: 0, basis: "none", held: false, loudness: null, peak: null, target: null, ceiling: -1 } })).toBe("– LUFS · peak – dBFS · its own level");
   });
 
   it("gives the spectrum as bars: all of the energy is full, −36 dB and under is empty", () => {

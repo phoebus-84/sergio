@@ -106,10 +106,11 @@ describe.skipIf(!chrome)("a workspace's pieces, rendered", () => {
       createdAt: "2026-11-17T10:00:00.000Z",
     });
     expect(record.parts.map((p) => p.name)).toEqual(["drums", "bass", "pad", "idea"]);
-    // A kick over a quiet bed: its peaks reach the ceiling before the whole reaches −16 LUFS, and the record says so.
+    // Brought to −18 LUFS with one gain, the peaks under the ceiling; the record says what was asked.
+    expect(record.level).toMatchObject({ basis: "loudness", target: -18, ceiling: -1 });
     expect(record.level.peak).toBeLessThanOrEqual(-1);
-    if (record.level.held) expect(record.concerns.join(" ")).toContain("under the -16 asked");
-    else expect(record.level.loudness).toBeCloseTo(-16, 0);
+    if (!record.level.held) expect(record.level.loudness).toBeCloseTo(-18, 0);
+    expect((record.analysis as { peakAt: number }).peakAt).toBeGreaterThanOrEqual(0);
     const audio = decodeWav(readFileSync(join(dir, "assets/sounds/theme.wav")));
     expect(audio.sampleRate).toBe(48000);
     expect(audio.channels).toHaveLength(2);
@@ -132,6 +133,11 @@ describe.skipIf(!chrome)("a workspace's pieces, rendered", () => {
     for (let i = 0; i < mix.length; i++) worst = Math.max(worst, Math.abs(mix[i]! - stems.reduce((sum, stem) => sum + stem[i]!, 0)));
     expect(worst).toBeLessThan(0.02);
     expect(record.stems.every((s) => s.loudness !== null && s.peak !== null && s.peak <= 0)).toBe(true);
+    // Each stem is measured as the mix is: the kick is low, the plain oscillators are in the middle.
+    const [drums, , pad] = record.stems;
+    expect(drums!.centroid!).toBeLessThan(pad!.centroid!);
+    expect(drums!.bands!.sub! + drums!.bands!.bass!).toBeGreaterThan(pad!.bands!.sub! + pad!.bands!.bass!);
+    expect(drums!.correlation).toBe(1);
   });
 
   it("renders a stretch, one part, a loop; and names what to listen for", { timeout: 180_000 }, async () => {
@@ -146,10 +152,13 @@ describe.skipIf(!chrome)("a workspace's pieces, rendered", () => {
     expect(loop.record.output).toMatchObject({ loop: true, durationSeconds: 8, bodySeconds: 8 });
     expect(loop.record.concerns).toEqual([]);
 
-    const cut = await renderMusic(dir, { path: "music/theme.strudel", cycles: 1, only: ["pad"], output: "assets/sounds/pad-cut.wav" }, { renderer });
+    const cut = await renderMusic(dir, { path: "music/theme.strudel", cycles: 2, only: ["pad"], output: "assets/sounds/pad-cut.wav" }, { renderer });
     expect(cut.record.concerns.join(" ")).toContain("still sounding where it ends");
-    const seamed = await renderMusic(dir, { path: "music/theme.strudel", cycles: 1, only: ["pad"], loop: true, output: "assets/sounds/pad-seam.wav" }, { renderer });
-    expect(seamed.record.concerns.join(" ")).toContain("a loop with no tail");
+    const tailless = await renderMusic(dir, { path: "music/theme.strudel", cycles: 2, only: ["pad"], loop: true, output: "assets/sounds/pad-tailless.wav" }, { renderer });
+    expect(tailless.record.concerns).toEqual([expect.stringContaining("a loop with no tail")]);
+    // One cycle of a pad that alternates two chords does not come round: the record names the part.
+    const seamed = await renderMusic(dir, { path: "music/theme.strudel", cycles: 1, tail: 2, loop: true, mute: ["drums"], output: "assets/sounds/seam.wav" }, { renderer });
+    expect(seamed.record.concerns).toEqual([expect.stringMatching(/^as a loop it has a seam: "pad" does not play in cycles 1–2 what it played in 0–1/)]);
   });
 
   it("uses the workspace's own sounds as samples, and records them", { timeout: 120_000 }, async () => {
@@ -160,6 +169,20 @@ describe.skipIf(!chrome)("a workspace's pieces, rendered", () => {
     const { record } = await renderMusic(dir, { path: "music/rain.strudel", cycles: 2 }, { renderer });
     expect(Object.keys(record.inputs)).toEqual(["assets/sounds/drop.wav"]);
     expect(record.inputs["assets/sounds/drop.wav"]).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("says where the peak is when a piece falls well short of its loudness", { timeout: 120_000 }, async () => {
+    // One click in four seconds over a faint tone: 37 dB of crest. No gain brings it to −18 LUFS under the ceiling.
+    const dir = fresh({ "music/spiky.strudel": `setcps(.5)\nhit: s("<~ white>").struct("~ x").decay(.005).sustain(0).gain(2)\npad: note("c3").s("sine").gain(.01)` });
+    const { record } = await renderMusic(dir, { path: "music/spiky.strudel", cycles: 2 }, { renderer });
+    expect(record.level).toMatchObject({ held: true, peak: -1 });
+    const concern = record.concerns.find((c) => c.startsWith("its peaks keep it"))!;
+    // The click is in the second half of the second 2 s cycle.
+    expect(concern).toMatch(/dB under the -18 asked\. The highest is at 3\.00 s \(cycle 1\.50\)/);
+    // A few decibels short is what drums cost, and is not a concern.
+    const mild = fresh();
+    const ordinary = await renderMusic(mild, { path: "music/theme.strudel", cycles: 4, tail: 3 }, { renderer });
+    expect(ordinary.record.concerns.filter((c) => c.startsWith("its peaks"))).toEqual([]);
   });
 
   it("writes nothing when the piece is wrong", { timeout: 120_000 }, async () => {

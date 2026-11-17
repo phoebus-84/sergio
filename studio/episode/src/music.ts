@@ -31,14 +31,20 @@ export class MusicError extends Error {
 
 /** Where a rendered file may go, relative to the workspace. */
 export const MUSIC_OUTPUT_DIRS = ["assets/sounds/", "assets/audio/", "assets/music/", "music/", "artifacts/audio/"];
-/** Loudness a render is brought to unless the request says otherwise: a known reference for whoever sets its gain in an edit. */
-export const MUSIC_LOUDNESS = -16;
+/**
+ * Loudness a render is brought to unless the request says otherwise: a known reference for whoever sets its gain in
+ * an edit. Music with drums peaks 15 to 18 dB above its loudness, so under a −1 dBFS ceiling −18 is what most
+ * pieces reach with a gain alone; it is also the level a long version's pieces are set to.
+ */
+export const MUSIC_LOUDNESS = -18;
 export const MUSIC_PEAK = -1;
 /** The end of a file is "still sounding" above this level, dBFS. */
 const RINGING = -50;
+/** Short of its loudness by this much, a file is worth a word: less is what peaks ordinarily cost. */
+const SHORT = 3;
 
 export interface MusicLevel {
-  /** Integrated loudness to reach, LUFS (default −16); null keeps the render's own level. */
+  /** Integrated loudness to reach, LUFS (default −18); null keeps the render's own level. */
   loudness?: number | null;
   /** Peak ceiling, dBFS (default −1). */
   peak?: number;
@@ -172,13 +178,18 @@ const stemName = (part: string) => part.replace(/^\$/, "part").replace(/[^\w-]/g
 /** What a person should know or listen for, read from the numbers. */
 function concernsOf(made: Rendering, leveled: Leveled, analysis: AudioAnalysis, request: MusicRequest, level: Required<Pick<MusicLevel, "loudness" | "peak">>): string[] {
   const out = made.problems.map((p) => p.message);
-  if (leveled.held) {
-    out.push(`its peaks keep it at ${leveled.loudness} LUFS, under the ${level.loudness} asked: one part hits much harder than the rest plays (crest ${analysis.crest} dB). Lower that part's gain or soften its attack to bring the whole up`);
+  const short = level.loudness !== null && leveled.loudness !== null ? level.loudness - leveled.loudness : 0;
+  if (leveled.held && short >= SHORT) {
+    const cycle = made.from + analysis.peakAt * made.cps;
+    out.push(
+      `its peaks keep it at ${leveled.loudness} LUFS, ${short.toFixed(1)} dB under the ${level.loudness} asked. The highest is at ${analysis.peakAt.toFixed(2)} s ` +
+        `(cycle ${cycle.toFixed(2)}): what starts together there adds up, even when no part is loud alone. Lower the part that hits hardest there ` +
+        "(the stems' peaks say which), move an accent off that beat, or accept the level: the edit sets it anyway",
+    );
   }
-  const closing = analysis.envelope.rms.at(-1) ?? -99;
-  const ending = Math.max(closing, lastLevel(made));
+  const ending = lastLevel(leveled.channels, made.sampleRate);
   if (!made.loop && (request.level?.fadeOut ?? 0) === 0 && ending > RINGING) {
-    out.push(`it is still sounding where it ends (${Math.round(ending)} dBFS): give it a tail to ring out in, or a fadeOut`);
+    out.push(`it is still sounding where it ends (${Math.round(ending)} dBFS in its last 50 ms): right for a sound cut on the next one; otherwise give it a tail (seconds) to ring out in, or a fadeOut`);
   }
   if (made.loop && (request.tail ?? 0) === 0 && ending > RINGING) {
     out.push("a loop with no tail cuts off what rings past its last cycle: give tail seconds for it to be folded over the start");
@@ -191,12 +202,27 @@ function concernsOf(made: Rendering, leveled: Leveled, analysis: AudioAnalysis, 
   return out;
 }
 
-/** RMS of the file's last 50 ms, dBFS. */
-function lastLevel(made: Rendering): number {
-  const n = Math.min(made.channels[0].length, Math.round(0.05 * made.sampleRate));
+/** RMS of a file's last 50 ms, dBFS. */
+function lastLevel(channels: Float32Array[], sampleRate: number): number {
+  const frames = channels[0]?.length ?? 0;
+  const n = Math.min(frames, Math.round(0.05 * sampleRate));
   let sum = 0;
-  for (const channel of made.channels) for (let i = channel.length - n; i < channel.length; i++) sum += channel[i]! * channel[i]!;
-  return sum > 0 ? 10 * Math.log10(sum / (2 * n)) : -Infinity;
+  for (const channel of channels) for (let i = frames - n; i < frames; i++) sum += channel[i]! * channel[i]!;
+  return sum > 0 ? 10 * Math.log10(sum / (channels.length * n)) : -Infinity;
+}
+
+/**
+ * A loop repeats without a seam only when the piece plays, after its last cycle, what it played from its first.
+ * The parts that do not: an alternation whose period does not divide the loop, or chance left open.
+ */
+async function unrepeated(renderer: StrudelRenderer, code: string, made: Rendering, shared: { files: string; only?: string[]; mute?: string[]; network?: boolean; signal?: AbortSignal }): Promise<string[]> {
+  const length = made.to - made.from;
+  const [here, next] = [
+    await renderer.inspect(code, { ...shared, from: made.from, to: made.to }),
+    await renderer.inspect(code, { ...shared, from: made.to, to: made.to + length }),
+  ];
+  if (here.parts.length === 0) return here.signature === next.signature ? [] : ["the piece"];
+  return here.parts.filter((part) => part.selected && part.signature !== next.parts.find((p) => p.name === part.name)?.signature).map((part) => `"${part.name}"`);
 }
 
 export interface MusicRenderResult {
@@ -238,6 +264,17 @@ export async function renderMusic(dir: string, request: MusicRequest, options: M
     const leveled = levelAudio(made.channels, made.sampleRate, { loudness: level.loudness, peak: level.peak, ...edges });
     const analysis = analyzeAudio(leveled.channels, made.sampleRate);
     const concerns = concernsOf(made, leveled, analysis, request, level);
+    if (made.loop) {
+      const selection = { files: dir, ...(request.only ? { only: request.only } : {}), ...(request.mute ? { mute: request.mute } : {}), ...(request.network ? { network: true } : {}), ...(options.signal ? { signal: options.signal } : {}) };
+      const open = await unrepeated(renderer, piece.code, made, selection);
+      if (open.length > 0) {
+        const cycles = made.to - made.from;
+        concerns.push(
+          `as a loop it has a seam: ${open.join(", ")} ${open.length === 1 ? "does" : "do"} not play in cycles ${made.to}–${made.to + cycles} what ${open.length === 1 ? "it" : "they"} played in ${made.from}–${made.to}. ` +
+            `Render a number of cycles every alternation divides, and close chance with .ribbon(offset, ${cycles})`,
+        );
+      }
+    }
 
     const files: { path: string; bytes: Buffer }[] = [{ path: output, bytes: encodeWav(leveled.channels, made.sampleRate, "pcm24") }];
     const stems: MusicStem[] = [];
@@ -255,7 +292,13 @@ export async function renderMusic(dir: string, request: MusicRequest, options: M
         const path = `${output.slice(0, -".wav".length)}.${stemName(part.name)}.wav`;
         const bytes = encodeWav(stem.channels, alone.sampleRate, "pcm24");
         files.push({ path, bytes });
-        stems.push({ part: part.name, path, hash: sha256(bytes), loudness: stem.loudness, peak: Number.isFinite(stem.peak) ? stem.peak : null });
+        // Measured like the mix, so that whoever cannot listen can tell which part carries a band, or is too wide.
+        const heard = analyzeAudio(stem.channels, alone.sampleRate);
+        stems.push({
+          part: part.name, path, hash: sha256(bytes), loudness: stem.loudness, peak: Number.isFinite(stem.peak) ? stem.peak : null,
+          crest: heard.crest, centroid: heard.centroid, correlation: heard.stereo.correlation,
+          bands: JSON.parse(JSON.stringify(heard.bands)) as Record<string, number | null>,
+        });
       }
     }
 
@@ -272,7 +315,10 @@ export async function renderMusic(dir: string, request: MusicRequest, options: M
         sampleRate: made.sampleRate, channels: 2, loop: made.loop,
       },
       parts: made.parts,
-      level: { gain: leveled.gain, basis: leveled.basis, held: leveled.held, loudness: leveled.loudness, peak: Number.isFinite(leveled.peak) ? leveled.peak : null },
+      level: {
+        gain: leveled.gain, basis: leveled.basis, held: leveled.held, loudness: leveled.loudness, peak: Number.isFinite(leveled.peak) ? leveled.peak : null,
+        target: level.loudness, ceiling: level.peak,
+      },
       analysis: JSON.parse(JSON.stringify(analysis)) as Record<string, unknown>,
       inputs: Object.fromEntries(made.requests.filter((r) => r.outcome === "served" && r.path && r.sha256).map((r) => [r.path!, r.sha256!])),
       fetched: made.requests.filter((r) => r.outcome === "fetched" && r.sha256).map((r) => ({ url: r.url, hash: r.sha256!, bytes: r.bytes ?? 0 })),

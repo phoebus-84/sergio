@@ -15,7 +15,7 @@
       "tail": 3,
       "stems": true,
       "level": {
-        "loudness": -16
+        "loudness": -18
       }
     },
     "tempo": {
@@ -59,8 +59,10 @@
       "gain": 4.2,
       "basis": "loudness",
       "held": false,
-      "loudness": -16,
-      "peak": -3.1
+      "loudness": -18,
+      "peak": -3.1,
+      "target": -18,
+      "ceiling": -1
     },
     "analysis": {
       "seconds": 35,
@@ -85,14 +87,36 @@
         "path": "assets/sounds/theme.drums.wav",
         "hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         "loudness": -18.2,
-        "peak": -3.4
+        "peak": -3.4,
+        "crest": 17.2,
+        "centroid": 412,
+        "correlation": 1,
+        "bands": {
+          "sub": -6,
+          "bass": -2,
+          "lowMid": -11,
+          "mid": -18,
+          "highMid": -30,
+          "high": null
+        }
       },
       {
         "part": "bass",
         "path": "assets/sounds/theme.bass.wav",
         "hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "loudness": -24,
-        "peak": -12
+        "peak": -12,
+        "crest": 9.1,
+        "centroid": 118,
+        "correlation": 1,
+        "bands": {
+          "sub": -7.4,
+          "bass": -0.9,
+          "lowMid": -19,
+          "mid": -33,
+          "highMid": -52,
+          "high": null
+        }
       }
     ],
     "concerns": [],
@@ -160,7 +184,9 @@
       "basis": "none",
       "held": false,
       "loudness": null,
-      "peak": null
+      "peak": null,
+      "target": null,
+      "ceiling": -1
     },
     "analysis": {
       "seconds": 35,

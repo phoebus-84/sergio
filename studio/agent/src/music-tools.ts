@@ -11,6 +11,7 @@ import { Type } from "typebox";
 import { join } from "node:path";
 import type { AudioAnalysis, Inspection } from "@av/strudel";
 import { checkMusic, listMusic, renderMusic, MUSIC_LOUDNESS, MUSIC_OUTPUT_DIRS, MUSIC_PEAK, MusicError, type MusicRequest } from "@studio/episode";
+import type { MusicRenderRecord } from "@studio/contracts/src/music-renders.mjs";
 import { WORKSPACE_PARAMS, guardWorkspacePath, workspaceOf } from "./workspace-target.js";
 
 const fail = (error: unknown) => ({
@@ -30,7 +31,12 @@ export function describeInspection(what: string, seen: Inspection): string {
   const lines = [`${seen.ok ? "✅" : "❌"} ${what}: cycles ${seen.from}–${seen.to} = ${seen.seconds} s at ${tempo(seen.cps)}; ${seen.events} events`];
   const event = (e: Inspection["listed"][number]) => `    ${e.at.toFixed(3)} +${e.cycles}  ${Object.entries(e.value).map(([k, v]) => `${k}=${v}`).join(" ")}`;
   for (const part of seen.parts) {
-    const state = part.muted ? " (muted in the code)" : !part.selected ? " (left out)" : part.solo ? " (SOLO)" : "";
+    // What does not play is named and no more: its events are not what was asked about.
+    if (part.muted || !part.selected) {
+      lines.push(`- ${part.name}: ${part.muted ? "muted in the code" : "left out"}`);
+      continue;
+    }
+    const state = part.solo ? " (SOLO)" : "";
     const notes = part.notes ? `; notes ${noteName(part.notes.low)}–${noteName(part.notes.high)}` : "";
     lines.push(`- ${part.name}${state}: ${part.events} events, per cycle [${part.perCycle.join(" ")}]${notes}; ${part.sounds.map((s) => s.name).join(", ") || "no sound"}`);
     lines.push(...part.listed.map(event));
@@ -39,6 +45,34 @@ export function describeInspection(what: string, seen: Inspection): string {
   if (seen.parts.length === 0 && seen.ok) lines.push("- one unlabelled pattern: label each part (`bass: …`) to render parts and stems");
   for (const problem of seen.problems) lines.push(`${problem.level === "error" ? "❌" : "⚠️"} ${problem.message}`);
   return lines.join("\n");
+}
+
+const BANDS = [["sub", "sub"], ["bass", "bass"], ["lowMid", "low-mid"], ["mid", "mid"], ["highMid", "high-mid"], ["high", "high"]] as const;
+
+/** One stem as the agent reads it: where its energy is, how wide it is. */
+export function describeStem(stem: MusicRenderRecord["stems"][number]): string {
+  // The bands that carry it: the strongest, and any other within 12 dB of it.
+  const bands = BANDS.flatMap(([key, name]) => {
+    const share = stem.bands[key];
+    return typeof share === "number" ? [{ name, share }] : [];
+  });
+  const top = Math.max(...bands.map((b) => b.share));
+  const where = bands.filter((b) => b.share >= top - 12).sort((a, b) => b.share - a.share).map((b) => `${b.name} ${b.share}`).join(" · ");
+  return `  - ${stem.part}: ${level(stem.loudness, "LUFS")}, peak ${level(stem.peak, "dBFS")}, crest ${stem.crest} dB` +
+    `${where ? `; ${where}` : ""}; centroid ${stem.centroid} Hz; correlation ${stem.correlation} → ${stem.path}`;
+}
+
+/** How a render was levelled: what it reached, where its peak is, and what was asked. */
+export function describeLevel(record: MusicRenderRecord): string {
+  const l = record.level;
+  const at = (record.analysis as { peakAt?: number }).peakAt;
+  const peak = `peak ${level(l.peak, "dBFS")}${l.peak !== null && at !== undefined ? ` at ${at.toFixed(2)} s` : ""}`;
+  if (l.basis === "none") return `level: ${level(l.loudness, "LUFS")}, ${peak} (its own level)`;
+  const asked = l.target === null ? `under ${l.ceiling} dBFS` : `asked ${l.target} LUFS under ${l.ceiling} dBFS`;
+  const short = l.held && l.target !== null && l.loudness !== null ? `: the ceiling holds it ${(l.target - l.loudness).toFixed(1)} dB short` : "";
+  // The piece's own peak, before the gain: over 0 dBFS it clips when a person plays it in the studio.
+  const own = l.peak === null ? "" : `; the piece itself peaks at ${(l.peak - l.gain).toFixed(1)} dBFS`;
+  return `level: ${level(l.loudness, "LUFS")}, ${peak} (gain ${l.gain >= 0 ? "+" : ""}${l.gain} dB; ${asked}${short}${own})`;
 }
 
 /** A rendered file's measurements, as the agent reads them. */
@@ -111,8 +145,9 @@ export function registerMusicTools(pi: ExtensionAPI): void {
       "ring out, or as a seamless `loop` (the tail folded over the start). `stems` also writes each part alone, at the gain it has in the mix. " +
       `The file is brought to a loudness with one gain (default ${MUSIC_LOUDNESS} LUFS, peaks under ${MUSIC_PEAK} dBFS; never a compressor). ` +
       `Output goes under ${MUSIC_OUTPUT_DIRS.join(", ")} (default assets/sounds/<piece>.wav, which a spec names as its sound id), with ` +
-      "<file>.music.json beside it: the piece and the file by hash, the level, the spectrum by band, the stereo image, the level through time, " +
-      "and what to listen for. Nothing is written when the piece does not evaluate. You cannot hear it: read the numbers the tool returns.",
+      "<file>.music.json beside it: the piece and the file by hash, the level and where the peak is, the spectrum by band, the stereo image, " +
+      "the level through time, the same for each stem, and what to listen for. Nothing is written when the piece does not evaluate. " +
+      "You cannot hear it: read the numbers the tool returns.",
     parameters: Type.Object({
       ...WORKSPACE_PARAMS,
       path: Type.String({ description: "The piece, relative to the workspace (e.g. music/theme.strudel)" }),
@@ -127,8 +162,8 @@ export function registerMusicTools(pi: ExtensionAPI): void {
       seed: Type.Optional(Type.Integer({ minimum: 0, description: "Seeds the engine's randomness (noise, reverb, detune): another seed is another take of the same notes (default 0)" })),
       loudness: Type.Optional(Type.Union([Type.Number({ maximum: 0 }), Type.Null()], { description: `Integrated loudness to bring the file to, LUFS (default ${MUSIC_LOUDNESS}); null keeps the level the piece has` })),
       peak: Type.Optional(Type.Number({ maximum: 0, description: `Peak ceiling, dBFS (default ${MUSIC_PEAK})` })),
-      fadeIn: Type.Optional(Type.Number({ minimum: 0, description: "Seconds of fade at the start" })),
-      fadeOut: Type.Optional(Type.Number({ minimum: 0, description: "Seconds of fade at the end" })),
+      fadeIn: Type.Optional(Type.Number({ minimum: 0, description: "Seconds of fade at the start of the file (the render's, not a control of the piece)" })),
+      fadeOut: Type.Optional(Type.Number({ minimum: 0, description: "Seconds of fade at the end of the file" })),
       ...PARTS,
     }),
     async execute(_id, params, signal) {
@@ -158,16 +193,13 @@ export function registerMusicTools(pi: ExtensionAPI): void {
         const { record, recordPath } = await renderMusic(ws.dir, request, signal ? { signal } : {});
         const o = record.output;
         const shape = o.loop ? "a seamless loop" : o.durationSeconds > o.bodySeconds ? `${+(o.durationSeconds - o.bodySeconds).toFixed(2)} s of it tail` : "no tail";
-        // The piece's own peak, before the gain: what its headroom is judged by.
-        const own = record.level.peak === null ? "" : ` on a piece that peaks at ${(record.level.peak - record.level.gain).toFixed(1)} dBFS`;
-        const gain = record.level.basis === "none" ? "its own level" : `gain ${record.level.gain >= 0 ? "+" : ""}${record.level.gain} dB${own}`;
         const lines = [
-          `${record.concerns.length === 0 ? "✅" : "⚠️"} ${o.path}: ${o.durationSeconds} s (cycles ${record.range.from}–${record.range.to} at ${tempo(record.tempo.cps)}; ${shape}), ` +
-            `${level(record.level.loudness, "LUFS")}, peak ${level(record.level.peak, "dBFS")} (${gain}) → ${recordPath}`,
+          `${record.concerns.length === 0 ? "✅" : "⚠️"} ${o.path}: ${o.durationSeconds} s (cycles ${record.range.from}–${record.range.to} at ${tempo(record.tempo.cps)}; ${shape}) → ${recordPath}`,
+          describeLevel(record),
           `parts: ${record.parts.filter((p) => p.selected).map((p) => p.name).join(", ") || "one unlabelled pattern"}` +
             `${record.parts.some((p) => !p.selected) ? `; not playing: ${record.parts.filter((p) => !p.selected).map((p) => p.name).join(", ")}` : ""}`,
           ...describeAnalysis(record.analysis as unknown as AudioAnalysis),
-          ...(record.stems.length > 0 ? [`stems (at the mix's gain): ${record.stems.map((s) => `${s.part} ${level(s.loudness, "LUFS")}, peak ${level(s.peak, "dBFS")} → ${s.path}`).join("; ")}`] : []),
+          ...(record.stems.length > 0 ? ["stems (each part alone, at the mix's gain; its strongest bands):", ...record.stems.map(describeStem)] : []),
           ...(Object.keys(record.inputs).length > 0 ? [`samples from the workspace: ${Object.keys(record.inputs).join(", ")}`] : []),
           ...record.concerns.map((c) => `- ${c}`),
         ];
