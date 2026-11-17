@@ -38,7 +38,9 @@ export function createFalClient(apiKey?: string): FalClientImpl {
         ? new VideoProfileContract(profile)
         : profile.operation.endsWith("-to-3d")
           ? new ModelProfileContract(profile)
-          : new ProfileContract(profile),
+          : profile.operation === "model-to-rig"
+            ? new RigProfileContract(profile)
+            : new ProfileContract(profile),
     ),
   });
 }
@@ -52,7 +54,7 @@ export function createFalClient(apiKey?: string): FalClientImpl {
 // ---------------------------------------------------------------------------
 
 import type { EndpointContract } from "./contracts/v1.js";
-import { ModelProfileContract, ProfileContract, VideoProfileContract } from "./contracts/v1.js";
+import { ModelProfileContract, RigProfileContract, ProfileContract, VideoProfileContract } from "./contracts/v1.js";
 import type {
   Clock,
   FalAdapterConfig,
