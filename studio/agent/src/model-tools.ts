@@ -50,6 +50,9 @@ const HEARTBEAT_MS = 15_000;
 const MAX_WAIT_MS = 900_000;
 const IMAGE_TYPES: Readonly<Record<string, string>> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
 const PREVIEW_EXTENSIONS: Readonly<Record<string, string>> = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
+/** Above this a model is heavy to rig, animate or render in number; Tripo's own choice is far above it. */
+export const HEAVY_TRIANGLES = 200_000;
+
 /**
  * A picture's extension from its first bytes, or null when they say nothing.
  * The service names its preview `.png` and sends a WebP: the bytes are right.
@@ -107,6 +110,62 @@ export interface ModelSummary {
   /** Joints of its skins: 0 for what a generator returns. */
   joints?: number;
   animations?: number;
+  /** The box it fills in its own units, as placed by its scene: glTF is y up. Absent when the file does not say. */
+  bounds?: { min: [number, number, number]; max: [number, number, number] };
+}
+
+type Mat4 = number[];
+const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+/** Column-major, as glTF writes them. */
+const multiply = (a: Mat4, b: Mat4): Mat4 => IDENTITY.map((_, i) => {
+  const column = Math.floor(i / 4), row = i % 4;
+  return a[row]! * b[column * 4]! + a[4 + row]! * b[column * 4 + 1]! + a[8 + row]! * b[column * 4 + 2]! + a[12 + row]! * b[column * 4 + 3]!;
+});
+function nodeMatrix(node: { matrix?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }): Mat4 {
+  if (node.matrix?.length === 16) return node.matrix;
+  const [tx, ty, tz] = node.translation ?? [0, 0, 0], [x, y, z, w] = node.rotation ?? [0, 0, 0, 1], [sx, sy, sz] = node.scale ?? [1, 1, 1];
+  return [
+    (1 - 2 * (y! * y! + z! * z!)) * sx!, 2 * (x! * y! + z! * w!) * sx!, 2 * (x! * z! - y! * w!) * sx!, 0,
+    2 * (x! * y! - z! * w!) * sy!, (1 - 2 * (x! * x! + z! * z!)) * sy!, 2 * (y! * z! + x! * w!) * sy!, 0,
+    2 * (x! * z! + y! * w!) * sz!, 2 * (y! * z! - x! * w!) * sz!, (1 - 2 * (x! * x! + y! * y!)) * sz!, 0,
+    tx!, ty!, tz!, 1,
+  ];
+}
+
+interface GltfDocument {
+  scene?: number;
+  scenes?: { nodes?: number[] }[];
+  nodes?: { mesh?: number; children?: number[]; matrix?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }[];
+  meshes?: { primitives: { mode?: number; indices?: number; attributes: Record<string, number> }[] }[];
+  accessors?: { count: number; min?: number[]; max?: number[] }[];
+  materials?: unknown[]; images?: unknown[]; skins?: { joints: number[] }[]; animations?: unknown[];
+}
+
+/** The box the default scene's meshes fill, from the bounds every position accessor must state. */
+function sceneBounds(gltf: GltfDocument): ModelSummary["bounds"] {
+  const min: [number, number, number] = [Infinity, Infinity, Infinity], max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  const visit = (index: number, parent: Mat4, depth: number): void => {
+    const node = gltf.nodes?.[index];
+    if (!node || depth > 64) return;
+    const world = multiply(parent, nodeMatrix(node));
+    for (const primitive of gltf.meshes?.[node.mesh ?? -1]?.primitives ?? []) {
+      const box = gltf.accessors?.[primitive.attributes?.POSITION ?? -1];
+      if (box?.min?.length !== 3 || box.max?.length !== 3) continue;
+      for (let corner = 0; corner < 8; corner++) {
+        const p = [0, 1, 2].map((axis) => (corner >> axis) & 1 ? box.max![axis]! : box.min![axis]!);
+        for (let axis = 0; axis < 3; axis++) {
+          const v = world[axis]! * p[0]! + world[4 + axis]! * p[1]! + world[8 + axis]! * p[2]! + world[12 + axis]!;
+          if (v < min[axis]!) min[axis] = v;
+          if (v > max[axis]!) max[axis] = v;
+        }
+      }
+    }
+    for (const child of node.children ?? []) visit(child, world, depth + 1);
+  };
+  for (const root of gltf.scenes?.[gltf.scene ?? 0]?.nodes ?? []) visit(root, IDENTITY, 0);
+  if (![...min, ...max].every(Number.isFinite)) return undefined;
+  const round = (v: number) => Math.round(v * 1000) / 1000;
+  return { min: min.map(round) as [number, number, number], max: max.map(round) as [number, number, number] };
 }
 
 /**
@@ -121,10 +180,7 @@ export function summarizeModel(bytes: Uint8Array): ModelSummary {
   const length = view.getUint32(12, true);
   if (20 + length > bytes.byteLength) return { format: "unknown" };
   try {
-    const gltf = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))) as {
-      meshes?: { primitives: { mode?: number; indices?: number; attributes: Record<string, number> }[] }[];
-      accessors?: { count: number }[]; materials?: unknown[]; images?: unknown[]; skins?: { joints: number[] }[]; animations?: unknown[];
-    };
+    const gltf = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))) as GltfDocument;
     let triangles = 0;
     for (const mesh of gltf.meshes ?? []) {
       for (const primitive of mesh.primitives ?? []) {
@@ -132,6 +188,7 @@ export function summarizeModel(bytes: Uint8Array): ModelSummary {
         triangles += Math.floor((gltf.accessors?.[primitive.indices ?? primitive.attributes?.POSITION ?? -1]?.count ?? 0) / 3);
       }
     }
+    const bounds = sceneBounds(gltf);
     return {
       format: "glb",
       meshes: gltf.meshes?.length ?? 0,
@@ -140,6 +197,7 @@ export function summarizeModel(bytes: Uint8Array): ModelSummary {
       textures: gltf.images?.length ?? 0,
       joints: new Set((gltf.skins ?? []).flatMap((skin) => skin.joints)).size,
       animations: gltf.animations?.length ?? 0,
+      ...(bounds ? { bounds } : {}),
     };
   } catch {
     return { format: "unknown" };
@@ -156,7 +214,25 @@ export function describeModel(summary: ModelSummary): string {
     count(summary.triangles ?? 0, "triangle"), count(summary.meshes ?? 0, "mesh", "meshes"), count(summary.materials ?? 0, "material"),
     count(summary.textures ?? 0, "texture"),
     (summary.joints ?? 0) === 0 ? "no skeleton: it can be placed, turned and lit, not posed" : `${count(summary.joints!, "joint")}, ${count(summary.animations ?? 0, "clip")}`,
+    ...(summary.bounds ? [describeBounds(summary.bounds)] : []),
   ].join(", ");
+}
+
+/** How big it is and where it stands: a generated model is not on the ground until someone puts it there. */
+function describeBounds({ min, max }: NonNullable<ModelSummary["bounds"]>): string {
+  const size = [0, 1, 2].map((axis) => Number((max[axis]! - min[axis]!).toFixed(2)));
+  const height = max[1] - min[1];
+  const feet = Math.abs(min[1]) <= height * 0.02 ? "it stands on its origin"
+    : Math.abs(min[1] + max[1]) <= height * 0.02 ? "its origin is at its middle, not under its feet"
+    : `its lowest point is at y ${Number(min[1].toFixed(2))}`;
+  return `${size[0]} wide × ${size[1]} tall × ${size[2]} deep in its own units (y up); ${feet}`;
+}
+
+/** Said when a model is heavier than what a rig, an animation or a crowd wants. */
+export function weightWarning(summary: ModelSummary): string | null {
+  if ((summary.triangles ?? 0) <= HEAVY_TRIANGLES) return null;
+  return `⚠️ heavy: ${count(summary.triangles!, "triangle")}. Fine for a still or a close render; to rig or animate it, ` +
+    "make it again with faceLimit (a figure rigs well at 10,000–50,000 faces) — a new paid call — or reduce it in Blender";
 }
 
 export function registerModelTools(pi: ExtensionAPI): void {
@@ -184,7 +260,7 @@ export function registerModelTools(pi: ExtensionAPI): void {
       texture: Type.Optional(StringEnum(MODEL_TEXTURES, { default: TRIPO_H31.defaultTexture, description: "none: geometry only. standard. detailed: HD textures. It sets most of the price" })),
       detailedGeometry: Type.Optional(Type.Boolean({ description: `Finer geometry, +${usd(TRIPO_H31.detailedGeometryUsd)}` })),
       quad: Type.Optional(Type.Boolean({ description: `A quad mesh, easier to rig and edit, +${usd(TRIPO_H31.quadUsd)}; it may come back as FBX` })),
-      faceLimit: Type.Optional(Type.Integer({ minimum: TRIPO_H31.faceLimit.min, maximum: TRIPO_H31.faceLimit.max, description: "Target number of faces. Omitted: the model decides" })),
+      faceLimit: Type.Optional(Type.Integer({ minimum: TRIPO_H31.faceLimit.min, maximum: TRIPO_H31.faceLimit.max, description: "Target number of faces. Omitted: the model decides, and it decides for more than a million triangles; a figure to rig or animate wants 10,000–50,000" })),
       alignToImage: Type.Optional(Type.Boolean({ description: "Turn the model to face as the picture does" })),
       seed: Type.Optional(Type.Integer({ minimum: 0, description: "Omitted: one is picked and recorded" })),
       overwrite: Type.Optional(Type.Boolean({ default: false, description: "Replace an existing model of this modelId" })),
@@ -323,6 +399,7 @@ export function registerModelTools(pi: ExtensionAPI): void {
       }
 
       const taskId = result.details?.taskId ?? null;
+      const heavy = weightWarning(summary);
       const provenance = {
         version: 1,
         provider: "fal.ai",
@@ -356,6 +433,9 @@ export function registerModelTools(pi: ExtensionAPI): void {
           text: [
             `✅ assets/models/${modelFile} — ${(data.length / 1024 / 1024).toFixed(1)}MB, ${describeModel(summary)}; seed ${seed}, ` +
               `${result.cost ? `$${result.cost.amount}` : `~${usd(priceUsd)}`} (${result.profileId})`,
+            ...(heavy ? [`   ${heavy}`] : []),
+            // Seen on every model the real service returned (2026-11-17), with and without alignToImage.
+            "   it faces +x in its own file, where glTF puts the front at +z: check, and turn it when you place it",
             ...(previewFile ? [`   preview: assets/models/${previewFile} — look at it, and at the model from every side, before it is used`] : []),
             "   to make it a character's form: copy it with its provenance into characters/<id>/forms/<form>/<release>/ and record that folder " +
               `with pva_update_character { release: { form, release, entry: "${modelFile}", madeWith: [{ tool: "${MODEL_TOOL}", provider: "fal", model: "tripo3d/h3.1" }] } }`,

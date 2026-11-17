@@ -18,7 +18,7 @@ import { TRIPO_H31, tripoH31ImageTo3d, tripoH31PriceUsd } from "@av/fal-media";
 import { toMicros } from "@studio/contracts/src/budget.mjs";
 import { parseJournal, JOURNAL_RELATIVE_PATH } from "@studio/contracts/src/journal.mjs";
 import { modelGenerationStatus } from "../src/capability-status.js";
-import { MODEL_TEXTURES, describeModel, modelRequestBody, modelTerms, pictureExtension, registerModelTools, summarizeModel } from "../src/model-tools.js";
+import { HEAVY_TRIANGLES, MODEL_TEXTURES, describeModel, modelRequestBody, modelTerms, pictureExtension, registerModelTools, summarizeModel, weightWarning } from "../src/model-tools.js";
 
 const CHANNEL = "sample-channel";
 const SERIES = "sample-series";
@@ -47,6 +47,26 @@ const DEER = glb({
   meshes: [{ primitives: [{ attributes: { POSITION: 1 }, indices: 0 }, { attributes: { POSITION: 1 }, indices: 2 }] }],
   materials: [{}, {}],
   images: [{}, {}, {}],
+});
+/**
+ * A figure as the real service returned one on 2026-11-17: a single node with a small turn
+ * about y, a unit tall, its origin at its middle, far more triangles than a rig wants.
+ */
+const FIGURE = glb({
+  scene: 0,
+  scenes: [{ nodes: [0] }],
+  nodes: [{ mesh: 0, matrix: [0.99956, 0, 0.02972, 0, 0, 1, 0, 0, -0.02972, 0, 0.99956, 0, 0, 0, 0, 1] }],
+  accessors: [{ count: 4_304_874 }, { count: 738_007, min: [-0.268, -0.5, -0.286], max: [0.268, 0.5, 0.286] }],
+  meshes: [{ primitives: [{ attributes: { POSITION: 1 }, indices: 0 }] }],
+  materials: [{}],
+  images: [{}, {}, {}],
+});
+/** The same box under a parent that lifts it onto the ground and doubles it, given as translation and scale. */
+const STANDING = glb({
+  scenes: [{ nodes: [0] }],
+  nodes: [{ children: [1], translation: [0, 1, 0], scale: [2, 2, 2] }, { mesh: 0 }],
+  accessors: [{ count: 300, min: [-0.25, -0.5, -0.25], max: [0.25, 0.5, 0.25] }],
+  meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
 });
 const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x24, 0, 0, 0]), Buffer.from("WEBPVP8 "), Buffer.alloc(16)]);
 const RIGGED = glb({ accessors: [{ count: 300 }], meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }], skins: [{ joints: [1, 2, 3] }, { joints: [3, 4] }], animations: [{}, {}] });
@@ -86,6 +106,23 @@ describe("what the tool says and reads", () => {
     expect(summarizeModel(Buffer.from("not a model"))).toEqual({ format: "unknown" });
     expect(summarizeModel(DEER.subarray(0, 40))).toEqual({ format: "unknown" });
     expect(describeModel({ format: "unknown" })).toContain("open it before using it");
+  });
+
+  it("reads how big a model is and where its origin lies, as its scene places it", () => {
+    expect(summarizeModel(DEER)).not.toHaveProperty("bounds");
+    const figure = summarizeModel(FIGURE);
+    expect(figure.triangles).toBe(1_434_958);
+    expect(figure.bounds).toEqual({ min: [-0.276, -0.5, -0.294], max: [0.276, 0.5, 0.294] });
+    expect(describeModel(figure)).toContain("0.55 wide × 1 tall × 0.59 deep in its own units (y up); its origin is at its middle, not under its feet");
+    expect(summarizeModel(STANDING).bounds).toEqual({ min: [-0.5, 0, -0.5], max: [0.5, 2, 0.5] });
+    expect(describeModel(summarizeModel(STANDING))).toContain("1 wide × 2 tall × 1 deep in its own units (y up); it stands on its origin");
+  });
+
+  it("warns of a model too heavy to rig, and not of one that is not", () => {
+    expect(weightWarning(summarizeModel(FIGURE))).toMatch(/^⚠️ heavy: 1,434,958 triangles.*faceLimit/);
+    expect(weightWarning({ format: "glb", triangles: HEAVY_TRIANGLES })).toBeNull();
+    expect(weightWarning(summarizeModel(DEER))).toBeNull();
+    expect(weightWarning({ format: "fbx" })).toBeNull();
   });
 
   it("knows a picture by its bytes", () => {
@@ -207,6 +244,7 @@ describe("pva_generate_model", () => {
     expect(said).toContain("✅ assets/models/deer.glb");
     expect(said).toContain("12,300 triangles, 1 mesh, 2 materials, 3 textures, no skeleton");
     expect(said).toContain("preview: assets/models/deer.preview.webp");
+    expect(said).toContain("it faces +x in its own file");
     expect(said).toContain('pva_update_character { release: { form, release, entry: "deer.glb"');
     expect(result.details).toMatchObject({ providerTaskId: "task-abc", seed: 11, estimatedCostUsd: tripoH31PriceUsd() });
   });
@@ -250,6 +288,18 @@ describe("pva_generate_model", () => {
     expect(existsSync(models("deer.preview.png"))).toBe(false);
     expect(provenance()).toMatchObject({ preview: "deer.preview.webp" });
     expect(result.content[0]!.text).toContain("preview: assets/models/deer.preview.webp");
+  });
+
+  it("says when what came back is too heavy to rig, with its size and where its origin is", async () => {
+    budget(100_000_000);
+    answer = { mesh: FIGURE, fileName: "model.glb", preview: false };
+    const said = (await generate()).content[0]!.text;
+    expect(said).toContain("⚠️ heavy: 1,434,958 triangles");
+    expect(said).toContain("its origin is at its middle, not under its feet");
+    expect(provenance()).toMatchObject({ holds: { bounds: { min: [-0.276, -0.5, -0.294], max: [0.276, 0.5, 0.294] } } });
+
+    answer = { mesh: DEER, fileName: "model.glb", preview: false };
+    expect((await generate({ modelId: "light" })).content[0]!.text).not.toContain("heavy");
   });
 
   it("reads the picture from a channel source when imageSource names one", async () => {
