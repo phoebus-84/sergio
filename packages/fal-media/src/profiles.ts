@@ -1058,6 +1058,90 @@ export const wan22TurboImageToVideo: EndpointProfile = defineProfile({
   pricing: { unit: "inference", estimatedUnitCost: WAN_22_TURBO_PRICES_USD["720p"], currency: "USD" },
 });
 
+// ─── Tripo H3.1 — a 3D model from one picture ─────────────────────────
+//
+// Schema and prices from fal's own description of the endpoint,
+// https://fal.ai/models/tripo3d/h3.1/image-to-3d/llms.txt (read 2026-11-17):
+// "$0.20 (without textures), $0.30 (with standard textures), or $0.40 (with
+// HD textures), plus an additional $0.20 for detailed geometry and $0.05 for
+// quad mesh". It returns `model_mesh` (GLB; FBX when a quad mesh comes out as
+// one), `rendered_image` and a `task_id` that Tripo's rigging endpoints take
+// in place of the model. A model has no skeleton: rigging is another call.
+
+/** How a Tripo H3.1 model is textured; it sets most of the price. */
+export type TripoTexture = "none" | "standard" | "detailed";
+
+/** Everything the image-to-3D profile knows in numbers: prices and limits. */
+export const TRIPO_H31: Readonly<{
+  pricesUsd: Readonly<Record<TripoTexture, number>>;
+  detailedGeometryUsd: number;
+  quadUsd: number;
+  faceLimit: Readonly<{ min: number; max: number }>;
+  defaultTexture: TripoTexture;
+}> = Object.freeze({
+  pricesUsd: Object.freeze({ none: 0.2, standard: 0.3, detailed: 0.4 }),
+  detailedGeometryUsd: 0.2,
+  quadUsd: 0.05,
+  faceLimit: Object.freeze({ min: 1000, max: 2_000_000 }),
+  defaultTexture: "standard",
+});
+
+/** What one model costs, from what is asked of it (USD). */
+export function tripoH31PriceUsd(options: { texture?: TripoTexture; detailedGeometry?: boolean; quad?: boolean } = {}): number {
+  const price = TRIPO_H31.pricesUsd[options.texture ?? TRIPO_H31.defaultTexture] +
+    (options.detailedGeometry ? TRIPO_H31.detailedGeometryUsd : 0) + (options.quad ? TRIPO_H31.quadUsd : 0);
+  return Math.round(price * 100) / 100;
+}
+
+/** Tripo H3.1 — one picture to a textured 3D model. */
+export const tripoH31ImageTo3d: EndpointProfile = defineProfile({
+  profileId: "tripo3d/h3.1/image-to-3d@v1",
+  endpointId: "tripo3d/h3.1/image-to-3d",
+  operation: "image-to-3d",
+  contractVersion: "v1",
+  parameterSchema: [
+    { name: "image_url", type: "string", required: true, description: "The picture the model is made from." },
+    {
+      name: "face_limit", type: "integer", required: false, min: TRIPO_H31.faceLimit.min, max: TRIPO_H31.faceLimit.max,
+      description: "Target number of faces. Omitted: the model decides.",
+    },
+    { name: "texture", type: "boolean", required: false, defaultValue: true, description: "Make textures." },
+    { name: "pbr", type: "boolean", required: false, defaultValue: true, description: "Make PBR materials; implies textures." },
+    { name: "model_seed", type: "integer", required: false, description: "Seed of the geometry." },
+    { name: "texture_seed", type: "integer", required: false, description: "Seed of the textures." },
+    {
+      name: "texture_quality", type: "enum", required: false, defaultValue: "standard", enumValues: ["standard", "detailed"],
+      description: "detailed is HD textures, at the higher price.",
+    },
+    {
+      name: "geometry_quality", type: "enum", required: false, defaultValue: "standard", enumValues: ["standard", "detailed"],
+      description: "detailed geometry costs more.",
+    },
+    {
+      name: "texture_alignment", type: "enum", required: false, defaultValue: "original_image", enumValues: ["original_image", "geometry"],
+      description: "What the textures are aligned to.",
+    },
+    { name: "auto_size", type: "boolean", required: false, defaultValue: false, description: "Scale the model to real-world metres." },
+    {
+      name: "orientation", type: "enum", required: false, defaultValue: "default", enumValues: ["default", "align_image"],
+      description: "align_image turns the model to face as the picture does.",
+    },
+    { name: "quad", type: "boolean", required: false, defaultValue: false, description: "A quad mesh; it may come back as FBX." },
+    { name: "enable_safety_checker", type: "boolean", required: false, defaultValue: true, description: "Input safety check." },
+  ],
+  capabilities: {
+    supportedAspectRatios: [],
+    supportsSeed: true,
+    supportsReferenceImages: true,
+    maxReferenceImages: 1,
+    supportsNegativePrompt: false,
+    defaultImageSize: "",
+  },
+  // The default request: standard textures, standard geometry. The studio's
+  // tool reserves the price of what it actually asks for (tripoH31PriceUsd).
+  pricing: { unit: "inference", estimatedUnitCost: TRIPO_H31.pricesUsd.standard, currency: "USD" },
+});
+
 // ─── Registry ─────────────────────────────────────────────────────────
 
 const PROFILES: readonly EndpointProfile[] = Object.freeze([
@@ -1072,6 +1156,7 @@ const PROFILES: readonly EndpointProfile[] = Object.freeze([
   minimaxH3ReferenceToVideo,
   minimaxH3MaxLipSync,
   wan22TurboImageToVideo,
+  tripoH31ImageTo3d,
   deprecationExample,
 ]);
 

@@ -50,6 +50,11 @@ export interface GenerationResult {
   readonly cost: CostBreakdown | null;
   readonly startedAt: Date;
   readonly completedAt: Date;
+  /**
+   * What the provider said beside the files, when a later call needs it: the
+   * task a 3D model was made by, to rig it without sending it again.
+   */
+  readonly details?: Readonly<Record<string, string>>;
 }
 
 /** One downloadable output asset produced by a generation. */
@@ -58,6 +63,10 @@ export interface OutputAsset {
   readonly contentType: string;
   readonly contentLength: number | null;
   readonly sha256: string | null;
+  /** What this file is among an endpoint's outputs, when it returns files of different kinds: "model", "preview". */
+  readonly role?: string;
+  /** The file's name as the provider gave it: its extension says what a content type does not. */
+  readonly fileName?: string;
 }
 
 /** Machine-readable cost breakdown (fal.ai pricing). */
@@ -136,7 +145,10 @@ export type ProfileOperation =
   // they return a single file rather than an array and are billed per second.
   | "text-to-video"
   | "image-to-video"
-  | "reference-to-video";
+  | "reference-to-video"
+  // A 3D model from a picture: one mesh file, a preview render beside it, and
+  // a price per model that depends on what is asked of it.
+  | "image-to-3d";
 
 /** A single parameter definition in an endpoint profile. */
 export interface ParameterField {

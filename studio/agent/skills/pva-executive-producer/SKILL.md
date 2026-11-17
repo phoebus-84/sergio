@@ -113,6 +113,9 @@ channel, a series or a film, not to an episode, and is the same next week:
   a form in any medium, and a form's files recorded as a release that is never edited.
 - `pva_cast` — who plays what in a series or a film, pinned to the release each wears;
   with `asks`, a script checked against what the cast can do.
+- `pva_generate_model` — a 3D model from one picture (Tripo H3.1 on fal, paid per
+  model, on the episode's budget): a character's model or a prop in the round, with no
+  skeleton. Approve the picture before paying for the model.
 
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.

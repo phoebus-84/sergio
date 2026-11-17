@@ -111,9 +111,27 @@ never saved over: an episode appends the rig and animates a copy.
 **A 3D rig.** Four steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
-2. **A model** from that picture, with an image-to-3D model. Building a
-   creature from primitives by code gives a blocky body and a wrong face;
-   image-to-3D gives the look in a minute and no skeleton.
+2. **A model** from that picture: `pva_generate_model { channel, series,
+   episode, modelId, imagePath, texture }`. It is paid per model and goes
+   through the episode's budget, so approve the picture first. It answers
+   in a minute or two with what the model holds — triangles, materials,
+   textures, its size — and a preview render: look at the preview and open
+   the model from every side before going on.
+   - **Say how heavy.** Left to itself the model comes back with more than a
+     million triangles and forty megabytes: fine for a still, useless for a
+     rig. For a figure that will be rigged or animated ask for
+     `quad: true, faceLimit: 20000`: the same figure at a fiftieth of the
+     weight, as an FBX with its textures inside.
+   - **Place it.** It is one unit tall with its origin at its middle, and it
+     faces +x where glTF puts the front at +z: lift it by half its height,
+     turn it a quarter turn, and scale it to the scene, in the release or in
+     every scene that uses it — decide once, and say which in the form's note.
+   - `alignToImage` only straightens it by a degree or two; it does not turn
+     it to the front.
+   Building a creature from primitives by code gives a blocky body and a
+   wrong face; image-to-3D gives the look in a minute and no skeleton. A
+   model with no skeleton is already a form (`model-3d`): release it as one
+   if the character only has to be placed, turned and lit.
 3. **A skeleton and weights.** Automatic rigging is good and not reliable:
    make several attempts and keep one by *checking it against the model* —
    every limb that touches the ground has a bone, left matches right, no bone
@@ -149,10 +167,16 @@ never saved over: an episode appends the rig and animates a copy.
      broken frames. Look at the frames: model under video, one above the
      other.
 
-Image-to-3D, automatic rigging, motion from text and motion from video are
-not tools of the studio yet. Do those steps with what the machine has, keep
-every intermediate file, and record the result as a release with `madeWith`
-saying exactly what made it.
+Automatic rigging, motion from text and motion from video are not tools of
+the studio yet. Do those steps with what the machine has, keep every
+intermediate file, and record the result as a release with `madeWith` saying
+exactly what made it. The model's provenance keeps the provider's task id
+(`providerTaskId`): its rigging service takes that in place of the file.
+
+A model is made in an episode, where the budget is, and lands in
+`assets/models/`. To make it the character's, copy the model, its preview and
+its provenance into `characters/<id>/forms/<form>/<release>/` and record that
+folder (below).
 
 **Reference pictures.** A front, a three-quarter and an expression sheet,
 approved by a person, on a plain ground. Every generated shot is then checked

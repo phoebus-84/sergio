@@ -136,6 +136,14 @@ describe("a channel's cast", () => {
     expect(resolveCast(root, series)[0]).toMatchObject({ state: "ready", release: { id: "v2" } });
   });
 
+  it("keeps what belongs to the part when the role is cast again, unless it is given anew", () => {
+    castRole(root, series, { role: "sergeant", character: "sergeant", name: "The Sergeant", standing: "lead", voice: "gruff", note: "always late" });
+    // Casting again is how a role takes a newer release: it names the role and the character, nothing else.
+    expect(castRole(root, series, { role: "sergeant", character: "sergeant" }).role).toMatchObject({ name: "The Sergeant", standing: "lead", voice: "gruff", note: "always late" });
+    expect(castRole(root, series, { role: "sergeant", character: "sergeant", standing: "guest" }).role).toMatchObject({ name: "The Sergeant", standing: "guest", voice: "gruff" });
+    expect(readCast(root, series).cast?.roles).toHaveLength(1);
+  });
+
   it("says when a released file changed, and when a script asks what the form cannot do", () => {
     expect(checkAsks(root, series, [{ role: "sergeant", actions: ["walk", "salute"], expressions: ["proud"] }])).toEqual([]);
     expect(checkAsks(root, series, [{ role: "sergeant", actions: ["cartwheel"] }, { role: "doctor", actions: ["nod"] }]).map((p) => [p.code, p.message])).toEqual([

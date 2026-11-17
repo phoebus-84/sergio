@@ -208,7 +208,15 @@ export class ProfileContract implements EndpointContract {
       this.profile,
       this.parseOutputs.bind(this),
     );
-    return helper.parse();
+    const parsed = helper.parse();
+    const result = raw["result"] as Record<string, unknown>;
+    const details = this.parseDetails(result);
+    return details && Object.keys(details).length > 0 ? { ...parsed, details } : parsed;
+  }
+
+  /** What an endpoint says beside its files that a later call needs. None by default. */
+  protected parseDetails(_result: Record<string, unknown>): Record<string, string> | undefined {
+    return undefined;
   }
 
   /** Overridable output parsing – defaults to the V1 images array. */
@@ -370,5 +378,44 @@ export class VideoProfileContract extends ProfileContract {
         sha256: optionalString(file["sha256"]),
       },
     ];
+  }
+}
+
+// ── 3D-model-producing endpoints ────────────────────────────────────────────
+
+/**
+ * A profile-backed contract whose endpoint returns a 3D model.
+ *
+ * Tripo answers `{ model_mesh: { url, file_name, … }, rendered_image?: { … },
+ * task_id? }`. The model comes first among the outputs, with the role
+ * "model"; its preview render follows as "preview". The content type fal
+ * gives a mesh is not to be trusted (its own example says image/png), so the
+ * file name is kept: its extension is what tells a GLB from an FBX.
+ */
+export class ModelProfileContract extends ProfileContract {
+  protected override parseOutputs(result: Record<string, unknown>): OutputAsset[] {
+    const mesh = result["model_mesh"];
+    if (!mesh || typeof mesh !== "object" || Array.isArray(mesh)) {
+      throw new FalContractError("model_mesh", "object", typeof mesh);
+    }
+    const file = (value: Record<string, unknown>, role: string, at: string, otherwise: string): OutputAsset => ({
+      url: asString(value["url"], `${at}.url`),
+      contentType: asString(value["content_type"] ?? otherwise, `${at}.content_type`),
+      contentLength: optionalNumber(value["file_size"]),
+      sha256: optionalString(value["sha256"]),
+      role,
+      ...(typeof value["file_name"] === "string" && value["file_name"] ? { fileName: value["file_name"] } : {}),
+    });
+    const outputs = [file(mesh as Record<string, unknown>, "model", "model_mesh", "model/gltf-binary")];
+    const preview = result["rendered_image"];
+    if (preview && typeof preview === "object" && !Array.isArray(preview) && typeof (preview as Record<string, unknown>)["url"] === "string") {
+      outputs.push(file(preview as Record<string, unknown>, "preview", "rendered_image", "image/webp"));
+    }
+    return outputs;
+  }
+
+  protected override parseDetails(result: Record<string, unknown>): Record<string, string> | undefined {
+    const taskId = result["task_id"];
+    return typeof taskId === "string" && taskId ? { taskId } : undefined;
   }
 }

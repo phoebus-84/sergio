@@ -96,6 +96,10 @@ export interface CastRoleInput {
  * Give a role to a character, or change who holds it. The form's release is
  * pinned with its tree as recorded, so the production keeps what it was cast
  * with. A form with nothing released is cast unpinned, and resolving says so.
+ *
+ * What belongs to the part — its name on screen, its standing, its voice, its
+ * note — stays when the role is cast again, unless given anew: casting again
+ * is how a role takes a newer release, and that must not cost it its standing.
  */
 export function castRole(root: string, production: Production, input: CastRoleInput): { cast: CastManifest; role: CastRole } {
   assertSlug("the role", input.role);
@@ -119,17 +123,20 @@ export function castRole(root: string, production: Production, input: CastRoleIn
     if (input.release && !release) throw new CastError(`the form "${form.id}" of ${found.manifest.name} has no release "${input.release}"`, "no-release");
   }
 
+  const index = cast.roles.findIndex((entry) => entry.role === input.role);
+  const before = index >= 0 ? cast.roles[index] : undefined;
+  const name = input.name ?? before?.name, standing = input.standing ?? before?.standing;
+  const voice = input.voice ?? before?.voice, note = input.note ?? before?.note;
   const role: CastRole = {
     role: input.role,
-    ...(input.name ? { name: input.name } : {}),
+    ...(name ? { name } : {}),
     character: input.character,
     ...(form ? { form: form.id } : {}),
     ...(release ? { release: release.id, treeSha256: release.tree.sha256 } : {}),
-    ...(input.standing ? { standing: input.standing } : {}),
-    ...(input.voice ? { voice: input.voice } : {}),
-    ...(input.note ? { note: input.note } : {}),
+    ...(standing ? { standing } : {}),
+    ...(voice ? { voice } : {}),
+    ...(note ? { note } : {}),
   };
-  const index = cast.roles.findIndex((entry) => entry.role === input.role);
   if (index >= 0) cast.roles[index] = role;
   else cast.roles.push(role);
   const problems = validateCast(cast);

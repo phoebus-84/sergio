@@ -2175,7 +2175,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const caps: Record<string, { available: boolean; detail: string }> = {};
-      const { elevenLabsStatus, imageGenerationStatus, videoGenerationStatus, voiceWorkerStatus } = await import("./capability-status.js");
+      const { elevenLabsStatus, imageGenerationStatus, modelGenerationStatus, videoGenerationStatus, voiceWorkerStatus } = await import("./capability-status.js");
 
       // Generated media: the route the series resolves, each with its own readiness (avg-twq).
       // Video generation (MiniMax H3, Wan 2.2) specifically requires fal.ai.
@@ -2192,6 +2192,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       }).catch((e: unknown) => ({ available: false, detail: e instanceof Error ? e.message : String(e) }));
       // Video generation through fal: MiniMax H3, Wan 2.2 turbo and H3 Max lip-sync, each with its own line.
       Object.assign(caps, videoGenerationStatus(falConfigured));
+      // 3D models through fal: a character's model, a prop in the round.
+      Object.assign(caps, modelGenerationStatus(falConfigured));
 
       // The voice worker: speech only with a CustomVoice model installed, alignment only with /align (avg-twq, avg-07q).
       Object.assign(caps, await voiceWorkerStatus(process.env.AVG_TTS_WORKER_URL || DEFAULT_TTS_WORKER_URL));
