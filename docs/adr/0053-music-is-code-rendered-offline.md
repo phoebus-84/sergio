@@ -57,10 +57,13 @@ Two languages of the same family were considered:
   offline context is stepped every 10 ms, the next events are triggered and
   the callbacks that came due run, after a short pre-roll that is cut off.
 - **Seeded.** The engine's randomness (noise, reverb, detune) is seeded, in
-  the page and in its audio worklets. Two renders of a piece differ by less
-  than −130 dBFS: Chrome's audio arithmetic is not bit-exact from run to run,
-  and no claim of identical bytes is made. The record carries the hash of the
-  file that was written.
+  the page and in its audio worklets, where every voice has a stream of its
+  own: voices that start together are processed in an order Chrome does not
+  fix, and with one shared stream a chord of supersaws came out different
+  every time. Two renders of a piece differ by less than −130 dBFS: Chrome's
+  audio arithmetic is not bit-exact from run to run, and no claim of
+  identical bytes is made. The record carries the hash of the file that was
+  written.
 - **A render is any part of a piece**: a stretch of cycles, some of its
   parts, a lead-in, a tail, or a seamless loop (the tail folded over the
   start), and each part alone as a stem at the gain it has in the mix.
@@ -100,5 +103,7 @@ Two languages of the same family were considered:
 - A render holds at most fifteen minutes. Longer music is a loop, repeated
   where it is used.
 - The pinned Strudel version is part of a piece's meaning. Raising it can
-  change how a piece sounds: it is a release that says so, and the skills'
-  examples are evaluated against it by the tests.
+  change how a piece sounds: it is a release that says so. The skills hold
+  only what was measured on this version, and
+  `tools/test/music-skills.test.mjs` evaluates and renders every example in
+  them, so a change of engine shows there first.
