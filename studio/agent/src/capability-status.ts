@@ -10,6 +10,7 @@
 import { CODEX_PROVIDER, resolveImageProvider } from "./image-provider.js";
 import { AVATAR_SPEECH_TOOL, avatarTerms } from "./avatar-tools.js";
 import { MODEL_TOOL, modelTerms } from "./model-tools.js";
+import { RIG_TOOL, rigTerms } from "./rig-tools.js";
 import { elevenLabsSpeechTerms } from "./elevenlabs-speech.js";
 
 /** The CustomVoice size the worker's /synthesize loads. */
@@ -158,6 +159,15 @@ export function modelGenerationStatus(falConfigured: boolean): { "model-generati
   return {
     "model-generation": falConfigured
       ? { available: true, detail: `fal.ai Tripo H3.1 configured (${MODEL_TOOL}: picture → 3D model; ${modelTerms()})` }
+      : { available: false, detail: "FAL_KEY not set" },
+  };
+}
+
+/** Skeletons through fal: one tool, two services, priced per rig. */
+export function rigCreationStatus(falConfigured: boolean): { "rig-creation": CapabilityReport } {
+  return {
+    "rig-creation": falConfigured
+      ? { available: true, detail: `fal.ai rigging configured (${RIG_TOOL}: 3D model → skeleton and weights, examined; ${rigTerms()})` }
       : { available: false, detail: "FAL_KEY not set" },
   };
 }
