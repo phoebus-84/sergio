@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.studio.video/v1alpha1/editorial-artifact.schema.json",
-  "title": "Video Studio editorial artifact contracts",
+  "title": "Sergio editorial artifact contracts",
   "description": "Editorial artifacts are human- or agent-authored documents that drive production. Each has a typed envelope with frontmatter, a revision number, and content.",
   "$defs": {
     "ArtifactType": {

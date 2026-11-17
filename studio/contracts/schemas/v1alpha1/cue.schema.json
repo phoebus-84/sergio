@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/cue.schema.json",
-  "title": "Video Studio cue schema",
+  "title": "Sergio cue schema",
   "description": "When something happens, in terms of the voice: a word, a line, the start or end of a take, a named mark, or seconds. Series spec schemas $ref Cue; resolveCue in src/cues.mjs turns a cue into an absolute frame against one take's WordTiming.",
   "$defs": {
     "WordPattern": {

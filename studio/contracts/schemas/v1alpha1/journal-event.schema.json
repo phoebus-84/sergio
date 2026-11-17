@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/journal-event.schema.json",
-  "title": "Video Studio journal event schema",
+  "title": "Sergio journal event schema",
   "description": "Canonical schema for execution journal events. Owned by video-workspace-contracts per ADR-0028. Every event is an immutable, append-only record in an episode's journal/events.jsonl.",
   "$defs": {
     "EpisodeRef": {

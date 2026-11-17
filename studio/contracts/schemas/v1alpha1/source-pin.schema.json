@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/source-pin.schema.json",
-  "title": "Video Studio source pin schema",
+  "title": "Sergio source pin schema",
   "description": "An episode's read-only pin on shared material: a channel source (library/<channel>/sources/<name>) or another episode of the same channel, with an inventory of its files. Status re-checks the inventory; a changed source makes the stages that read it stale (ADR-0035). Checked and verified by src/source-pins.mjs.",
   "$defs": {
     "ContentHash": {

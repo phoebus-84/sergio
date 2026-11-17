@@ -1,5 +1,5 @@
 /**
- * pi-video-agent — Agentic Video Studio executive producer
+ * pi-video-agent — Sergio's executive producer
  *
  * This is the package entry point. It registers the foundation
  * extension with session lifecycle handlers and version reporting.
@@ -236,7 +236,7 @@ export default function (pi: ExtensionAPI): void {
     name: "pva_config",
     label: "PVA Configuration",
     description:
-      "Resolve the Agentic Video Studio configuration including library root, gateway URL, and service endpoints. Never logs secret values.",
+      "Resolve Sergio's configuration including library root, gateway URL, and service endpoints. Never logs secret values.",
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
       const config = await resolveConfig();

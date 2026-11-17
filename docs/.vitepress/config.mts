@@ -48,7 +48,7 @@ function adrLinks() {
 }
 
 export default defineConfig({
-  title: "Agentic Video Studio",
+  title: "Sergio",
   description:
     "A Pi-directed video production system. Reusable packages, a studio built on them, composed at install time.",
   lang: "en-US",

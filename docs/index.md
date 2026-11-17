@@ -1,7 +1,8 @@
 # Documentation
 
-Technical documentation for the Video Studio application. The product website,
-recipes and selected films are maintained separately in `video-studio-site`.
+Technical documentation for Sergio, the application. The product website,
+recipes and selected films are maintained separately, in the website's own
+repository.
 
 ## Start
 

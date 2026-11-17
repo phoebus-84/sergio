@@ -295,7 +295,7 @@
       "$comment": "image.generate has two providers. fal-media is the default because it is metered per image and predictable; codex-image bills against a ChatGPT plan and is selected per series with `image.provider: openai-codex` in pipeline.yaml."
     },
     "studio": {
-      "summary": "The video studio without the local MLX voice worker (use a remote speech capability).",
+      "summary": "The studio without the local MLX voice worker (use a remote speech capability).",
       "components": [
         "blender",
         "fal-media",

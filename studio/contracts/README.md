@@ -1,6 +1,6 @@
 # video-workspace-contracts
 
-Language-neutral contracts shared by every Agentic Video Studio module.
+Language-neutral contracts shared by every Sergio module.
 
 ## Owns
 

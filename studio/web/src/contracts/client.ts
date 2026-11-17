@@ -10,7 +10,7 @@ import type {
 } from "$contracts/gateway";
 
 /**
- * Typed HTTP and event client for the Video Studio Gateway.
+ * Typed HTTP and event client for the Sergio Gateway.
  *
  * Uses bearer token authentication. The token is read from an injectable
  * source so tests can substitute fixture tokens without reaching the OS.

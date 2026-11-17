@@ -6,7 +6,7 @@ on your machine; an installed package is not proof that every provider works.
 ## 0. Once: install and point at a library
 
 ```bash
-cd /path/to/video-studio
+cd /path/to/sergio
 mise install      # node, bun and python at the pinned versions
 bun install
 npm run doctor

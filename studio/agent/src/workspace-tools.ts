@@ -148,7 +148,7 @@ export function registerWorkspaceTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "pva_channels",
     label: "List Channels",
-    description: "List all channels in the Agentic Video Studio workspace.",
+    description: "List all channels in the library.",
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
       try {

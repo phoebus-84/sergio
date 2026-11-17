@@ -1,4 +1,4 @@
-# video-studio-web
+# Sergio web
 
 Browser production studio for inspecting and steering every stage of an episode.
 

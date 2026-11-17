@@ -1,6 +1,6 @@
 # pi-video-agent
 
-A distributable Pi package that turns Pi into the Agentic Video Studio executive producer.
+A distributable Pi package that turns Pi into Sergio's executive producer.
 
 ## Owns
 

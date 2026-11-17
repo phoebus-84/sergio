@@ -1,4 +1,4 @@
-# Agentic Video Studio
+# Sergio
 
 This repository is two things, and a session here is usually one of them:
 

@@ -1,17 +1,17 @@
 ---
-name: Video Studio
+name: Sergio
 description: A precise localhost production workbench for supervising and correcting agent-created video.
 ---
 
 <!-- SEED: re-run impeccable document once implementation exists to capture actual tokens and components. -->
 
-# Design System: Video Studio
+# Design System: Sergio
 
 ## Overview
 
 **Creative North Star: "The Provenance Workbench"**
 
-Video Studio should feel like a well-kept technical workbench where every production object has a place, a state, and a history. The structure is as legible as a source tree, while media receives the focused inspection space of an editing suite. The interface remains calm during long-running generation and becomes assertive only when a decision, blocker, conflict, or material consequence requires attention.
+Sergio should feel like a well-kept technical workbench where every production object has a place, a state, and a history. The structure is as legible as a source tree, while media receives the focused inspection space of an editing suite. The interface remains calm during long-running generation and becomes assertive only when a decision, blocker, conflict, or material consequence requires attention.
 
 The default follows the operating-system theme because the creator may work across changing ambient light during long desktop sessions. Light and dark themes are peers, not separate brands. Both use restrained tinted neutrals, a rare oxide-orange accent, and semantic state colors with non-color reinforcement.
 

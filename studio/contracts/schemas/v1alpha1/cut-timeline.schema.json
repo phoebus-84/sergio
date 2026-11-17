@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.studio.video/v1alpha1/cut-timeline.schema.json",
-  "title": "Video Studio cut timeline (ADR-0050)",
+  "title": "Sergio cut timeline (ADR-0050)",
   "description": "The editable account of how a production unit is cut: clips of picture and sound placed on tracks, trimmed, retimed, joined by transitions, treated by effects, mixed and mastered. A person or the agent edits it; FFmpeg renders it. Positions and lengths on the timeline are integer frames at format.fps; positions inside a source are seconds; gains are dB. Rules a schema cannot express (overlaps, references) are checked by validateCutTimeline in src/cut-timeline.mjs.",
   "$defs": {
     "LocalId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 80 },

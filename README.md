@@ -1,4 +1,4 @@
-# Agentic Video Studio
+# Sergio
 
 **Make episode twenty as good as episode one.**
 
@@ -154,8 +154,8 @@ narrate episodes is the studio's business, not the tool's.
 
 ## Documentation
 
-The product website, recipes and selected films live in the independent
-`video-studio-site` Git project. Its build does not depend on this workspace;
+The product website, recipes and selected films live in the website's own Git
+project. Its build does not depend on this workspace;
 it imports an explicit snapshot of the technical reference when requested.
 
 The application documentation remains under [`docs/`](docs/index.md), with its

@@ -1,4 +1,4 @@
-# Video Studio Gateway — Operator Guide
+# Sergio Gateway — Operator Guide
 
 ## Quick Start
 

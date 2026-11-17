@@ -2,7 +2,7 @@
 
 ## MVP operating model
 
-Video Studio is a localhost companion to Pi. For the MVP, start production in Pi by defining a series, requesting an episode, running a stage, or generating assets. Open the studio to supervise the one active production, inspect generated artifacts and media, review blockers, and request corrections.
+Sergio is a localhost companion to Pi. For the MVP, start production in Pi by defining a series, requesting an episode, running a stage, or generating assets. Open the studio to supervise the one active production, inspect generated artifacts and media, review blockers, and request corrections.
 
 The application is desktop-first. A normal workspace contains 1 to 5 series and 10 to 15 episodes per series. A heavy workspace may contain 5 to 10 series and up to 100 episodes per series. Only one production is active at a time.
 

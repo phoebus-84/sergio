@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/word-timing.schema.json",
-  "title": "Video Studio word timing schema",
+  "title": "Sergio word timing schema",
   "description": "When each word of one audio take is spoken. Provider-neutral: the audio may come from any TTS or recording, the timing from any aligner. Times are seconds of the take's own audio. Rules a schema cannot express (order, ranges, text agreement) are checked by validateWordTiming in src/word-timing.mjs.",
   "$defs": {
     "ContentHash": {

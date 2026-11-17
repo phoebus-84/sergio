@@ -1,4 +1,4 @@
-# Video Studio MVP Shape Brief
+# Sergio MVP Shape Brief
 
 Status: Approved
 
@@ -6,7 +6,7 @@ Approved by the project owner on 2026-07-27 after an interactive discovery revie
 
 ## 1. Feature Summary
 
-Video Studio is a production-ready desktop web application for a technical solo creator supervising agent-directed video production on localhost. Creation begins in Pi; the studio projects the canonical workspace so the creator can monitor autopilot, inspect structured artifacts and media, review immutable attempts, understand blockers and staleness, and request precise corrections without navigating production as a chat transcript.
+Sergio is a production-ready desktop web application for a technical solo creator supervising agent-directed video production on localhost. Creation begins in Pi; the studio projects the canonical workspace so the creator can monitor autopilot, inspect structured artifacts and media, review immutable attempts, understand blockers and staleness, and request precise corrections without navigating production as a chat transcript.
 
 The default experience optimizes for exception supervision. It also supports hands-on work at any granularity, from one stage or script revision to one asset, narration segment, review anchor, or rerun plan.
 

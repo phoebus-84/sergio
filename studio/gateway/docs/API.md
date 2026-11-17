@@ -1,10 +1,10 @@
-# Video Studio Gateway — Public API Contract
+# Sergio Gateway — Public API Contract
 
 Version: 0.1.0 | OpenAPI: `GET /openapi.json`
 
 ## Overview
 
-The Video Studio Gateway is a trusted local backend that connects browser
+The Sergio Gateway is a trusted local backend that connects browser
 clients, the Pi coding agent RPC, and filesystem production state.
 
 - **Default**: loopback-only (`127.0.0.1`), ephemeral port
