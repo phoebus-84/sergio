@@ -114,9 +114,20 @@ never saved over: an episode appends the rig and animates a copy.
 2. **A model** from that picture: `pva_generate_model { channel, series,
    episode, modelId, imagePath, texture }`. It is paid per model and goes
    through the episode's budget, so approve the picture first. It answers
-   with what the model holds — triangles, materials, textures — and a
-   preview render: look at the preview and open the model from every side
-   before going on. `quad: true` gives a mesh that is easier to rig.
+   in a minute or two with what the model holds — triangles, materials,
+   textures, its size — and a preview render: look at the preview and open
+   the model from every side before going on.
+   - **Say how heavy.** Left to itself the model comes back with more than a
+     million triangles and forty megabytes: fine for a still, useless for a
+     rig. For a figure that will be rigged or animated ask for
+     `quad: true, faceLimit: 20000`: the same figure at a fiftieth of the
+     weight, as an FBX with its textures inside.
+   - **Place it.** It is one unit tall with its origin at its middle, and it
+     faces +x where glTF puts the front at +z: lift it by half its height,
+     turn it a quarter turn, and scale it to the scene, in the release or in
+     every scene that uses it — decide once, and say which in the form's note.
+   - `alignToImage` only straightens it by a degree or two; it does not turn
+     it to the front.
    Building a creature from primitives by code gives a blocky body and a
    wrong face; image-to-3D gives the look in a minute and no skeleton. A
    model with no skeleton is already a form (`model-3d`): release it as one
