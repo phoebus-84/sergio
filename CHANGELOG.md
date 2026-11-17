@@ -49,6 +49,16 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     AGPL-3.0-or-later, as Strudel is; the other packages stay Apache-2.0.
   - Rendering needs a Chrome: `npm run doctor` shows which is used, and
     `STRUDEL_CHROME_PATH` names another.
+- **A skeleton for a 3D model** (`rig.create`): `pva_rig_model` sends a model
+  to a rigging service through fal — Hyper3D for a human, a quadruped, a
+  bird, a dragon, a kaiju or a body described in words; Meshy for humanoids
+  on a standard skeleton, with a walk and a run — on the episode's budget, at
+  $0.20 a rig. What comes back is examined before the tool answers: vertices
+  no bone moves, bones outside the body, a body that stands on nothing, a
+  left with no right, clips that move nothing. A rig that fails is kept and
+  not released. A model that faces another way is turned to face +z before
+  it is sent. Not yet run against the real services: its tests use
+  stand-ins.
 
 ### Documentation
 

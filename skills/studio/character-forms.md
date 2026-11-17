@@ -132,11 +132,32 @@ never saved over: an episode appends the rig and animates a copy.
    wrong face; image-to-3D gives the look in a minute and no skeleton. A
    model with no skeleton is already a form (`model-3d`): release it as one
    if the character only has to be placed, turned and lit.
-3. **A skeleton and weights.** Automatic rigging is good and not reliable:
-   make several attempts and keep one by *checking it against the model* —
-   every limb that touches the ground has a bone, left matches right, no bone
-   sticks out of the body. A rig chosen by eye in one pose deforms in the
-   next.
+3. **A skeleton and weights**: `pva_rig_model { channel, series, episode,
+   rigId, modelPath, engine, skeleton, faces }`. Paid per rig, on the
+   episode's budget.
+   - **Choose the engine by the body.** `hyper3d` rigs a human, a quadruped,
+     a bird, a dragon, a kaiju, or — `skeleton: "custom"` with
+     `skeletonDescription` — a body you describe in words; it takes a GLB or
+     an FBX, and a picture of the character (`imagePath`) helps it choose.
+     `meshy` rigs humanoids with clear limbs only, from a GLB, on a skeleton
+     animation tools already know (`mixamo`, `blender_rigify_basic_human`,
+     …), and adds a walk and a run to every rig.
+   - **Send it facing +z.** Say which way the model faces with `faces`; a
+     GLB is turned before it is sent. A model from `pva_generate_model`
+     faces +x. Send the light model, not the million-triangle one.
+   - **Read the exam.** The tool examines what comes back before it answers:
+     vertices no bone moves, bones outside the body, a body that stands on
+     nothing, a left with no right, clips that move nothing. A rig that
+     fails is kept on disk and must not be released.
+   - **Automatic rigging is good and not reliable.** Make more than one
+     attempt — another engine, another skeleton, `skinning: "core"` — and
+     keep one by what the exam and your eyes say, not by which came first.
+     The exam reads the rest pose: it can say a rig is broken, never that it
+     is good. Open the rig, raise its arms, lift a leg, turn its head, and
+     look at the shoulders, the hips and whatever the character wears: a rig
+     chosen by eye in one pose deforms in the next.
+   - A rig is a `rig-3d` form. The clips that came with it are its first
+     `can.actions`; a form lists only what it has a clip or a pose for.
 4. **Motion.** In rising order of cost:
    - a clip from a library, retargeted to the rig by a bone map — rotations
      copied in world space from the rest pose, never joint by joint between
@@ -167,11 +188,9 @@ never saved over: an episode appends the rig and animates a copy.
      broken frames. Look at the frames: model under video, one above the
      other.
 
-Automatic rigging, motion from text and motion from video are not tools of
-the studio yet. Do those steps with what the machine has, keep every
-intermediate file, and record the result as a release with `madeWith` saying
-exactly what made it. The model's provenance keeps the provider's task id
-(`providerTaskId`): its rigging service takes that in place of the file.
+Motion from text and motion from video are not tools of the studio yet. Do
+those steps with what the machine has, keep every intermediate file, and
+record the result as a release with `madeWith` saying exactly what made it.
 
 A model is made in an episode, where the budget is, and lands in
 `assets/models/`. To make it the character's, copy the model, its preview and

@@ -11,12 +11,15 @@ Proposed. Implemented with it:
   and `character-forms`;
 - `model.generate`, the first of the capabilities that make a form: a 3D
   model from one picture, by Tripo H3.1 through `@av/fal-media`
-  (`pva_generate_model`).
+  (`pva_generate_model`);
+- `rig.create`: a skeleton and weights for a model, by Hyper3D or Meshy
+  through `@av/fal-media` (`pva_rig_model`), with the exam a generated rig
+  sits before it is released.
 
-Not implemented: the browser's view of a cast, and the other capabilities
-that make a form (automatic rigging, motion from text, motion from a
-generated video). They are named below so that each arrives as a provider
-behind a capability, not as a pipeline of its own.
+Not implemented: the browser's view of a cast, and the capability that makes
+a form move (`motion.generate`: motion from text, motion from a generated
+video, clips from a library retargeted to a rig). It is named below so that
+it arrives as a provider behind a capability, not as a pipeline of its own.
 
 ## Context
 
