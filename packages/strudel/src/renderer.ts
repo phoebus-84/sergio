@@ -102,6 +102,36 @@ function hint(code: string, message: string): string {
   return message;
 }
 
+/**
+ * An orbit has one reverb and one delay. Parts that ask it for different ones do not each get their own: the
+ * setting changes with every event, and a long tail is cut when a short one is asked for.
+ */
+function orbitProblems(parts: { name: string; spaces: { orbit: number; room: number | null; delay: string | null }[] }[]): Problem[] {
+  const problems: Problem[] = [];
+  for (const [what, key] of [["reverb sizes", "room"], ["delays", "delay"]] as const) {
+    const asked = new Map<number, Map<string, Set<string>>>();
+    for (const part of parts) {
+      for (const space of part.spaces) {
+        const value = space[key];
+        if (value === null) continue;
+        const text = key === "room" ? `${value} s` : String(value);
+        const orbit = asked.get(space.orbit) ?? new Map<string, Set<string>>();
+        orbit.set(text, (orbit.get(text) ?? new Set()).add(part.name));
+        asked.set(space.orbit, orbit);
+      }
+    }
+    for (const [orbit, values] of asked) {
+      if (values.size < 2) continue;
+      const who = [...values].map(([text, names]) => `${text}${[...names].filter(Boolean).length ? ` (${[...names].filter(Boolean).join(", ")})` : ""}`).join(" and ");
+      problems.push({
+        level: "warning", code: "orbit-conflict",
+        message: `orbit ${orbit} is asked for different ${what}: ${who}. It has one, which changes with every event and cuts the other's tail: give them the same, or each its own .orbit(n)`,
+      });
+    }
+  }
+  return problems;
+}
+
 /** An error a pattern raised while it was asked for its events, with what usually causes it. */
 function queryHint(message: string): string {
   const text = message.replace(/^\[\w+\]\s*error:\s*/i, "");
@@ -264,7 +294,7 @@ export class StrudelRenderer {
       const evaluated = await session.harness.evaluate((h, args) => h.evaluate(args), { code, only: options.only ?? null, mute: options.mute ?? [] });
       if (!evaluated.ok) {
         return {
-          ok: false, cps: 0.5, from, to, seconds: 0, events: 0, perCycle: [], notes: null, orbits: [], controls: [], malformed: 0, first: null, last: null, listed: [],
+          ok: false, cps: 0.5, from, to, seconds: 0, events: 0, perCycle: [], notes: null, orbits: [], controls: [], spaces: [], signature: "", malformed: 0, first: null, last: null, listed: [],
           sounds: [], parts: [], problems: [{ level: "error", code: "eval", message: hint(code, evaluated.error) }, ...requestProblems(session.requests)], requests: session.requests,
         } satisfies Inspection;
       }
@@ -291,6 +321,7 @@ export class StrudelRenderer {
         const where = parts.filter(Boolean).length ? ` (in ${parts.filter(Boolean).join(", ")})` : "";
         problems.push({ level: "warning", code: "ignored-control", message: `${ignoredControlHint(control)}${where}` });
       }
+      problems.push(...orbitProblems(seen.parts.length ? (seen.parts as PartSummary[]).filter((p) => p.selected) : [{ name: "", spaces: seen.spaces }]));
       if (seen.malformed > 0) problems.push({ level: "error", code: "malformed-events", message: `${seen.malformed} events are bare values, not sounds: end the pattern with .note() or .s()` });
       if (seen.events / seconds > DENSE) problems.push({ level: "warning", code: "dense", message: `${Math.round(seen.events / seconds)} events a second: that is a texture more than a rhythm, and slow to render` });
       return { ok: !problems.some((p) => p.level === "error"), ...seen, seconds: Math.round(seconds * 1000) / 1000, problems, requests: session.requests } as Inspection;

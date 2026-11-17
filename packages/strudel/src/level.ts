@@ -66,7 +66,8 @@ export function levelAudio(channels: Float32Array[], sampleRate: number, options
       }
     }
     if (peak + gain > ceiling) {
-      held = basis === "loudness";
+      // A hair's breadth is not being held: only a shortfall one could read in the result.
+      held = basis === "loudness" && peak + gain - ceiling >= 0.1;
       gain = ceiling - peak;
       if (basis !== "loudness") basis = "peak";
     }

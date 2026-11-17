@@ -23,6 +23,8 @@ export interface AudioAnalysis {
   seconds: number;
   /** Sample peak, dBFS. Above 0 the file clips once written as PCM. */
   peak: number;
+  /** Where the highest sample is, in seconds. */
+  peakAt: number;
   /** dBFS. */
   rms: number;
   /** Integrated loudness, LUFS (ITU-R BS.1770, gated); null when too quiet or too short to measure. */
@@ -194,13 +196,16 @@ export function analyzeAudio(channels: Float32Array[], sampleRate: number): Audi
   const left = channels[0] ?? new Float32Array(0);
   const right = channels[1] ?? left;
   const frames = left.length;
-  let peak = 0, sum = 0, mean = 0, clipped = 0;
+  let peak = 0, peakIndex = 0, sum = 0, mean = 0, clipped = 0;
   let ll = 0, rr = 0, lr = 0, mid = 0, side = 0;
   for (let i = 0; i < frames; i++) {
     const l = left[i]!;
     const r = right[i]!;
     const a = Math.max(Math.abs(l), Math.abs(r));
-    if (a > peak) peak = a;
+    if (a > peak) {
+      peak = a;
+      peakIndex = i;
+    }
     if (a >= 1) clipped++;
     sum += (l * l + r * r) / 2;
     mean += (l + r) / 2;
@@ -233,6 +238,7 @@ export function analyzeAudio(channels: Float32Array[], sampleRate: number): Audi
   return {
     seconds: round(seconds, 3),
     peak: round(dB(peak * peak)),
+    peakAt: round(peakIndex / sampleRate, 3),
     rms: round(dB(rms * rms)),
     lufs: integratedLoudness(channels.length > 1 ? [left, right] : [left], sampleRate),
     crest: rms > 0 ? round(dB((peak * peak) / (rms * rms))) : 0,

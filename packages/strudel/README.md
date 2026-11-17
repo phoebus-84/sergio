@@ -19,7 +19,7 @@ const seen = await renderer.inspect(code, { to: 4, events: 4 });
 // seen.ok, seen.cps, seen.parts[] (events per cycle, notes, sounds), seen.problems[]
 
 const made = await renderer.render(code, { to: 8, tail: 2 });
-const level = levelAudio(made.channels, made.sampleRate, { loudness: -16 });
+const level = levelAudio(made.channels, made.sampleRate, { loudness: -18 });
 writeFileSync("theme.wav", encodeWav(level.channels, made.sampleRate, "pcm24"));
 analyzeAudio(level.channels, made.sampleRate); // lufs, peak, bands, stereo, envelope
 await renderer.close();
@@ -55,8 +55,13 @@ reason, never an exception. `problems` names what would go wrong or surprise:
 | `solo-label`, `duplicate-label` | a label that changes what plays |
 | `unknown-part` | `only` or `mute` names no part |
 | `ignored-control` | a control Strudel accepts and this engine never reads (`chorus`, `squiz`, a `chord` with no `.voicing()`…): it changes nothing |
+| `orbit-conflict` | parts that ask one orbit for different reverb sizes or delays: it has one of each |
 | `blocked-request`, `missing-file` | a sample that could not be loaded |
 | `dense` | more than 64 events a second |
+
+Each part, and the whole, also has a `signature`: one number for the events
+of the stretch, placed from its start. Two stretches with the same signature
+play the same thing — how a loop is checked for a seam.
 
 ## Rendering
 
@@ -94,7 +99,7 @@ A render holds up to 15 minutes. It runs several times faster than the music.
   when the peaks allow it; otherwise the file stays under the ceiling and
   `held` is true. `gain` applies a given gain instead — for stems, which
   keep the level they have in the mix.
-- `analyzeAudio(channels, rate)`: sample peak, RMS, integrated loudness
+- `analyzeAudio(channels, rate)`: sample peak and when it falls, RMS, integrated loudness
   (ITU-R BS.1770, gated; within 0.3 LU of ffmpeg's meter), crest, clipping,
   DC, silence at the ends, the share of the energy in six bands, the spectral
   centroid, stereo correlation, width and balance, and the level through

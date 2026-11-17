@@ -11,6 +11,7 @@ export interface Problem {
     | "duplicate-label"
     | "unknown-part"
     | "ignored-control"
+    | "orbit-conflict"
     | "blocked-request"
     | "missing-file"
     | "render"
@@ -36,6 +37,10 @@ export interface EventSummary {
   orbits: number[];
   /** Every control the events carry: `s`, `note`, `cutoff`… by the name Strudel keeps them under. */
   controls: string[];
+  /** The reverb size (seconds) and the delay each orbit is asked for by these events; null where an event sets none. */
+  spaces: { orbit: number; room: number | null; delay: string | null }[];
+  /** A number for what the stretch plays, relative to its start: two stretches with the same events have the same one. */
+  signature: string;
   /** Events whose value is not a set of controls: superdough cannot play them. */
   malformed: number;
   /** Onset of the first and of the last event, in cycles. */

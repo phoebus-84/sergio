@@ -67,6 +67,38 @@ describe.skipIf(!chrome)("inspecting a piece", () => {
     expect(empty.ok).toBe(false);
   });
 
+  it("warns when parts ask one orbit for different reverbs or delays", async () => {
+    const shared = await renderer.inspect(
+      `pad: note("c3,e3").s("sawtooth").room(.5).rsize(6)\nsnare: s("~ white").decay(.1).room(.2).rsize(1)\nlead: note("c5 e5").s("sine").delay(.3).delaytime(.25)\necho: note("~ g5").s("sine").delay(.3)`,
+      { to: 1 },
+    );
+    expect(shared.ok).toBe(true);
+    expect(shared.problems.map((p) => [p.code, p.message])).toEqual([
+      ["orbit-conflict", expect.stringMatching(/^orbit 1 is asked for different reverb sizes: 6 s \(pad\) and 1 s \(snare\)/)],
+      ["orbit-conflict", expect.stringMatching(/^orbit 1 is asked for different delays: 0\.25 s, feedback 0\.5 \(lead\) and 0\.375 s, feedback 0\.5 \(echo\)/)],
+    ]);
+    // Each on its own orbit, or the same setting, or a part that only sends to the reverb another set: no conflict.
+    const apart = await renderer.inspect(
+      `pad: note("c3,e3").s("sawtooth").room(.5).rsize(6).orbit(2)\nsnare: s("~ white").decay(.1).room(.2).rsize(1)\nhat: s("white*4").decay(.03).room(.1)\nlead: note("c5 e5").s("sine").delay(.3).delaytime(.25).orbit(3)\necho: note("~ g5").s("sine").delay(.3)`,
+      { to: 1 },
+    );
+    expect(apart.problems).toEqual([]);
+  });
+
+  it("gives two stretches that play the same events the same signature", async () => {
+    // "steady" pans with a signal that comes round every two cycles: read later, it differs in its last bits only.
+    const code = `steady: note("<c3 e3>").s("sine").pan(sine.range(.3, .7).slow(2))\nchancy: s("white*8").decay(.03).degradeBy(.5)\nclosed: s("white*8").decay(.03).degradeBy(.5).ribbon(3, 2)`;
+    const [first, second] = [await renderer.inspect(code, { from: 0, to: 2 }), await renderer.inspect(code, { from: 34, to: 36 })];
+    const of = (seen: typeof first, name: string) => seen.parts.find((p) => p.name === name)!.signature;
+    expect(of(first, "steady")).toBe(of(second, "steady"));
+    expect(of(first, "closed")).toBe(of(second, "closed"));
+    // Chance does not repeat from one pair of cycles to the next.
+    expect(of(first, "chancy")).not.toBe(of(second, "chancy"));
+    // An alternation of two is not the same from one single cycle to the next.
+    const [a, b] = [await renderer.inspect(code, { from: 0, to: 1 }), await renderer.inspect(code, { from: 1, to: 2 })];
+    expect(of(a, "steady")).not.toBe(of(b, "steady"));
+  });
+
   it("says why a piece is silent when a pattern fails as it is asked for its events", async () => {
     // A pick() with no key for one of the names: Strudel logs it and plays nothing at all.
     const seen = await renderer.inspect(`const form = "<a b>"\nkeys: note("c3").s("sine")\nbass: form.pick({ a: note("c2") }).s("sine")`, { to: 2 });

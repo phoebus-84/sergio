@@ -99,6 +99,11 @@ export function createSession(S) {
     let high = -Infinity;
     let malformed = 0;
     const controls = new Set();
+    const spaces = new Map();
+    let signature = 0x811c9dc5;
+    const mix = (text) => {
+      for (let i = 0; i < text.length; i++) signature = Math.imul(signature ^ text.charCodeAt(i), 0x01000193) >>> 0;
+    };
     const events = [];
     for (const hap of haps) {
       const at = hap.whole.begin.valueOf();
@@ -111,6 +116,19 @@ export function createSession(S) {
       const sound = soundOf(value);
       if (sound && !REST.has(sound)) sounds.set(sound, (sounds.get(sound) ?? 0) + 1);
       for (const key of Object.keys(value)) controls.add(key);
+      // What the stretch plays, as one number: the same events in the same places give the same one.
+      // Numbers to six figures: a signal read sixteen cycles later differs in its last bits, and plays the same.
+      const figure = (v) => (typeof v === "number" ? Number(v.toPrecision(6)) : v);
+      mix(`${round(at - from)}|${round(hap.whole.end.valueOf() - at)}|${Object.keys(value).sort().map((key) => `${key}=${figure(value[key])}`).join(",")};`);
+      // The reverb and the delay this event asks of its orbit.
+      const room = value.room > 0 && value.roomsize !== undefined ? Number(value.roomsize) : null;
+      const delay = value.delay > 0
+        ? `${round(value.delaytime !== undefined ? Number(value.delaytime) : Number(value.delaysync ?? 3 / 16) / state.cps, 3)} s, feedback ${value.delayfeedback ?? 0.5}`
+        : null;
+      if (room !== null || delay !== null) {
+        const key = `${value.orbit ?? 1}|${room}|${delay}`;
+        if (!spaces.has(key)) spaces.set(key, { orbit: value.orbit ?? 1, room, delay });
+      }
       const midi = midiOf(value);
       if (midi !== null && Number.isFinite(midi)) {
         low = Math.min(low, midi);
@@ -133,6 +151,8 @@ export function createSession(S) {
       notes: Number.isFinite(low) ? { low: round(low, 2), high: round(high, 2) } : null,
       orbits: [...orbits].sort((a, b) => a - b),
       controls: [...controls].sort(),
+      spaces: [...spaces.values()],
+      signature: signature.toString(16).padStart(8, "0"),
       malformed,
       first: haps.length ? round(haps[0].whole.begin.valueOf()) : null,
       last: haps.length ? round(haps[haps.length - 1].whole.begin.valueOf()) : null,
@@ -203,7 +223,7 @@ export function createSession(S) {
         try {
           return { ...rest, ...describe(onsets(own, from, to), from, to, events) };
         } catch (error) {
-          return { ...rest, events: 0, perCycle: [], sounds: [], notes: null, orbits: [], controls: [], malformed: 0, first: null, last: null, listed: [], error: messageOf(error) };
+          return { ...rest, events: 0, perCycle: [], sounds: [], notes: null, orbits: [], controls: [], spaces: [], signature: "", malformed: 0, first: null, last: null, listed: [], error: messageOf(error) };
         }
       });
       const known = S.soundMap.get();

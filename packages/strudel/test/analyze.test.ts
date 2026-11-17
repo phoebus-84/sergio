@@ -34,6 +34,9 @@ describe("analyzeAudio", () => {
     expect(a.rms).toBeCloseTo(-12, 0);
     expect(a.crest).toBeCloseTo(6, 0);
     expect(a.head).toBeCloseTo(1, 2);
+    // The highest sample is in the tone, a quarter of a period after it starts.
+    expect(a.peakAt).toBeGreaterThanOrEqual(1);
+    expect(a.peakAt).toBeLessThan(3);
     expect(a.tail).toBeCloseTo(1, 2);
     expect(a.clipped).toBe(0);
     expect(a.silent).toBe(false);
