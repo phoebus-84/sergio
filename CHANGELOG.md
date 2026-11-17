@@ -5,7 +5,12 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 
 ## Unreleased
 
-Nothing yet.
+### Documentation
+
+- **The README opens with what the studio is for, and what it is not.** The
+  architecture follows it. The running guide, the workspace layout and the
+  domain language now cover characters and casts, the revision an edit must
+  name, and the one render of a film at a time.
 
 ## 0.2.0 — 2026-11-17
 

@@ -14,6 +14,28 @@ The current system should **not be advertised as policy-enforced unattended
 production**. Pi-directed automation and human-guided production are useful today,
 but the end-to-end enforcement story is incomplete.
 
+## Since this review
+
+Faults found after it and closed in the release being prepared (0.2.0; the
+[changelog](https://github.com/phoebus-84/video-studio/blob/main/CHANGELOG.md)
+has each in a line). They bear on the findings below without closing them:
+
+- **Two writers of one cut.** The gateway and the agent could both read a
+  revision, both pass the check and both write the next; the read, the check
+  and the write are now held by a lock, and `pva_edit_cut` must name the
+  revision it read.
+- **Events from files.** An edit by the agent now shows in an open editor and
+  a stage that moved reaches the event stream: the gateway reads both from
+  the files that changed, whoever wrote them.
+- **Source identity.** A file replaced by other bytes of the same length,
+  with its date put back, no longer counts as unchanged.
+- **Renders.** One render of a film at a time, refused rather than queued; a
+  render that finishes late no longer takes a newer one's place; a render's
+  journal line that cannot be written is kept and written at the next one.
+
+None of this changes the verdict, or the items the findings below name as
+not addressed.
+
 ## Changes delivered with Blender
 
 - `@av/blender`: editable scene building; Eevee/Cycles still/animation rendering;
