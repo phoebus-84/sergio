@@ -21,6 +21,35 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   - **The gateway's `/health`** answers `service: "sergio-gateway"`.
   - **The root package** is named `sergio`.
 
+### Added
+
+- **Music written as code.** A piece is a file of [Strudel](https://strudel.cc)
+  code, `music/<name>.strudel`, in an episode, a channel source or a film
+  unit; the studio renders it locally at $0 (ADR-0053).
+  - `pva_music_check` evaluates a piece without a sound: its parts, the
+    events and notes of each, and what is wrong with it — a sound that does
+    not exist, a control the engine ignores, two reverbs asked of one orbit.
+  - `pva_music_render` writes a WAV: a stretch of cycles or the whole piece,
+    some parts or all, with a tail or as a seamless loop, with stems; brought
+    to −18 LUFS with one gain, never compressed. `<file>.music.json` beside
+    it holds the measurements the agent mixes by — loudness, the peak and
+    when it falls, spectrum by band, stereo image, the level through time,
+    and the same for each stem — and what to listen for: a loop whose parts
+    do not come round, an ending cut while it sounds.
+  - `pva_music` lists a workspace's pieces and their renders.
+  - In the web studio a `.strudel` file opens with a player on the same
+    engine (`Ctrl+Enter` plays, `Ctrl+.` stops), its events drawn part by
+    part, and a form to render it; episodes and film units have a **Music**
+    tab.
+  - Three skills hold what was tested against the engine: `strudel-music`,
+    `strudel-sounds` and `strudel-forms`. `film-sound` now makes a score
+    here when none is supplied or licensed.
+  - `@av/strudel` is the reusable part: a piece checked and rendered offline
+    in a headless Chrome, with `strudel-render` for the shell. It is
+    AGPL-3.0-or-later, as Strudel is; the other packages stay Apache-2.0.
+  - Rendering needs a Chrome: `npm run doctor` shows which is used, and
+    `STRUDEL_CHROME_PATH` names another.
+
 ### Documentation
 
 - **The README opens with what the studio is for, and what it is not.** The

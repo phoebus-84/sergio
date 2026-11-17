@@ -73,6 +73,7 @@ import {
   recordSheetReading,
   sheetApprovalPolicy,
   proposeReference,
+  musicReadiness,
   renderEpisode,
   writeEditTimeline,
   type Validation,
@@ -2244,6 +2245,9 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       caps["nonverbal-audio"] = { available: true, detail: "Deterministic local PCM buzz synthesis" };
       // Sound effects, ambiences, applause and a music bed, synthesized here (avg-jur).
       caps["sound-effects"] = { available: true, detail: `pva_synthesize_sound, local and $0: ${SOUND_KINDS.join(", ")}` };
+      // Music written as Strudel code, rendered offline in a headless Chrome (ADR-0053).
+      const music = musicReadiness();
+      caps["procedural-music"] = { available: music.available, detail: `pva_music_check / pva_music_render, local and $0: ${music.detail}` };
       // Archive and stock media with verifiable licences (avg-fe8.2): public APIs, no key, $0.
       caps["archive-media"] = { available: true, detail: "pva_search_media / pva_fetch_media: AIC, Met, Cleveland, Wikimedia Commons, NASA, Internet Archive, Openverse; licence and evidence kept" };
 

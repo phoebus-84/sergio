@@ -1,0 +1,16 @@
+// A calm ambient bed with no percussion: a drone, a slow pad, sparse bells, air. D minor, 60 bpm.
+// A seamless loop of 16 cycles: every alternation's period divides 16, and chance is closed with ribbon.
+// render: cycles 16, tail 12, loop = 64 s
+setcpm(60/4)                                           // 1 cycle = 4 s
+drone: note("<[d2,a2] [d2,a2] [bb1,f2] [c2,g2]>/4")   // one 16-s event per chord; every period divides 16
+         .s("sawtooth").lpf(260).lpsync(1/4).lpdepth(.5)   // filter LFO: movement INSIDE the long note
+         .attack(4).release(6).gain(.42)
+pad:   chord("<Dm9 Bb^7 F^7 C6>/2").anchor("a4").voicing()   // one chord per 2 cycles (8 s)
+         .add(note("0,.1")).s("triangle").lpf(1400)     // two voices 10 cents apart: slow beating
+         .attack(2.5).release(5).room(.6).rsize(6).gain(.1)
+bells: n(irand(6).seed(41).segment(4)).scale("D5:minor:pentatonic")   // seed(): NOT the same random numbers as degradeBy below
+         .degradeBy(.7).ribbon(7, 8)                    // sparse; randomness frozen into an 8-cycle loop (offset 7, not 0)
+         .s("sine").fm(2).fmh(3.5).fmdecay(1).decay(2.5).sustain(0).release(2)
+         .delay(.5).delaytime(1.5).delayfeedback(.45).room(.6).rsize(6)
+         .gain(.4).pan(sine.range(.3, .7).slow(8))
+air:   s("pink").slow(4).lpf(900).lpsync(1/8).lpdepth(.6).attack(6).release(6).gain(.6)

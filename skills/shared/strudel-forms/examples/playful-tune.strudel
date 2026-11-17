@@ -1,0 +1,35 @@
+// A playful, bouncy tune for children's content: a staccato mallet melody over oom-pah, a woodblock, a slide-whistle
+// "whoop", and a final "ta-da". C major, 120 bpm, swung.
+// render: cycles 17, tail 2 = 36 s
+setcpm(120/4)                                          // 1 bar = 2 s
+const letters = ['a', 'b', 'c', 'e']
+const form = "<a@4 b@4 a@4 c@4 e>"                     // tune | answer | tune again | busier ending | final "ta-da"
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))
+const only = (table) => form.pickRestart(Object.assign(Object.fromEntries(letters.map((l) => [l, silence])), table))
+const prog = "<C F G C>"                               // I IV V I, one chord per bar
+
+const tuneA = n("<[0 2 4 2] [5 ~ 4 ~] [4 3 2 1] [0 ~ ~ ~]>")           // 4-bar tune in scale steps
+const tuneB = n("<[4 4 5 4] [3 ~ 1 ~] [2 2 3 2] [1 ~ -1 ~]>")          // 4-bar answer
+const tuneC = n("<[0 2 4 7] [5 7 4 ~] [4 3 2 1] [0 ~ 7 ~]>")           // busier variation
+tune:  only({ a: tuneA, b: tuneB, c: tuneC.off(1/8, (x) => x.add(n(7)).gain(.5)) })   // c: octave echo an 8th later
+         .scale("C5:major")
+         .s("sine").fm(2).fmh(4).fmdecay(.08).fmsustain(0)   // mallet / toy-piano: bright attack that dies at once
+         .decay(.25).sustain(0).release(.15)
+         .swingBy(1/3, 4).room(.2).gain(1).pan(.45)
+oom:   prog.rootNotes(2).note().struct("x ~ x ~")      // "oom": bass on beats 1 and 3 ...
+         .add(note("<0 0> ~ <7 -5> ~"))                // ... alternating root and fifth
+         .s("triangle").lpf(700).decay(.18).sustain(0).release(.08).gain(1.1)
+pah:   chord(prog).dict("triads").voicing().struct("~ x ~ x")   // "pah": short chord on beats 2 and 4
+         .s("square").lpf(1500).decay(.07).sustain(0).release(.05).gain(.45).pan(.6)
+block: freq("[900,2250]").s("triangle").struct("~ [~ x] ~ [x x]").decay(.03).sustain(0).gain(.6)   // woodblock
+         .swingBy(1/3, 4).pan(.65).mask(inSec('b a c'))
+shake: s("white*8").hpf(7000).decay(.025).gain("[.6 .35]*4").swingBy(1/3, 4).pan(.4)
+         .mask(inSec('a c'))
+boing: only({ b: note("c5").struct("<~ ~ ~ [~ ~ ~ x]>")   // once, on the last beat of bar 4 of the section (struct, not mask:
+         .s("sine").penv(12).pattack(.25).decay(.3).sustain(0).gain(.7) })   // a mask would cut the note's onset away). Slide-whistle "whoop"
+tada:  only({ e: stack(
+         n("[0,2,4,7]").scale("C4:major").s("sine").fm(2).fmh(4).fmdecay(.08).decay(1.2).sustain(0).release(1).gain(.3),
+         note("c2").s("triangle").lpf(700).decay(.8).sustain(0).release(.5).gain(.7),
+         freq("[900,2250]").s("triangle").decay(.03).sustain(0).gain(.5)
+       ).room(.3) })
+all(x => x.postgain(.85))                              // master trim for headroom

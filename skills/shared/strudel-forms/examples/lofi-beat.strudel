@@ -1,0 +1,31 @@
+// A lo-fi, chill beat: swung hats, a dark top end, an FM electric piano, a melody that arrives late. 80 bpm.
+// render: cycles 16, tail 3, loop = 48 s
+setcpm(80/4)                                           // 1 bar = 3 s
+const form = "<i@2 a@6 b@6 o@2>"                       // intro | A | B(+melody) | outro(drums thin out)
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))
+const prog = "<Dm9 G13 C^7 A7b9>"                       // ii V I VI7, one chord per bar
+
+keys:  chord(prog).anchor("a4").voicing()
+         .struct("x ~ ~ x ~ ~ ~ ~")                    // chord on 1 and on the "and" of 2
+         .s("sine").fm(1.2).fmdecay(.4).fmsustain(.1)  // e-piano-like FM
+         .decay(1.4).sustain(.15).release(1.2).lpf(1800)
+         .clip(2.5)                                    // hold each chord 2.5 x its step so it rings into the next one
+         .room(.3).gain(.3).pan(.45)
+bass:  prog.rootNotes(2).note().struct("x ~ ~ ~ ~ x ~ ~ ~ ~ x ~ ~ ~ ~ ~")
+         .s("sine").attack(.01).decay(.5).sustain(.6).release(.1).gain(.6)
+         .mask(inSec('a b o'))
+kick:  s("sbd ~ ~ ~ ~ ~ ~ sbd ~ ~ sbd ~ ~ ~ ~ ~").decay(.3).lpf(1500).gain(.42)
+         .mask(inSec('a b'))
+snare: s("white").struct("~ x ~ x").bpf(1700).bpq(.7).decay(.13).lpf(5000).gain(1.3).room(.15)
+         .mask(inSec('a b'))
+hats:  s("white*8").hpf(6000).lpf(9000).decay(.035).gain("[.7 .4]*4")
+         .swingBy(1/3, 4)                              // triplet swing on the off 8ths
+         .degradeBy(.15).ribbon(3, 4)                  // a few dropped hits, frozen into a 4-bar loop
+         .pan(.58).mask(inSec('a b o'))
+vinyl: s("crackle*4").density(.15).hpf(1500).gain(1)
+mel:   n("<[~ 4 ~ 3] [2 ~ ~ ~] [~ 4 6 4] [2 ~ 1 ~]>").scale("D4:minor:pentatonic")
+         .s("triangle").lpf(1600).attack(.02).decay(.4).sustain(.2).release(.3)
+         .delay(.35).delaytime(60/80*.75).delayfeedback(.35).room(.3)
+         .late("[0 .01 0 .015]")                       // lazy timing: late() is in cycles
+         .gain(.5).pan(.6).mask(inSec('b'))
+all(x => x.postgain(.7))                               // master trim: -3 dB on every part (headroom)

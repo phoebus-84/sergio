@@ -95,6 +95,8 @@ describe("workspace file API", () => {
       expect(contentTypeFor("a.md")).toBe("text/markdown");
       expect(contentTypeFor("a.mp4")).toBe("video/mp4");
       expect(contentTypeFor("a.glb")).toBe("model/gltf-binary");
+      // A piece of music is text: it opens in the editor, with its player.
+      expect(contentTypeFor("music/theme.strudel")).toBe("text/x-strudel");
       // Extensionless configuration is text, so a .uiignore opens in the editor.
       expect(contentTypeFor(".uiignore")).toBe("text/plain");
       expect(contentTypeFor("series/s1/.gitignore")).toBe("text/plain");

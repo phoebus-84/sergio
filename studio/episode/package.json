@@ -32,6 +32,7 @@
     "@av/elevenlabs": "workspace:*",
     "@av/archive-media": "workspace:*",
     "@av/audio-edit": "workspace:*",
+    "@av/strudel": "workspace:*",
     "@av/remotion-composer": "workspace:*",
     "@studio/contracts": "workspace:*",
     "@studio/series": "workspace:*",

@@ -1,0 +1,33 @@
+// An emotional, minimal piece: a slow broken-chord keys part, then a pad, a bass and a sparse top line; it ends on a
+// rolled chord left to ring. A minor, 72 bpm.
+// render: cycles 16, tail 6 = 59.33 s
+setcpm(72/4)                                           // 1 bar = 3.33 s
+const letters = ['i', 'a', 'b', 'o', 'e']
+const form = "<i@4 a@4 b@6 o e>"                       // keys alone | +pad | +bass +top line | thin out | final chord
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))
+const only = (table) => form.pickRestart(Object.assign(Object.fromEntries(letters.map((l) => [l, silence])), table))
+const prog = "<Am9 F^7 C^9 G6>"                         // vi IV I V with colour tones
+
+keys:  n("0 2 1 3 2 4 3 1").chord(prog).anchor("e5").voicing()   // broken chord, 8th notes
+         .attack(.005).decay(1.2).sustain(.1).release(1.5).clip(1.6)
+         .velocity(perlin.range(.6, 1))                // uneven touch: a slow random level per note
+         .layer(                                       // two layers of the same notes:
+           (x) => x.s("sine").fm(2).fmh(2).fmdecay(.3).fmsustain(0).gain(.5),           // soft struck body
+           (x) => x.s("sawtooth").lpf(500).lpenv(3.5).lpdecay(.25).lpsustain(.1).gain(.2)  // a little string brightness
+         )
+         .room(.45).rsize(4).pan(.47)
+         .mask(inSec('i a b o'))
+pad:   chord(prog).anchor("a4").voicing().s("sawtooth").lpf(650).attack(1.5).release(2.5)
+         .room(.5).rsize(4).gain(.1)
+         .mask(inSec('a b o'))
+bass:  prog.rootNotes(2).note().s("sine").attack(.05).decay(2).sustain(.5).release(.8).gain(.45)
+         .mask(inSec('b'))
+top:   n("<[~ ~ 4 ~] [~ 2 ~ ~] [~ ~ 3 4] [1 ~ ~ ~] [~ ~ 4 ~] [5 ~ 4 ~]>").scale("A4:minor")   // sparse answer above
+         .s("sine").fm(.8).fmdecay(.5).decay(1.5).sustain(.1).release(2)
+         .delay(.3).delaytime(60/72).delayfeedback(.3).room(.5).gain(.4).pan(.56)
+         .mask(inSec('b'))
+end:   only({ e: n("0 1 2 3 4").chord("Am9").anchor("e5").voicing()   // last chord, rolled upward, left to ring
+         .fast(4).mask("1 0 0 0")                      // 5 notes inside the first quarter of the bar
+         .s("sine").fm(2).fmh(2).fmdecay(.3).fmsustain(0).decay(4).sustain(0).release(4).clip(8)
+         .room(.5).rsize(4).gain(.26) })
+endb:  only({ e: note("a1").s("sine").attack(.05).decay(4).sustain(0).release(3).gain(.4) })

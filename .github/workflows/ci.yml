@@ -76,6 +76,7 @@ jobs:
           - packages/infographics
           - packages/video-composer
           - packages/remotion-composer
+          - packages/strudel
           - studio/contracts
           - studio/series
           - studio/episode
@@ -129,6 +130,22 @@ jobs:
       - name: test
         working-directory: ${{ matrix.module }}
         run: npm run --if-present test
+
+  # The music skills hold only what was tried against the engine (ADR-0053):
+  # every example in them is evaluated and rendered in the runner's Chrome.
+  music-skills:
+    name: Music skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: bun install --frozen-lockfile
+      - run: node --test tools/test/music-skills.test.mjs
 
   voice:
     name: packages/voice (${{ matrix.os }})

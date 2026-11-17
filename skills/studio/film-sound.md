@@ -1,6 +1,6 @@
 ---
 name: film-sound
-version: "0.1.0"
+version: "0.2.0"
 description: Make a film's sound — dialogue recorded or synthesised and checked against its lines, ambience and effects recorded, licensed or generated, music spotted against the scenes — and lay it on the cut's tracks at levels that mix
 inputs:
   - name: film
@@ -98,6 +98,9 @@ what makes separate shots one place. In this order:
 2. A licensed recording — the `find-archive-media` skill.
 3. `pva_synthesize_sound` — wind, rain, sea, hum, room: procedural, local
    and free. Honest for a bed; not a substitute for a specific place.
+4. Designed in code — a drone with a slow movement, a room tone in a key, a
+   texture that changes with the scene: the `strudel-sounds` skill, rendered
+   with `pva_music_render` as a seamless `loop`.
 
 Make it at least as long as the scene, or loop a seamless piece.
 
@@ -105,8 +108,11 @@ Make it at least as long as the scene, or loop a seamless piece.
 
 Only what the picture shows or the story needs: list them from the
 direction, then find each — recorded, licensed, or `pva_synthesize_sound` /
-`pva_synthesize_nonverbal_audio` for what those can make. An effect is
-placed on the frame its cause is seen.
+`pva_synthesize_nonverbal_audio` for what those can make. What is designed
+rather than recorded — a riser into a cut, an impact, a whoosh, a tone, an
+interface blip — is written as code (`strudel-sounds`) and rendered with
+`pva_music_render` to `assets/audio/effects/`. An effect is placed on the
+frame its cause is seen.
 
 To trim, join, clean or level a file before it goes on a track, use
 `pva_edit_audio` (the `audio-editing` skill): the edit is a saved recipe,
@@ -142,13 +148,26 @@ Where the music comes from, in the order to try:
    with `pva_ingest_footage` or placed under `music/`.
 2. **Licensed music**: the `find-archive-media` skill. The licence and its
    evidence are kept with the file; a cue without terms cannot ship.
-3. **Made here**: `pva_synthesize_sound` makes beds, drones and tones —
-   texture, not a melody. Say plainly when a film needs a composed score
-   and the studio has none to give it: that is a decision for the person,
-   not something to cover with a drone.
+3. **Composed here, as code**: the `strudel-music` skill (with
+   `strudel-forms` for a cue's shape and `strudel-sounds` for its
+   instruments). Each cue is a piece, `music/<cue>.strudel` on the film
+   (`series: "_"`, `episode: "_"`), written to the spotting:
+   - its tempo and length are chosen so that it turns where the picture
+     does — a cue's seconds are its cycles over its tempo, so a change that
+     must land on a cut is put on the cycle that falls there;
+   - rendered with `pva_music_render` to `music/<cue>.wav`, with a `tail`
+     for a cue that ends and `stems: true` when the cut will mix its parts;
+   - the same piece gives the variants a film needs — a section alone
+     (`from`, `cycles`), without its melody (`mute`), one instrument
+     (`only`) — rather than a new piece for each.
 
-`pva_analyze_audio` gives a cue's length and loudness; use them to place
-it.
+   It is a synthesizer's music. Say plainly when a film needs an orchestra,
+   a singer, or a sound only a recording gives: that is a decision for the
+   person, not something to cover with a pad.
+
+`pva_music_render` returns a cue's length, loudness, spectrum and the level
+of each stem; `pva_analyze_audio` measures a file that came from elsewhere.
+Use them to place it.
 
 `artifacts/score.json`:
 
@@ -158,7 +177,10 @@ it.
     { "id": "theme", "file": "music/theme.wav", "seconds": 62,
       "over": ["010-car-park", "020-ward"], "enters": "010-car-park, on the cut to the clock",
       "leaves": "020-ward, under the first line, out by its end",
-      "terms": "CC BY 4.0 — <author>, <url>; credit in the end titles" }
+      "terms": "CC BY 4.0 — <author>, <url>; credit in the end titles" },
+    { "id": "ward", "file": "music/ward.wav", "seconds": 48,
+      "over": ["020-ward"], "enters": "020-ward, with the first shot", "leaves": "020-ward, rings out over the cut",
+      "terms": "composed for this film: music/ward.strudel" }
   ],
   "silence": ["030-corridor: no music; the ventilation hum is the scene."],
   "credits": ["Music: “Theme” by <author>, CC BY 4.0"]

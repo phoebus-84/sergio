@@ -1,0 +1,39 @@
+// A tension underscore with no melody: a low pulse whose filter opens, a sub, a cluster drone, a heartbeat, ticks,
+// a riser, into an impact on bar 20 (48.0 s). D, 100 bpm.
+// render: cycles 21, tail 5 = 55.4 s
+setcpm(100/4)                                          // 1 bar = 2.4 s
+const letters = ['i', 'a', 'b', 'c', 'x']
+const form = "<i@4 a@4 b@4 c@8 x>"                     // 21 bars; x = the impact bar (bar 20 = 48.0 s)
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))
+// only({c: pat}): pat plays in section c and RESTARTS at its first bar (needed for long one-shot events)
+const only = (table) => form.pickRestart(Object.assign(Object.fromEntries(letters.map((l) => [l, silence])), table))
+const build = saw.slow(20)                             // 0 -> 1 across the 20 bars of the build
+
+pulse: note("d2*8").s("sawtooth")                      // 8th-note ostinato; the filter opens over the 20 bars
+         .lpf(build.rangex(220, 1800)).lpq(3)
+         .decay(.12).sustain(.3).release(.05)
+         .gain("[1 .55 .75 .55]*2").velocity(build.range(.5, 1))
+         .mask(inSec('i a b c'))
+sub:   note("<d1 d1 d1 c1>/2").s("sine").attack(.5).release(1)   // 2-bar sub notes
+         .gain(.3).velocity(build.range(.4, 1))
+         .mask(inSec('a b c'))
+drone: note("[d3,eb3,a3]").slow(4).s("sawtooth")       // minor-2nd cluster, 4-bar events
+         .lpf(500).lpsync(1/8).lpdepth(.8).attack(3).release(4)
+         .room(.5).rsize(6).gain(.2).velocity(build.range(.5, 1))
+         .mask(inSec('i a b c'))
+heart: s("sbd ~ sbd ~ ~ ~ ~ ~").decay(.35).lpf(300)   // heartbeat
+         .gain(.22).velocity(build.range(.4, 1))
+         .mask(inSec('a b c'))
+ticks: s("white(5,16,<0 2>)").hpf(6000).decay(.02)
+         .gain(.6).velocity(build.range(.3, 1))
+         .pan(sine.range(.25, .75).fast(1.5))
+         .mask(inSec('b c'))
+high:  only({ c: note("[a5,bb5]").slow(8).s("sine")    // one 8-bar high dissonance that swells and wavers
+         .attack(15).release(.3).tremolosync(4).tremolodepth(.5).room(.6).gain(.2) })
+riser: only({ c: s("white").slow(8)                    // one 8-bar noise event: filter and level rise inside it
+         .lpf(200).lpenv(6).lpattack(19).attack(19).release(.05).gain(.38) })
+hit:   only({ x: stack(
+         s("sbd").decay(1.2).pdecay(.25).penv(24).gain(.5),
+         s("white").lpf(3000).decay(.6).sustain(0).gain(.25),
+         note("d1").s("sine").decay(3).sustain(0).release(1.5).gain(.35)
+       ).room(.6).rsize(6) })

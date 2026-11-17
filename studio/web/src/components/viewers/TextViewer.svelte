@@ -12,7 +12,8 @@
    */
   import type { ViewerProps } from "$lib/viewer-registry";
 
-  let { content, readOnly, onEdit }: ViewerProps = $props();
+  /** `nowrap`: for code, where a line of the file must stay one line of the gutter. */
+  let { content, readOnly, onEdit, nowrap = false }: ViewerProps & { nowrap?: boolean } = $props();
 
   let textEl = $state<HTMLTextAreaElement | null>(null);
   let gutterEl = $state<HTMLDivElement | null>(null);
@@ -38,7 +39,8 @@
     oninput={(e) => onEdit((e.target as HTMLTextAreaElement).value)}
     onscroll={syncScroll}
     readonly={readOnly}
-    spellcheck="true"
+    spellcheck={!nowrap}
+    wrap={nowrap ? "off" : "soft"}
     aria-label="File content"
   ></textarea>
 </div>

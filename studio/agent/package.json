@@ -62,6 +62,7 @@
     "@av/terminal-recorder": "workspace:*",
     "@av/archive-media": "workspace:*",
     "@av/audio-edit": "workspace:*",
+    "@av/strudel": "workspace:*",
     "@av/remotion-composer": "workspace:*",
     "@av/render-worker": "workspace:*",
     "@av/video-composer": "workspace:*",

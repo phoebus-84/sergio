@@ -132,6 +132,7 @@ narrate episodes is the studio's business, not the tool's.
 | `packages/elevenlabs` | ElevenLabs client: forced alignment, with rate and retry rules |
 | `packages/archive-media` | Free archive and stock media with verifiable licences |
 | `packages/audio-edit` | Audio cut on words, layered, ducked and mastered from a recipe |
+| `packages/strudel` | Music written as Strudel code, checked and rendered offline: parts, loops, stems, and what was made in numbers |
 | `packages/graphics` | Deterministic SVG/PNG code frames, diagrams, callouts, titles |
 | `packages/infographics` | Frame-accurate animated infographics via Remotion |
 | `packages/terminal-recorder` | A terminal session recorded to video from a VHS tape |

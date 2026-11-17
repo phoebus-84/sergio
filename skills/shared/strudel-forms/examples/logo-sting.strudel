@@ -1,0 +1,16 @@
+// A logo sting: a one-second rising run into a chord that lands at 1.0 s and rings out. D major.
+// One cycle is the whole sting: the run fills its first half.
+// render: cycles 1, tail 3 = 5 s
+setcpm(120/4)
+run:   n("0 2 4 7 9 11 14 16").scale("D4:major").fast(2).mask("1 0")   // 8 notes in the first half-cycle (1 s), then nothing
+         .s("triangle").lpf(3000).decay(.12).sustain(.2).release(.1)
+         .gain(saw.range(.25, .6).fast(2)).pan(saw.range(.3, .7).fast(2))   // gets louder and moves L -> R during the run
+whoosh: s("white").fast(2).mask("1 0")                 // noise swell under the run, cut at the landing
+         .hpf(1500).lpf(300).lpenv(5).lpattack(1).attack(.95).release(.03).gain(.3)
+chord: n("[0,4,7,9,11]").scale("D3:major").struct("~ x")   // lands at 0.5 cycle = 1.0 s
+         .s("supersaw").lpf(4000).attack(.005).decay(2).sustain(0).release(1.2)
+         .room(.5).rsize(3).gain(.32)
+low:   note("d2").struct("~ x").s("sine").attack(.005).decay(1.8).sustain(0).release(1).gain(.42)
+thump: s("sbd").struct("~ x").decay(.4).gain(.32)
+bell:  n("[7,11]").scale("D5:major").struct("~ x").s("sine").fm(2).fmh(3.5).fmdecay(.8)
+         .decay(2).sustain(0).release(1.2).room(.6).rsize(3).gain(.24)

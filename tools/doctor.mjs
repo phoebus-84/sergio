@@ -56,6 +56,19 @@ function headlessChrome() {
   return null;
 }
 
+/**
+ * The Chrome music is rendered with (@av/strudel): Remotion's when it has one,
+ * else Playwright's or the machine's own. Any of them will do.
+ */
+async function musicChrome() {
+  try {
+    const { findChrome } = await import("@av/strudel");
+    return findChrome({ searchDirs: ["packages/remotion-composer", "studio/agent"].map((dir) => join(ROOT, dir, "node_modules", ".remotion")) });
+  } catch {
+    return null;
+  }
+}
+
 const checks = [
   { name: "node", detail: probe("node"), required: true },
   { name: "bun", detail: probe("bun"), required: true },
@@ -68,6 +81,12 @@ const checks = [
     detail: headlessChrome(),
     required: false,
     missing: "not downloaded yet: Remotion fetches it on the first render (video.compose)",
+  },
+  {
+    name: "music",
+    detail: await musicChrome(),
+    required: false,
+    missing: "no Chrome to render music with: a first video render downloads one, or set STRUDEL_CHROME_PATH to any Chrome or Chromium",
   },
 ];
 

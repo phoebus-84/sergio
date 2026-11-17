@@ -6,6 +6,7 @@ This repository carries two licences, split along the same line as the code
 | Part | Licence | Text |
 |---|---|---|
 | `packages/*` — the reusable tools | Apache License 2.0 | `LICENSE` in each package |
+| `packages/strudel` — the exception among them | GNU Affero General Public License v3.0 or later | [`packages/strudel/LICENSE`](packages/strudel/LICENSE) |
 | Everything else — `studio/`, `skills/`, `tools/`, `docs/` | GNU Affero General Public License v3.0 only | [`LICENSE`](LICENSE) |
 
 Each workspace's `package.json` (and `packages/voice/pyproject.toml`) states
@@ -21,6 +22,10 @@ that and grants a patent licence.
 The studio is the product. AGPL-3.0 keeps it open when someone runs a modified
 copy as a service: they owe their users the source of what they run.
 
+`packages/strudel` runs [Strudel](https://strudel.cc), which is AGPL-3.0-or-later,
+and takes its licence: a tool that embeds it could not honestly be offered
+under Apache-2.0. It stays a package because it knows nothing of the studio.
+
 ## What is not covered
 
 - **Third-party code keeps its own terms.** A tree with a `VENDORED.md`
@@ -35,6 +40,11 @@ copy as a service: they owe their users the source of what they run.
   films and their media live in a library outside this repository (ADR-0021,
   ADR-0044, ADR-0045) and carry whatever licences their owners give them.
   Nothing here licenses a video made with the studio.
+- **Music is its author's.** A piece written as Strudel code, and the audio
+  rendered from it, are not covered by Strudel's licence or by this
+  repository's. Sample packs a piece loads from the network keep their own
+  terms, which are often unstated: the studio fetches none unless asked, and
+  records what a piece took (ADR-0053).
 - **Models and services** reached through the packages (speech, image and
   video models, archives) have their own terms.
 
