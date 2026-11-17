@@ -1,10 +1,42 @@
-# Agentic Video Studio
+# Sergio
 
-Turns one prompt plus source material into a validated, narrated, illustrated
-video. An agent — Pi, or Claude Code through the studio's MCP server — is the
-executive producer; a deterministic runtime keeps pipeline state; dedicated
-packages generate media; Remotion renders the episode's edit timeline and
-FFmpeg masters and checks it; a gateway connects the agent to a browser studio.
+**Make episode twenty as good as episode one.**
+
+A local, open-source production system for video made with AI agents. Your
+agent — Claude Code or Pi — writes, generates and edits. The studio keeps what
+the agent forgets: every attempt, what each paid call cost, the licence of
+each borrowed asset, and each decision you approved. So a series stays a
+series, and a correction stays small: a fix at second 47 leaves everything
+else alone.
+
+## Made with it
+
+| A film of this kind | Length |
+|---|---|
+| A software explainer written from one pinned commit of the repository it explains | 3 min 47 s |
+| An ambient room: a looping master, extended to its length on the machine | 1 hour |
+| A visual essay re-edited from the start around a narration that did not change | 3 min 4 s |
+| An illustrated film cut to an original score | 4 min 14 s |
+| A Blender scene built by script and kept editable | 15 s |
+| A vertical lesson: one episode of a series with a fixed format | 54 s |
+
+[Watch them on the product site](https://phoebus-84.github.io/video-studio-site/examples), each with its receipt:
+what it was made from, what it cost where a cost was recorded, and whose work
+is in it. They are named there and not here: the application knows no library
+(ADR-0044).
+
+## What it does
+
+- **It repeats.** A series' format is a pinned release: its compiler, its
+  validator, its kits. An episode is a data file checked against it. Episode
+  twenty goes through the same code as episode one.
+- **It corrects.** Every attempt is kept and what depends on what is known.
+  Change one thing and only what depends on it is made again; the render
+  reuses the seconds that did not change, a film re-renders the shots that
+  did, and two renders can be compared to show nothing else moved.
+- **It accounts.** A budget per episode, reserved before a paid call is made.
+  A licence and its evidence for every borrowed asset. An approval only the
+  operator can give, bound to what was approved.
 
 It makes two kinds of work. A **channel** keeps making episodes of a series
 to a pinned format. A **film** is one self-contained piece, short or feature
@@ -13,7 +45,65 @@ real footage, stock, generated and programmed material, each level with its
 own cut, edited by the agent or by a person on a timeline and rendered with
 FFmpeg in the pieces that changed.
 
-## The shape of this repository
+## What it is not
+
+- **Not the fastest way to one video.** If you need one clip now, a hosted
+  generator gets you there sooner. This pays off the second time you make the
+  same kind of video.
+- **Not a model catalogue.** It works with a few providers, chosen on
+  purpose, and with what runs on your own machine.
+- **Not unattended.** The agent works; you decide; the decision is recorded.
+  [`docs/harness-review.md`](docs/harness-review.md) says where enforcement
+  stops.
+- **Not measured yet.** Whether it does better than a capable model working
+  alone has not been tested. The test is written down first:
+  [`bench/retake`](bench/retake/README.md), a specification with no results.
+
+## Install
+
+```bash
+bun install                       # one install for every module
+npm run compose -- --profile=full # wire the pieces you want
+npm run doctor                    # check this machine can run them
+```
+
+This installs and wires the workspace, not every external tool or provider.
+See [`docs/install.md`](docs/install.md) for profiles, requirements and
+credentials.
+
+Your first render needs no account and no key:
+
+```bash
+npm run demo:render               # six seconds of titles, rendered and audited
+```
+
+It runs once the workspace and FFmpeg are ready, and downloads Remotion's
+headless browser the first time.
+
+Then [run the agent](docs/running.md):
+
+```bash
+ln -sfn /path/to/your/library library    # once — where episodes live
+pi -e studio/agent/extensions/index.ts   # Pi
+claude                                   # or Claude Code, from the repository root
+```
+
+The browser UI is optional; the agent's pipeline tools still need a running
+gateway for stage tracking, approval requests and budget status. See the
+[running guide](docs/running.md).
+
+You do not have to take all of it. `npm run compose -- --list` shows the
+profiles; `--profile=voice` gives you just the voice tool, `--profile=render`
+just the rendering packages.
+
+## How it is built
+
+An agent — Pi, or Claude Code through the studio's MCP server — is the
+executive producer; a deterministic runtime keeps pipeline state; dedicated
+packages generate media; Remotion renders the episode's edit timeline and
+FFmpeg masters and checks it; a gateway connects the agent to a browser studio.
+
+### The shape of this repository
 
 The repository is split along one line, and that line is enforced by
 `npm run check:boundaries`:
@@ -62,39 +152,10 @@ narrate episodes is the studio's business, not the tool's.
 | `studio/gateway` | Agent sessions (Pi RPC or the Claude Agent SDK) and event streaming |
 | `studio/web` | Browser studio |
 
-## Install
-
-```bash
-bun install                       # one install for every module
-npm run compose -- --profile=full # wire the pieces you want
-npm run doctor                    # check this machine can run them
-```
-
-This installs and wires the workspace, not every external tool or provider.
-See [`docs/install.md`](docs/install.md) for profiles, requirements and
-credentials. `npm run demo:render` runs a small asset-free render once the
-workspace and FFmpeg are ready.
-
-Then [run the agent](docs/running.md):
-
-```bash
-ln -sfn /path/to/your/library library    # once — where episodes live
-pi -e studio/agent/extensions/index.ts   # Pi
-claude                                   # or Claude Code, from the repository root
-```
-
-The browser UI is optional; the agent's pipeline tools still need a running
-gateway for stage tracking, approval requests and budget status. See the
-[running guide](docs/running.md).
-
-You do not have to take all of it. `npm run compose -- --list` shows the
-profiles; `--profile=voice` gives you just the voice tool, `--profile=render`
-just the rendering packages.
-
 ## Documentation
 
-The product website, recipes and selected films live in the independent
-`video-studio-site` Git project. Its build does not depend on this workspace;
+The product website, recipes and selected films live in the website's own Git
+project. Its build does not depend on this workspace;
 it imports an explicit snapshot of the technical reference when requested.
 
 The application documentation remains under [`docs/`](docs/index.md), with its
@@ -116,6 +177,8 @@ npm run docs:build   # also fails on any dead internal link
 - [Blender setup and workflow](packages/blender/README.md)
 - [DaVinci Resolve editorial handoff](docs/resolve-handoff.md) — optional integration through the actively maintained [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp)
 - [Harness review and improvement priorities](docs/harness-review.md)
+- [Changelog](CHANGELOG.md), and [what a release number promises](docs/contributing.md#releases)
+- [Retake](bench/retake/README.md) — the specification of a benchmark for what happens after the first take
 - [Per-component reference](docs/index.md#packages)
 - [Decision records](docs/adr/)
 

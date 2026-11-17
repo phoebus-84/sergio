@@ -1,4 +1,4 @@
-# Video Studio Gateway — Contributor Guide
+# Sergio Gateway — Contributor Guide
 
 ## Architecture
 

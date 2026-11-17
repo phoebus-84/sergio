@@ -53,7 +53,7 @@ const PROMPT_ARGS = 6;
 const HEARTBEAT_MS = 60_000;
 
 export const INSTRUCTIONS = [
-  "Agentic Video Studio: the pva_* tools produce narrated, illustrated videos in the library",
+  "Sergio: the pva_* tools produce narrated, illustrated videos in the library",
   "(channels → series → episodes). For production work load the pva-executive-producer skill",
   "first; stage skills (write-brief, write-script, compose-video, …) say how to do each stage.",
   "Paid generation is budgeted per episode: check pva_budget_status before spending.",

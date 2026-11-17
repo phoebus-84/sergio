@@ -1,4 +1,4 @@
-# video-studio-gateway
+# Sergio gateway
 
 Trusted local backend connecting browser clients, the agent (Pi RPC, or Claude through the Claude Agent SDK), and filesystem production state.
 

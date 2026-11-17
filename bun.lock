@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "video-studio",
+      "name": "sergio",
       "dependencies": {
         "@studio/contracts": "workspace:*",
       },

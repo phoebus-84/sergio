@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.studio.video/v1alpha1/film.schema.json",
-  "title": "Video Studio film, scene and shot manifests (ADR-0050)",
+  "title": "Sergio film, scene and shot manifests (ADR-0050)",
   "description": "A film is a self-contained work, short or feature length, produced at three levels: the shot, the scene and the film. Each level's directory carries one of these manifests. Order and containment a schema cannot express are checked by src/film.mjs.",
   "$defs": {
     "ResourceVersion": { "type": "string", "const": "studio.video/v1alpha1" },

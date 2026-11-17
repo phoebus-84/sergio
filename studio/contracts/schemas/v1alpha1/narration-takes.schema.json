@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/narration-takes.schema.json",
-  "title": "Video Studio narration takes schema",
+  "title": "Sergio narration takes schema",
   "description": "Every accepted voice take of an episode, whatever tool made it, and what each unit of the spec plays: an ordered sequence of takes with pauses and declared scene pauses. Text preparation follows the tool; spokenText records exactly what the tool received. Checked by validateNarrationTakes and laid out by layoutUnit in src/narration-takes.mjs.",
   "$defs": {
     "ContentHash": {

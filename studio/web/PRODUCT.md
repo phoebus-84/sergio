@@ -14,7 +14,7 @@ A typical library contains 1 to 5 series with 10 to 15 episodes each. A heavy li
 
 ## Product Purpose
 
-Video Studio makes an agent-directed production legible and correctable without reducing it to a chat transcript. It projects the canonical filesystem workspace into a production-ready desktop interface where the creator can watch autopilot, inspect artifacts and media, understand blockers and staleness, compare immutable attempts, leave anchored feedback, and request precise reruns.
+Sergio makes an agent-directed production legible and correctable without reducing it to a chat transcript. It projects the canonical filesystem workspace into a production-ready desktop interface where the creator can watch autopilot, inspect artifacts and media, understand blockers and staleness, compare immutable attempts, leave anchored feedback, and request precise reruns.
 
 The default operating mode is exception supervision. A creator should be able to understand what Pi is doing, whether intervention is required, what an action will cost or invalidate, and which deliverable is current without continuously managing the pipeline. When deeper control is wanted, the same interface must support hands-on review at the stage, artifact, scene, asset, narration-segment, and render-attempt levels.
 

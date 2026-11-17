@@ -66,7 +66,7 @@ describe("stock API contracts", () => {
     const h = http({ results: [row, { ...row, premium: true }] });
     const rows = await unsplash.search("x", opts, h, key);
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.attribution).toContain("utm_source=video-studio");
+    expect(rows[0]!.attribution).toContain("utm_source=sergio");
     await unsplash.beforeDownload!(rows[0]!, h, key);
     expect(h.json.mock.calls[1]).toEqual(["https://api.unsplash.com/photos/abc/download", { cache: false, headers: { Authorization: `Client-ID ${key}`, "Accept-Version": "v1" } }]);
     expect(await unsplash.item("abc", http(row), key)).toMatchObject({ id: "abc" });

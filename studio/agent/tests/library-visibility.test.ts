@@ -17,10 +17,10 @@ describe("library visibility", () => {
   });
 
   it("rejects the real mismatch, naming both sides", () => {
-    const v = describeLibraryVisibility("/Users/x/avg/library", ["/Users/x/video-studio/library"]);
+    const v = describeLibraryVisibility("/Users/x/avg/library", ["/Users/x/sergio/library"]);
     expect(v.visible).toBe(false);
     expect(v.message).toContain("/Users/x/avg/library");
-    expect(v.message).toContain("/Users/x/video-studio/library");
+    expect(v.message).toContain("/Users/x/sergio/library");
     // The consequence, not just the discrepancy.
     expect(v.message).toContain("will not appear");
   });

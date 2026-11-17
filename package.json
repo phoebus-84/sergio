@@ -1,10 +1,10 @@
 {
-  "name": "video-studio",
+  "name": "sergio",
   "version": "0.2.0",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
-  "description": "Agentic Video Studio \u2014 a Pi-directed video production system. `packages/*` are reusable outside this project; `studio/*` is the product built on top of them.",
+  "description": "Sergio \u2014 a studio for video made with AI agents, directed from Pi or Claude Code. `packages/*` are reusable outside this project; `studio/*` is the product built on top of them.",
   "engines": {
     "node": ">=22"
   },

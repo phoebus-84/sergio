@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha2/edit-timeline.schema.json",
-  "title": "Video Studio edit timeline schema (v1alpha2)",
+  "title": "Sergio edit timeline schema (v1alpha2)",
   "description": "A layered, kit-based edit timeline (ADR-0034). Derived from an episode spec by a series compiler; never edited by hand. All times are integer frames at fps. Structural rules a schema cannot express (overlaps, references, ranges) are checked by validateEditTimeline in src/edit-timeline.mjs.",
   "$defs": {
     "ContentHash": {

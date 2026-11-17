@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   const visibility = health["library-visibility"];
   if (!visibility || visibility.available) return;
 
-  const message = `Agentic Video Studio: ${visibility.message}`;
+  const message = `Sergio: ${visibility.message}`;
   process.stdout.write(
     JSON.stringify({
       systemMessage: message,

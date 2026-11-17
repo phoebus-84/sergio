@@ -5,7 +5,7 @@ import { createGateway } from "./server.js";
 import { canonicalizeRoots } from "./lib/roots.js";
 
 /**
- * Video Studio Gateway entry point.
+ * Sergio Gateway entry point.
  *
  * Usage:
  *   node dist/index.js [config.json]

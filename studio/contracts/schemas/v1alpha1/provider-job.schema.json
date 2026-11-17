@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/provider-job.schema.json",
-  "title": "Video Studio provider job schema",
+  "title": "Sergio provider job schema",
   "description": "Canonical schema for provider jobs — a record of every capability invocation sent to an external provider (fal, TTS, etc.). Owned by video-workspace-contracts per ADR-0028. Must be persisted before polling so request IDs survive restarts.",
   "$defs": {
     "JobStatus": {

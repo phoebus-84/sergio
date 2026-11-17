@@ -54,7 +54,7 @@ export interface EngineContext {
 export type DrawerOptions = Omit<DrawSegmentsOptions, "segments" | "audio" | "onProgress">;
 
 export function defaultCacheRoot(env: Record<string, string | undefined> = process.env): string {
-  return path.join(env.XDG_CACHE_HOME || path.join(homedir(), ".cache"), "video-studio", "render");
+  return path.join(env.XDG_CACHE_HOME || path.join(homedir(), ".cache"), "sergio", "render");
 }
 
 /** Runs one command; its exit code. A failure's last stdout line is {"error":{code,message,problems}}. */

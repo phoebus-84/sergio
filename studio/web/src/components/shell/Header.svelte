@@ -33,7 +33,7 @@
 
 <header class="header" aria-label="Episode header">
   <div class="header-left">
-    <span class="header-brand">Studio</span>
+    <span class="header-brand">Sergio</span>
     <Breadcrumbs />
   </div>
 

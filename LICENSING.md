@@ -43,4 +43,4 @@ copy as a service: they owe their users the source of what they run.
 A contribution is accepted under the licence of the part it changes: Apache-2.0
 for `packages/`, AGPL-3.0-only for the rest.
 
-Copyright © 2026 the Video Studio authors.
+Copyright © 2026 the Sergio authors.

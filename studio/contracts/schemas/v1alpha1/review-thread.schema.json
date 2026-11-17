@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/review-thread.schema.json",
-  "title": "Video Studio review thread schema",
+  "title": "Sergio review thread schema",
   "description": "Canonical schema for review threads — persistent conversations anchored to a specific revision and location within an episode. Owned by video-workspace-contracts per ADR-0028.",
   "$defs": {
     "ThreadStatus": {

@@ -7,7 +7,7 @@
 // render-hosts.json (every field optional):
 //   {
 //     "user": "…",                 SSH user for every engine
-//     "repo": "~/video-studio",     the engine's clone
+//     "repo": "~/sergio",           the engine's clone
 //     "cache": "~/.cache/…",        the engine's render cache root
 //     "hosts": { "<peer name>": { "address", "user", "repo", "cache", "speed" } }
 //   }
@@ -54,7 +54,7 @@ export interface TailscalePeer {
   os: string | null;
 }
 
-export const DEFAULT_REPO = "~/video-studio";
+export const DEFAULT_REPO = "~/sergio";
 
 export function readHostsConfig(file: string | undefined): HostsConfig {
   if (!file || !existsSync(file)) return {};

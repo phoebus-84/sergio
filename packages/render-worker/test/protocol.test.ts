@@ -79,7 +79,7 @@ test("shell words are quoted for a POSIX shell, ~/ left to expand", () => {
   assert.equal(shellQuote("plain/path-1.2"), "plain/path-1.2");
   assert.equal(shellQuote("it's here"), `'it'\\''s here'`);
   assert.equal(shellQuote("$(rm -rf /)"), `'$(rm -rf /)'`);
-  assert.equal(shellPath("~/video studio"), "~/'video studio'");
+  assert.equal(shellPath("~/my studio"), "~/'my studio'");
   assert.equal(engineCommand({ name: "render-box", destination: "someone@100.64.0.9", repo: "~/clone", cache: "/srv/cache dir" }, ["diff", "c/s/e"]),
     "~/clone/packages/render-worker/engine.sh --cache '/srv/cache dir' diff c/s/e");
 });

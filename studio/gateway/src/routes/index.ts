@@ -110,7 +110,7 @@ export function registerRoutes(
     } as any,
   }, async () => {
     return {
-      service: "video-studio-gateway",
+      service: "sergio-gateway",
       version: "0.1.0",
       docs: "/docs",
       health: "/health",

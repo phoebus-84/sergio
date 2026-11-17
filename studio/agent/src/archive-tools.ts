@@ -22,7 +22,7 @@ import { channelPath, seriesPath } from "@studio/contracts/src/layout.mjs";
 import { WORKSPACE_PARAMS, workspaceOf } from "./workspace-target.js";
 import { ARCHIVE_ENV_KEYS, readEnv } from "./config.js";
 
-const USER_AGENT = "video-studio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)";
+const USER_AGENT = "sergio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)";
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/i;
 
 export interface ArchiveSettings {
@@ -82,7 +82,7 @@ export function registerArchiveTools(pi: ExtensionAPI, options: { archive?: Arch
     if (!shared) {
       const keys = await readEnv();
       shared = createArchive({
-        userAgent: USER_AGENT, cacheDir: join(homedir(), ".cache", "video-studio", "archive-media"),
+        userAgent: USER_AGENT, cacheDir: join(homedir(), ".cache", "sergio", "archive-media"),
         env: Object.fromEntries(ARCHIVE_ENV_KEYS.map((key) => [key, keys[key]])),
       });
     }

@@ -29,7 +29,7 @@ npm test                 # fake-process tests; no Blender needed
 npm run test:live        # actual Eevee/Cycles + Geometry Nodes smoke test
 ```
 
-In video-studio: `npm run compose -- --profile=blender`, then `npm run doctor`.
+In Sergio: `npm run compose -- --profile=blender`, then `npm run doctor`.
 The `full` and `studio` profiles also include Blender. Other profiles remain
 unchanged. The agent exposes `pva_blender_probe`, `pva_blender_create_scene`,
 `pva_blender_render` and `pva_poly_haven`; load the `blender-scene` skill.

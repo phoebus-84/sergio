@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.studio.video/v1alpha1/asset.schema.json",
-  "title": "Video Studio asset and attempt contracts",
+  "title": "Sergio asset and attempt contracts",
   "$defs": {
     "AssetKind": {
       "type": "string",

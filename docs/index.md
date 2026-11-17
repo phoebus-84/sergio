@@ -1,7 +1,8 @@
 # Documentation
 
-Technical documentation for the Video Studio application. The product website,
-recipes and selected films are maintained separately in `video-studio-site`.
+Technical documentation for Sergio, the application. The product website,
+recipes and selected films are maintained separately, in the website's own
+repository.
 
 ## Start
 
@@ -12,6 +13,15 @@ recipes and selected films are maintained separately in `video-studio-site`.
 | [Running the agent](./running) | How do I actually run it? |
 | [Repository layout](./repository-layout) | Why is the tree split into `packages/` and `studio/`, and where does my code go? |
 | [Contributing](./contributing) | How do I add a package, capability, skill or pipeline? |
+
+## The project
+
+| Document | What it answers |
+|---|---|
+| [Changelog](https://github.com/phoebus-84/video-studio/blob/main/CHANGELOG.md) | What changed for someone who uses the studio, and what needs action? |
+| [Releases](./contributing#releases) | How is a release cut, and what does its number promise? |
+| [Licensing](https://github.com/phoebus-84/video-studio/blob/main/LICENSING.md) | Which licence covers which part, and what does neither cover? |
+| [Retake](https://github.com/phoebus-84/video-studio/tree/main/bench/retake) | How will the studio be measured against a model working alone? A specification; no results yet. |
 
 ## Understanding the system
 

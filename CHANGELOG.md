@@ -3,9 +3,30 @@
 What changed for someone who uses the studio, newest first. How a release is
 cut and what its number promises: [contributing](docs/contributing.md#releases).
 
-## Unreleased
+## Unreleased — to be 0.3.0
 
-Nothing yet.
+### Needs action
+
+- **The product is called Sergio.** The name it had is gone from the code,
+  the documentation and what the tools say. Nothing a library keeps is
+  renamed: the tools are still `pva_*`, the variables `AVG_*`, the packages
+  `@av/*` and `@studio/*`, the manifests `studio.video/v1alpha1`. What moves:
+  - **The render engine's defaults.** The clone on an engine is looked for in
+    `~/sergio` and its cache in `~/.cache/sergio/render`. An engine whose
+    entry in `render-hosts.json` names `repo` and `cache` is not affected;
+    one that relied on the defaults moves its clone there, or names where it
+    is.
+  - **The archive cache** is `~/.cache/sergio/archive-media`. The old folder
+    can be deleted; the new one fills as media is fetched.
+  - **The gateway's `/health`** answers `service: "sergio-gateway"`.
+  - **The root package** is named `sergio`.
+
+### Documentation
+
+- **The README opens with what the studio is for, and what it is not.** The
+  architecture follows it. The running guide, the workspace layout and the
+  domain language now cover characters and casts, the revision an edit must
+  name, and the one render of a film at a time.
 
 ## 0.2.0 — 2026-11-17
 

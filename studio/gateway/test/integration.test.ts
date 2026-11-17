@@ -156,7 +156,7 @@ describe("Gateway Integration", () => {
       });
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body.service).toBe("video-studio-gateway");
+      expect(body.service).toBe("sergio-gateway");
       expect(body.health).toBe("/health");
       expect(body.openapi).toBe("/openapi.json");
       expect(body.ws).toBe("/ws");
@@ -170,7 +170,7 @@ describe("Gateway Integration", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.openapi).toBe("3.0.3");
-      expect(body.info.title).toBe("Video Studio Gateway");
+      expect(body.info.title).toBe("Sergio Gateway");
       expect(body.components.securitySchemes.bearerAuth.type).toBe("http");
       expect(body.components.securitySchemes.bearerAuth.scheme).toBe("bearer");
     });

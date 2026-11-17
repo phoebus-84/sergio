@@ -37,7 +37,7 @@ those sources; adding a Blender-only executor to the gateway duplicates control.
 ## Consequences
 
 Automated creation and human-native editing share the same source/render contract.
-The package is useful outside video-studio and testable with fake processes.
+The package is useful outside Sergio and testable with fake processes.
 Long-lived workers, simulation baking, complete external dependency packaging,
 frame-resume and revision-bound human approval are not implemented by this ADR.
 See the [harness review](../harness-review.md) for the integration gaps and priorities.

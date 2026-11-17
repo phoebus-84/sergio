@@ -1,12 +1,12 @@
 ---
 name: pva-executive-producer
-description: Operate the Agentic Video Studio as executive producer. Use for channel, series, episode, film, scene, shot, run, resume, review, and rerun commands. This skill coordinates video production pipelines through the pva_* tools, under Pi or Claude Code.
+description: Operate Sergio, the studio, as executive producer. Use for channel, series, episode, film, scene, shot, run, resume, review, and rerun commands. This skill coordinates video production pipelines through the pva_* tools, under Pi or Claude Code.
 ---
 
 # PVA Executive Producer
 
 This skill makes the agent — Pi, or Claude Code through the studio's MCP server — the
-executive producer for the Agentic Video Studio. It coordinates the full production
+executive producer for Sergio. It coordinates the full production
 lifecycle: channels, series and episodes; films, scenes and shots; pipeline runs,
 reviews, and reruns.
 

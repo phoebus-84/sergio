@@ -6,7 +6,7 @@ on your machine; an installed package is not proof that every provider works.
 ## 0. Once: install and point at a library
 
 ```bash
-cd /path/to/video-studio
+cd /path/to/sergio
 mise install      # node, bun and python at the pinned versions
 bun install
 npm run doctor
@@ -125,6 +125,9 @@ authority on its parameters.
   `pva_inspect_media`, `pva_assemble_cut`, `pva_edit_cut`, `pva_check_cut`,
   `pva_cut_frame`, `pva_cut_effects`, `pva_render_cut`. See
   [Making a film](#making-a-film).
+- **Characters:** `pva_characters`, `pva_create_character`,
+  `pva_update_character`, `pva_cast`. See
+  [Characters and casts](#characters-and-casts).
 
 `pva_synthesize_sound` makes a series' sounds at $0, locally: wind, sea, rain,
 fire, steam, birds, thunder, applause, a whoosh, a shimmer, and a music bed (a
@@ -437,11 +440,21 @@ do by hand at any point:
   together or not at all; `pva_cut_effects` lists the picture and sound
   effects; `pva_cut_frame` composes one frame with every effect, to judge a
   grade without rendering.
+- **An edit names the revision it read.** `pva_edit_cut` takes
+  `expectedRevision` — printed as `cut revision N` by `pva_check_cut` and by
+  every edit; 0 for a unit with no cut yet — or `latest: true` for an edit
+  that is right on any revision. An edit that names neither is refused. The
+  read, the check and the write are held together by a lock, so the agent
+  and the browser cannot both write the next revision.
 - **Rendering:** `pva_render_cut` renders a unit with FFmpeg, first
   rendering whatever under it is out of date and nothing that is not: a
   change to one shot costs that shot and the joins above it. `preview` is
   small and fast; `final` is the film's format and is what the level above
   is cut from. Everything here is local and $0.
+- **One render of a film at a time.** A second one is refused, from any
+  process — the agent's `pva_render_cut`, a stage, the browser — and the
+  refusal says what is being rendered. A render that finishes after its cut
+  was edited and rendered again does not take the newer render's place.
 - **Who decides:** each level's `pipeline.yaml` names its pipeline and the
   one the levels under it run, from a person at every step to only a final
   review. See [the film families](pipelines.md#the-film-families).
@@ -454,6 +467,44 @@ which. You edit a draft with undo and save it as the next revision; a save is
 refused if the agent wrote one meanwhile, and the agent's edit is refused the
 same way. Lock a clip or a track and the agent and assembly leave it as it
 is. **Footage** on the film lists the log with each clip's sheet and proxy.
+
+### Characters and casts
+
+A character is a record apart from how it appears (ADR-0052), owned by a
+channel, a series or a film. Ask for one in words — "a guide for this
+series, a voice and a dot" — and the agent loads `character-development`,
+then `character-forms`. What it does:
+
+- **Who it is:** `pva_create_character` writes
+  `characters/<id>/character.yaml` with `character.md` (identity),
+  `backstory.md` and `performance.md` beside it. A character with no form yet
+  is valid. One drawn from a real person states its `likeness`: whose, and
+  what permits it. The studio does not judge the permission.
+- **How it appears:** `pva_update_character` adds a *form* — its medium is
+  one of `rig-3d`, `model-3d`, `puppet-2d`, `sprites`, `vector`, `images`,
+  `photo`, `graphic`, `sound`, `voice`, `other` — and what the form `can` do:
+  the actions, expressions, mouth shapes and views it has, by the names a
+  script uses.
+- **Releases:** the same tool records a release of a form: a folder
+  (`forms/<form>/<release>/` by default) with the hash of its entry file and
+  of its whole tree, what made it and its licence. A release is never
+  edited; a change is a new release.
+- **Casting:** `pva_cast` writes a series' or a film's `cast.yaml`: each
+  role's character, the form it wears there and the release it is pinned to.
+  Another owner's character is named `owner/id` and read where it lives. With
+  `asks` it checks what a script wants of each role against what its form
+  can do; with `verify` it reads every pinned file again.
+- **What is there:** `pva_characters` lists an owner's characters, or shows
+  one in full and verifies its released files.
+
+The studio keeps, hashes and pins a form; it does not play one it does not
+understand (a `.blend`, an SVG component stay the job of the kit or tool that
+knows the medium). Of the capabilities ADR-0052 names for making a form, one
+is built: `pva_generate_model` turns one picture into a 3D model (Tripo H3.1
+through fal, paid per model on the episode's budget). What comes back has no
+skeleton: it can be placed, turned and lit, not posed. Turning a model into a
+rig, and words or a video into motion, are not built. The browser studio has
+no view of a cast.
 
 ## 1b. The same agent in Claude Code
 
