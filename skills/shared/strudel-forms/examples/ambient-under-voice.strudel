@@ -1,0 +1,17 @@
+// The ambient bed rebuilt to sit under narration: drone and dark pad, bells rare, low and soft.
+// Against ambient-loop: pad lpf 1400 -> 600 and a fourth lower, bells an octave lower and half as often, no air.
+// render: cycles 16, tail 12, loop = 64 s
+setcpm(60/4)                                           // 1 cycle = 4 s
+drone: note("<[d2,a2] [d2,a2] [bb1,f2] [c2,g2]>/4")
+         .s("sawtooth").lpf(220).lpsync(1/4).lpdepth(.4)
+         .attack(4).release(6).gain(.42)
+pad:   chord("<Dm9 Bb^7 F^7 C6>/2").anchor("e4").voicing()   // a fourth lower than the full version
+         .add(note("0,.1")).s("triangle").lpf(600)     // 1400 -> 600 Hz
+         .attack(3).release(5).room(.5).rsize(6).gain(.12)
+bells: n(irand(5).seed(41).segment(2)).scale("D4:minor:pentatonic")   // an octave lower, half as many chances
+         .degradeBy(.6).ribbon(7, 8)
+         .s("sine").fm(.8).fmh(2).fmdecay(1)           // softer FM: fewer partials above 1 kHz
+         .attack(.03).decay(2.5).sustain(0).release(2)
+         .delay(.4).delaytime(1.5).delayfeedback(.4).room(.6).rsize(6)
+         .gain(.22).pan(sine.range(.35, .65).slow(8))
+all(x => x.postgain(.8))

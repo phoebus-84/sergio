@@ -27,10 +27,13 @@ export const IGNORED_CONTROLS: ReadonlySet<string> = new Set([
   "sysexdata", "sysexid", "oschost", "oscport",
   // other outputs
   "frameRate", "hours", "minutes", "songPtr",
+  // what room("level:size") writes: the engine reads the size as roomsize (.rsize), never as this
+  "size",
 ]);
 
 /** What to say about a control of the list, by what it was probably meant to do. */
 export function ignoredControlHint(name: string): string {
+  if (name === "size") return 'room("level:size") does not set the reverb\'s size here: write .room(level).rsize(seconds)';
   if (name === "chord") return "chord() names a chord but plays none: add .voicing() (or write the notes)";
   if (["dictionary", "degree", "octaves", "stepsPerOctave", "ctranspose", "mtranspose", "semitone", "octaveR", "harmonic"].includes(name)) {
     return `"${name}" is read by no function this piece calls and by no sound: it changes nothing`;

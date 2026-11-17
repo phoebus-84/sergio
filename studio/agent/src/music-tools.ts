@@ -158,7 +158,9 @@ export function registerMusicTools(pi: ExtensionAPI): void {
         const { record, recordPath } = await renderMusic(ws.dir, request, signal ? { signal } : {});
         const o = record.output;
         const shape = o.loop ? "a seamless loop" : o.durationSeconds > o.bodySeconds ? `${+(o.durationSeconds - o.bodySeconds).toFixed(2)} s of it tail` : "no tail";
-        const gain = record.level.basis === "none" ? "its own level" : `gain ${record.level.gain >= 0 ? "+" : ""}${record.level.gain} dB`;
+        // The piece's own peak, before the gain: what its headroom is judged by.
+        const own = record.level.peak === null ? "" : ` on a piece that peaks at ${(record.level.peak - record.level.gain).toFixed(1)} dBFS`;
+        const gain = record.level.basis === "none" ? "its own level" : `gain ${record.level.gain >= 0 ? "+" : ""}${record.level.gain} dB${own}`;
         const lines = [
           `${record.concerns.length === 0 ? "✅" : "⚠️"} ${o.path}: ${o.durationSeconds} s (cycles ${record.range.from}–${record.range.to} at ${tempo(record.tempo.cps)}; ${shape}), ` +
             `${level(record.level.loudness, "LUFS")}, peak ${level(record.level.peak, "dBFS")} (${gain}) → ${recordPath}`,

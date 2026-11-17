@@ -89,6 +89,14 @@ commands become available through the agent.
   from music and noise (optional `start`/`duration` cut) into a new `assets/…wav`, with a
   `.clean.json` record. Nothing is cloned.
 
+- `pva_music_check`, `pva_music_render`, `pva_music` — music and designed sound
+  written as Strudel code in `music/<name>.strudel`, rendered here at $0: a bed
+  under a voice, a cue, an ambient loop, a sting, a riser, one instrument, stems.
+  You write the piece with your file tools and mix it by the numbers the render
+  returns; you cannot hear it. Load `strudel-music` before writing one
+  (`strudel-sounds` for instruments and effects, `strudel-forms` for structure).
+  For a recording — a real piano, an orchestra, a voice — use `find-archive-media`.
+
 ### Films
 
 A request for a film, a short, a trailer, a music video, a documentary — one work,

@@ -1,0 +1,44 @@
+// Uptempo electronic for a fast montage: four on the floor, offbeat bass and stabs ducked by the kick, a break with a
+// riser, a peak, a final hit on bar 31 (58.1 s). D minor, 128 bpm: 32 bars are exactly 60 s.
+// render: cycles 32, tail 3 = 63 s
+setcpm(128/4)                                          // 1 bar = 1.875 s
+const letters = ['i', 'a', 'k', 'p', 'o', 'e']
+const form = "<i@4 a@8 k@4 p@12 o@3 e>"                // intro | A | break (no kick, riser) | peak | outro | end hit (bar 31 = 58.125 s)
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))
+const only = (table) => form.pickRestart(Object.assign(Object.fromEntries(letters.map((l) => [l, silence])), table))
+const key = "D:minor"
+const deg = "<0 0 5 6>"                                // i i VI VII, one chord per bar (D D Bb C)
+
+clap:  s("white").struct("~ x ~ x").bpf(1600).bpq(.8).decay(.11).room(.2).gain(1.1)
+         .mask(inSec('a p'))
+hats:  s("white").struct("[~ x]*4").hpf(9000).decay(.06).gain(.6).pan(.55)   // offbeat open-ish hat
+         .mask(inSec('a p o'))
+shake: s("white*16").hpf(7000).decay(.02).gain("[.35 .15 .25 .15]*4").pan(.42)
+         .mask(inSec('i k p'))
+bass:  n(deg).scale("D2:minor").struct("[~ x]*4")      // offbeat bass, between the kicks
+         .s("sawtooth").lpf(700).lpenv(2).lpdecay(.12).decay(.15).sustain(.5).release(.05)
+         .gain(1).orbit(2)
+         .mask(inSec('a p o'))
+stabs: n("0,2,4".add(deg)).scale("D3:minor").struct("x ~ ~ x ~ ~ x ~")
+         .s("supersaw").lpf(form.pick({ i: 700, a: 1800, k: saw.rangex(500, 6000).slow(4), p: 4000, o: 1200, e: 1200 })).mask(inSec('i a k p o'))
+         .attack(.005).decay(.2).sustain(.3).release(.12)
+         .room(.25).gain(.55).orbit(2)
+kick:  s("sbd*4").decay(.25).gain(.5)                  // declared AFTER the parts of orbit 2: the orbit must exist when the first kick ducks it
+         .duckorbit(2).duckattack(.18).duckdepth(.7)   // sidechain: every kick ducks orbit 2 (bass + stabs)
+         .mask(inSec('i a p o'))
+arp:   n("0 2 4 7 4 2 4 7 9 7 4 2 4 7 4 2".add(deg)).scale("D4:minor")   // 16th-note arpeggio on the same degrees
+         .s("square").lpf(2600).decay(.08).sustain(.2).release(.05)
+         .delay(.3).delaytime(60/128*.75).delayfeedback(.35)
+         .gain(.4).pan(sine.range(.3, .7).slow(2)).orbit(3)
+         .mask(inSec('p'))
+riser: only({ k: s("white").slow(4).lpf(300).lpenv(5.5).lpattack(7.4).attack(7.4).release(.05).gain(.45) })
+crash: only({ p: s("white").hpf(4000).decay(1.5).sustain(0).gain(.4).room(.4).mask("<1 0!11>"),   // first bar of the peak
+              o: s("white").hpf(4000).decay(1.5).sustain(0).gain(.3).room(.4).mask("<1 0!3>") })
+end:   only({ e: stack(                                // final hit: chord + low note + noise, left to ring (render with --tail)
+         n("0,2,4,7").scale("D3:minor").s("supersaw").lpf(3000).decay(1.6).sustain(0).release(1.5).gain(.5),
+         note("d1").s("sine").decay(1.5).sustain(0).release(1).gain(.4),
+         s("sbd").decay(.5).gain(.4),
+         s("white").hpf(4000).decay(1.2).sustain(0).gain(.3)
+       ).room(.5).rsize(4) })
+// master: section dynamics + headroom in one line (postgain multiplies every part; parts only use gain)
+all(x => x.postgain(form.pick({ i: .6, a: .7, k: .7, p: .85, o: .7, e: .85 })))

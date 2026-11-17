@@ -67,6 +67,15 @@ describe.skipIf(!chrome)("inspecting a piece", () => {
     expect(empty.ok).toBe(false);
   });
 
+  it("says why a piece is silent when a pattern fails as it is asked for its events", async () => {
+    // A pick() with no key for one of the names: Strudel logs it and plays nothing at all.
+    const seen = await renderer.inspect(`const form = "<a b>"\nkeys: note("c3").s("sine")\nbass: form.pick({ a: note("c2") }).s("sine")`, { to: 2 });
+    expect(seen.ok).toBe(false);
+    expect(seen.problems.find((p) => p.code === "eval")?.message).toMatch(/pick\(\) or pickRestart\(\) whose table lacks one of the names/);
+    const fixed = await renderer.inspect(`const form = "<a b>"\nkeys: note("c3").s("sine")\nbass: form.pick({ a: note("c2"), b: silence }).s("sine")`, { to: 2 });
+    expect(fixed.problems).toEqual([]);
+  });
+
   it("warns about labels that change what plays", async () => {
     const solo = await renderer.inspect(`Strings: note("c4").s("sawtooth")\nbass: note("c2").s("sine")`, { to: 1 });
     expect(solo.ok).toBe(true);
@@ -99,6 +108,14 @@ describe.skipIf(!chrome)("inspecting a piece", () => {
   it("is right that those controls change nothing", async () => {
     const base = `a: note("c3 e3").s("sawtooth")`;
     const plain = await renderer.render(base, { to: 1 });
+    // room("level:size") against room(level): the size after the colon is not read.
+    const roomy = `a: note("c3 e3").s("sawtooth").room(.5)`;
+    const [sized, unsized] = [await renderer.render(roomy.replace("room(.5)", `room(".5:8")`), { to: 1, tail: 2 }), await renderer.render(roomy, { to: 1, tail: 2 })];
+    let between = 0;
+    for (let i = 0; i < sized.channels[0].length; i++) between = Math.max(between, Math.abs(sized.channels[0][i]! - unsized.channels[0][i]!));
+    expect(between).toBeLessThan(1e-5);
+    expect((await renderer.inspect(roomy.replace("room(.5)", `room(".5:8")`), { to: 1 })).problems.map((p) => p.message)).toEqual([expect.stringContaining(".rsize(seconds)")]);
+    expect((await renderer.inspect(`${roomy}.rsize(8)`, { to: 1 })).problems).toEqual([]);
     for (const control of ["chorus(.8)", "squiz(2)", "accelerate(3)", "comb(.5)", "ring(.7)"]) {
       const with_ = await renderer.render(`${base}.${control}`, { to: 1 });
       let apart = 0;

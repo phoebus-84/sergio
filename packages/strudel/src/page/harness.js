@@ -28,10 +28,33 @@ const PREROLL = 0.1;
 
 const state = { session: null, seed: 0, log: [], fetching: 0, rendered: null };
 
-/** mulberry32 in place of Math.random, as source text: it also seeds the audio worklets. */
-const seeded = (seed) =>
-  `(() => { let a = ${seed >>> 0} ^ 0x9e3779b9; Math.random = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); ` +
-  `t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();`;
+/**
+ * A seeded Math.random, as source text: the same text seeds the page and the audio worklets.
+ *
+ * In a worklet a single stream is not enough. Voices that start together (a chord of supersaws) each draw their
+ * phases the first time they are processed, and the order in which Chrome processes them is not fixed: the same
+ * numbers would go to different voices from one render to the next. So each processor gets a stream of its own,
+ * numbered by the order it was made in, and draws from it while it is being processed.
+ */
+const seeded = (seed) => `(() => {
+  const stream = (a) => () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const seed = ${seed >>> 0} ^ 0x9e3779b9;
+  Math.random = stream(seed);
+  if (typeof registerProcessor !== "function") return;
+  const register = registerProcessor;
+  let made = 0;
+  globalThis.registerProcessor = (name, Processor) => register(name, class extends Processor {
+    constructor(...args) {
+      super(...args);
+      this.__random = stream((seed ^ Math.imul(++made, 0x9e3779b1)) | 0);
+    }
+    process(...args) {
+      const shared = Math.random;
+      Math.random = this.__random;
+      try { return super.process(...args); } finally { Math.random = shared; }
+    }
+  });
+})();`;
 const reseed = () => (0, eval)(seeded(state.seed));
 
 const tick = () => new Promise((resolve) => {
@@ -53,7 +76,6 @@ export async function boot({ seed = 0 } = {}) {
     state.fetching++;
     return realFetch(...args).finally(() => setTimeout(() => state.fetching--, 0));
   };
-  S.registerWorklet(`data:text/javascript,${encodeURIComponent(seeded(seed))}`);
   state.session = createSession(S);
   state.session.attach(await S.initStrudel({ onEvalError: state.session.fail }));
   S.registerZZFXSounds?.();
@@ -76,7 +98,10 @@ export async function evaluate({ code, only = null, mute = [] }) {
 }
 
 export function inspect(range) {
-  return state.session.inspect(range);
+  // A pattern that fails when it is asked for its events does not throw: Strudel logs the error and gives none.
+  state.log = [];
+  const seen = state.session.inspect(range);
+  return { ...seen, logged: [...new Set(state.log.filter((entry) => /error/i.test(entry.message)).map((entry) => entry.message))] };
 }
 
 export async function render({ from = 0, to = 4, lead = 0, tail = 0, loop = false, sampleRate = 48000, maxPolyphony = 128 }) {
@@ -103,6 +128,8 @@ export async function render({ from = 0, to = 4, lead = 0, tail = 0, loop = fals
 
   try {
     context = new Offline(2, frames, sampleRate);
+    // Before the engine's own worklets: theirs must register through the seeded registerProcessor.
+    await context.audioWorklet.addModule(`data:text/javascript,${encodeURIComponent(seeded(state.seed))}`);
     S.setAudioContext(context);
     S.setSuperdoughAudioController(null);
     reseed();
@@ -114,6 +141,11 @@ export async function render({ from = 0, to = 4, lead = 0, tail = 0, loop = fals
         const hap = haps[next++];
         try {
           hap.ensureObjectValue();
+          // An orbit exists once something has played on it. A kick that ducks a part which is not playing yet,
+          // or is left out of this render, has nothing to duck: that is not an error.
+          for (const orbit of [hap.value.duckorbit].flat()) {
+            if (orbit !== undefined && orbit !== null) S.getSuperdoughAudioController().getOrbit(orbit, [0, 1]);
+          }
           await S.superdough(hap.value, timeOf(hap), hap.duration / cps, cps, hap.whole.begin.valueOf());
         } catch (error) {
           const message = messageOf(error);

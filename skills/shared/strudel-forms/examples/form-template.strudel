@@ -1,0 +1,25 @@
+// The bare mechanism of a form: 32 bars, five parts entering and leaving at chosen bars. 120 bpm.
+// form = a letter and a length in bars per section; mask(inSec(...)) for a part that is the same wherever it plays;
+// form.pick({...}) for different material per section (every letter of the form must be a key).
+// render: cycles 32, tail 1 = 65 s
+setcpm(120/4)
+// FORM: section letter @ length in bars. intro 4 | A 8 | B 8 | break 4 | C 4 | outro 4  = 32
+const form = "<i@4 a@8 b@8 k@4 c@4 o@4>"
+const inSec = (names) => form.fmap((x) => names.split(' ').includes(x))   // 'single quotes' = plain string
+
+pad:  note("<[c3,eb3,g3] [ab2,c3,eb3] [bb2,d3,f3] [g2,bb2,d3]>").s("sawtooth")
+        .lpf(900).attack(.4).release(.8).room(.4).gain(.3)
+        .mask(inSec('i a b k c o'))                       // whole piece
+kick: s("sbd*4").decay(.22).gain(.45)
+        .mask(inSec('a b c'))                             // bars 4-19 and 24-27
+hats: s("white*8").decay(.04).sustain(0).hpf(7000).gain(.25)
+        .mask(inSec('b c'))                               // bars 12-19 and 24-27
+bass: form.pick({                                         // per-section CONTENT: pick by letter;
+        i: silence, k: silence, o: silence,               // EVERY letter of the form must be a key
+        a: note("<c2 ab1 bb1 g1>"),
+        b: note("<c2 ab1 bb1 g1>*2"),
+        c: note("<c2 ab1 bb1 g1>*4"),
+      }).s("sawtooth").lpf(500).decay(.2).sustain(.4).gain(.5)
+lead: note("<[c5 eb5 g5 eb5] [c5 eb5 ab5 eb5] [d5 f5 bb5 f5] [d5 g5 bb5 g5]>").s("triangle")
+        .decay(.2).sustain(.2).delay(.3).gain(.35)
+        .mask(inSec('b c o'))                             // bars 12-19 and 24-31

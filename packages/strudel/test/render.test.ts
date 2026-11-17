@@ -56,8 +56,19 @@ describe.skipIf(!chrome)("rendering a piece", () => {
     expect(rmsDb(pad.channels[0], 0.02 * RATE, 0.08 * RATE)).toBeLessThan(rmsDb(pad.channels[0], 0.7 * RATE, 0.9 * RATE) - 6);
   });
 
+  it("renders a part that ducks another when that other is not playing", async () => {
+    // The kick is written before the pad it ducks, and then rendered alone: neither is an error.
+    const code = `kick: s("sbd*2").duckorbit(2).duckattack(0.3)\npad: note("c3,e3,g3").s("sawtooth").lpf(1200).orbit(2)`;
+    const both = await renderer.render(code, { to: 1 });
+    expect(both.problems).toEqual([]);
+    const alone = await renderer.render(code, { to: 1, only: ["kick"] });
+    expect(alone.problems).toEqual([]);
+    expect(peak(alone.channels[0], 0, 2400)).toBeGreaterThan(0.6);
+  });
+
   it("renders the same sound from the same seed, and another from another", async () => {
-    const code = `setcpm(30)\n$: note("c3 e3 g3 b3").s("supersaw").lpf(800).room(0.5).delay(0.3)\n$: s("white*8").decay(0.05).gain(0.3)\n$: s("pink*2").decay(0.2).crush(4).pan(rand)`;
+    // A chord of supersaws is the hard case: its voices start together, and each draws its phases at random.
+    const code = `setcpm(30)\n$: note("<[c3,eb3,g3,bb3] [ab2,c3,eb3,g3]>").s("supersaw").unison(7).lpf(800).room(0.5).delay(0.3)\n$: s("white*8").decay(0.05).gain(0.3)\n$: s("pink*2").decay(0.2).crush(4).pan(rand)`;
     const [a, b, c] = [await renderer.render(code, { to: 2, tail: 1 }), await renderer.render(code, { to: 2, tail: 1 }), await renderer.render(code, { to: 2, tail: 1, seed: 7 })];
     const apart = (x: Float32Array, y: Float32Array) => {
       let max = 0;

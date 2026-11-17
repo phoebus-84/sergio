@@ -56,7 +56,7 @@ interface Harness {
     | { ok: true; cps: number; parts: { name: string; muted: boolean; selected: boolean; solo: boolean }[]; log: { message: string; type: string }[] }
     | { ok: false; error: string; log: { message: string; type: string }[] }
   >;
-  inspect(args: { from: number; to: number; events: number }): Omit<Inspection, "ok" | "seconds" | "problems" | "requests">;
+  inspect(args: { from: number; to: number; events: number }): Omit<Inspection, "ok" | "seconds" | "problems" | "requests"> & { logged: string[] };
   render(args: { from: number; to: number; lead: number; tail: number; loop: boolean; sampleRate: number }): Promise<{
     frames: number; sampleRate: number; cps: number; events: number; errors: { message: string; count: number }[];
   }>;
@@ -100,6 +100,15 @@ function hint(code: string, message: string): string {
     return `${message}. samples() takes plain strings: write its names and paths in 'single quotes' ("double quotes" and \`backticks\` make a pattern)`;
   }
   return message;
+}
+
+/** An error a pattern raised while it was asked for its events, with what usually causes it. */
+function queryHint(message: string): string {
+  const text = message.replace(/^\[\w+\]\s*error:\s*/i, "");
+  if (/reading 'query'/.test(text)) {
+    return `a pattern failed when asked for its events (${text}): usually a pick() or pickRestart() whose table lacks one of the names its pattern uses — give every name a key (silence for none). The whole piece is silent while it fails`;
+  }
+  return `a pattern failed when asked for its events: ${text}`;
 }
 
 function requestProblems(requests: Request[]): Problem[] {
@@ -259,8 +268,11 @@ export class StrudelRenderer {
           sounds: [], parts: [], problems: [{ level: "error", code: "eval", message: hint(code, evaluated.error) }, ...requestProblems(session.requests)], requests: session.requests,
         } satisfies Inspection;
       }
-      const seen = await session.harness.evaluate((h, args) => h.inspect(args), { from, to, events: options.events ?? 0 });
-      const problems: Problem[] = [...partProblems(evaluated.parts, options), ...requestProblems(session.requests)];
+      const { logged, ...seen } = await session.harness.evaluate((h, args) => h.inspect(args), { from, to, events: options.events ?? 0 });
+      const problems: Problem[] = [
+        ...partProblems(evaluated.parts, options), ...requestProblems(session.requests),
+        ...logged.map((message): Problem => ({ level: "error", code: "eval", message: queryHint(message) })),
+      ];
       const seconds = (to - from) / seen.cps;
       if (seen.events === 0) problems.push({ level: "error", code: "no-events", message: `nothing plays between cycle ${from} and ${to}` });
       for (const part of seen.parts as PartSummary[]) {

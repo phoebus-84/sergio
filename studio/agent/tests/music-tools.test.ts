@@ -102,7 +102,7 @@ describe("music tools", () => {
     const made = await run("pva_music_render", { ...where, path: "music/sigla.strudel", cycles: 4, tail: 1.5, stems: true });
     expect(made.isError, made.content[0].text).toBeUndefined();
     const report = made.content[0].text as string;
-    expect(report).toMatch(/assets\/sounds\/sigla\.wav: 11\.1 s \(cycles 0–4 at 25 cycles\/min .*; 1\.5 s of it tail\), -\d+\.\d LUFS, peak -\d+\.\d dBFS \(gain [+-][\d.]+ dB\) → assets\/sounds\/sigla\.wav\.music\.json/);
+    expect(report).toMatch(/assets\/sounds\/sigla\.wav: 11\.1 s \(cycles 0–4 at 25 cycles\/min .*; 1\.5 s of it tail\), -\d+\.\d LUFS, peak -\d+\.\d dBFS \(gain [+-][\d.]+ dB on a piece that peaks at -?[\d.]+ dBFS\) → assets\/sounds\/sigla\.wav\.music\.json/);
     expect(report).toContain("parts: kick, bass, keys");
     expect(report).toContain("spectrum (share of the energy, dB): sub ");
     expect(report).toMatch(/stems \(at the mix's gain\): kick -\d+\.\d LUFS, peak -\d+\.\d dBFS → assets\/sounds\/sigla\.kick\.wav; bass .* → assets\/sounds\/sigla\.bass\.wav; keys .* → assets\/sounds\/sigla\.keys\.wav/);

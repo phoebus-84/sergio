@@ -1,0 +1,18 @@
+// The explainer underscore rebuilt to sit under narration: the same harmony and tempo, nothing melodic in 1-4 kHz,
+// soft attacks, a flat level. It loops every 8 bars: render any multiple of 8 cycles.
+// render: cycles 8, tail 2, loop = 17.45 s
+setcpm(110/4)
+const prog = "<C G Am F>"
+
+pluck: n("0 ~ 1 ~ 2 ~ 1 ~").chord(prog).anchor("c4").voicing()    // half the notes, one octave lower than the full version
+         .s("sawtooth").lpf(600).lpenv(1.5).lpdecay(.1)           // filter tops out at 600*2^1.5 = 1.7 kHz
+         .attack(.015).decay(.2).sustain(0).release(.08)          // 15 ms attack: no click
+         .delay(.2).delaytime(60/110*.75).delayfeedback(.25)
+         .gain("[.8 .55]*2").pan(.42)
+pad:   chord(prog).anchor("g4").voicing().s("sawtooth").lpf(450).attack(.6).release(1)
+         .room(.3).rsize(3).gain(.2)
+bass:  prog.rootNotes(2).note().s("sine").attack(.02).decay(.6).sustain(.7).release(.15)   // one soft sine note per bar
+         .gain(.5)
+kick:  s("sbd*2").decay(.2).lpf(180).gain(.28)                    // felt, not heard: two per bar, low-passed
+shake: s("white*8").hpf(9000).decay(.025).gain("[.28 .16]*4").pan(.6)   // "air" above the voice range (> 6 kHz)
+all(x => x.postgain(.7))
