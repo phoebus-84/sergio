@@ -102,6 +102,29 @@ a report). `output/current.json` names a unit's final render and
 `output/preview.json` its latest preview. The renderer keeps the windows it
 has rendered in the unit's `.cut/`; they are a cache and can be deleted.
 
+### Characters and casts
+
+`characters/` in a channel, a series or a film holds one folder per character
+(ADR-0052). `cast.yaml` in a series or a film says who plays what there.
+
+```text
+characters/
+└── character-id/
+    ├── character.yaml                  # who it is, its forms, their releases and hashes
+    ├── character.md                    # identity: what never changes
+    ├── backstory.md
+    ├── performance.md                  # how it plays a scene
+    └── forms/
+        └── form-id/
+            └── release-id/             # never edited; a change is a new release
+series-slug/  (or film-slug/)
+└── cast.yaml                           # role -> character, the form it wears, the release pinned
+```
+
+A form made before this layout may stay where it is: its release records the
+folder it is in. A character's files are media, and follow the channel's Git
+and media store like any other ([Git and storage](#git-and-storage)).
+
 ## Migrating
 
 ```bash
