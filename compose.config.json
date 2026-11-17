@@ -146,6 +146,15 @@
       "requires": {},
       "docs": "docs/packages/render-worker.md"
     },
+    "strudel": {
+      "path": "packages/strudel",
+      "kind": "node",
+      "standalone": true,
+      "summary": "Music written as Strudel code, checked without a sound and rendered offline by the pinned Strudel engine in a headless Chrome: parts, stretches of cycles, tails, seamless loops, stems, and measurements of what was made. Optional at run time: without a Chrome, everything else works. AGPL-3.0-or-later, as Strudel is.",
+      "capabilities": [],
+      "requires": {},
+      "docs": "docs/packages/strudel.md"
+    },
     "contracts": {
       "path": "studio/contracts",
       "kind": "node",
@@ -271,6 +280,7 @@
         "remotion-composer",
         "render-worker",
         "comfyui-speech",
+        "strudel",
         "contracts",
         "series",
         "episode",
@@ -307,6 +317,7 @@
         "remotion-composer",
         "render-worker",
         "comfyui-speech",
+        "strudel",
         "contracts",
         "series",
         "episode",
@@ -340,6 +351,7 @@
         "remotion-composer",
         "render-worker",
         "comfyui-speech",
+        "strudel",
         "contracts",
         "series",
         "episode",
@@ -361,7 +373,7 @@
     },
     "blender": {
       "summary": "Local 3D production with the agent and browser; no cloud image or MLX voice requirement.",
-      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "contracts", "series", "episode", "film", "cast", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
+      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "strudel", "contracts", "series", "episode", "film", "cast", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
       "skills": ["shared", "studio"],
       "defaultProviders": {
         "video.compose": "remotion-composer"

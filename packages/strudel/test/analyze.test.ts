@@ -67,6 +67,8 @@ describe("analyzeAudio", () => {
     expect(Math.abs(apart.correlation)).toBeLessThan(0.05);
     expect(apart.width).toBeCloseTo(0, 0);
     expect(analyzeAudio([l, l.map((x) => x / 2)], RATE).stereo.balance).toBeCloseTo(6, 0);
+    expect(analyzeAudio([l, new Float32Array(l.length)], RATE).stereo.balance).toBe(99);
+    expect(analyzeAudio([new Float32Array(l.length), l], RATE).stereo.balance).toBe(-99);
   });
 
   it("draws the piece's shape in at most 120 windows", () => {

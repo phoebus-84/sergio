@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import type { Browser, BrowserContext, JSHandle, Route } from "playwright-core";
 import { findChrome, type ChromeSearch } from "./chrome.js";
 import { StrudelError } from "./errors.js";
+import { IGNORED_CONTROLS, ignoredControlHint } from "./ignored-controls.js";
 import type { BuiltinSound, InspectOptions, Inspection, PartSummary, PieceOptions, Problem, RenderOptions, Rendering, Request } from "./types.js";
 
 const ORIGIN = "https://strudel.local";
@@ -254,7 +255,7 @@ export class StrudelRenderer {
       const evaluated = await session.harness.evaluate((h, args) => h.evaluate(args), { code, only: options.only ?? null, mute: options.mute ?? [] });
       if (!evaluated.ok) {
         return {
-          ok: false, cps: 0.5, from, to, seconds: 0, events: 0, perCycle: [], notes: null, orbits: [], malformed: 0, first: null, last: null, listed: [],
+          ok: false, cps: 0.5, from, to, seconds: 0, events: 0, perCycle: [], notes: null, orbits: [], controls: [], malformed: 0, first: null, last: null, listed: [],
           sounds: [], parts: [], problems: [{ level: "error", code: "eval", message: hint(code, evaluated.error) }, ...requestProblems(session.requests)], requests: session.requests,
         } satisfies Inspection;
       }
@@ -268,6 +269,15 @@ export class StrudelRenderer {
       }
       for (const sound of seen.sounds) {
         if (sound.type === "unknown") problems.push({ level: "error", code: "unknown-sound", message: `no sound is called "${sound.name}" (${sound.count} events): it is neither a built-in synth nor a sample the piece loaded` });
+      }
+      // A control Strudel accepts and this engine never reads: said once, with the parts that use it.
+      const users = new Map<string, string[]>();
+      for (const part of (seen.parts.length ? (seen.parts as PartSummary[]).filter((p) => p.selected) : [{ name: "", controls: seen.controls }])) {
+        for (const control of part.controls) if (IGNORED_CONTROLS.has(control)) users.set(control, [...(users.get(control) ?? []), part.name]);
+      }
+      for (const [control, parts] of users) {
+        const where = parts.filter(Boolean).length ? ` (in ${parts.filter(Boolean).join(", ")})` : "";
+        problems.push({ level: "warning", code: "ignored-control", message: `${ignoredControlHint(control)}${where}` });
       }
       if (seen.malformed > 0) problems.push({ level: "error", code: "malformed-events", message: `${seen.malformed} events are bare values, not sounds: end the pattern with .note() or .s()` });
       if (seen.events / seconds > DENSE) problems.push({ level: "warning", code: "dense", message: `${Math.round(seen.events / seconds)} events a second: that is a texture more than a rhythm, and slow to render` });

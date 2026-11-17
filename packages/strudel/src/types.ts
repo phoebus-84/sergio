@@ -10,6 +10,7 @@ export interface Problem {
     | "solo-label"
     | "duplicate-label"
     | "unknown-part"
+    | "ignored-control"
     | "blocked-request"
     | "missing-file"
     | "render"
@@ -33,6 +34,8 @@ export interface EventSummary {
   /** Lowest and highest pitch as MIDI numbers (60 is c4, 69 is a4), when any event has one. */
   notes: { low: number; high: number } | null;
   orbits: number[];
+  /** Every control the events carry: `s`, `note`, `cutoff`… by the name Strudel keeps them under. */
+  controls: string[];
   /** Events whose value is not a set of controls: superdough cannot play them. */
   malformed: number;
   /** Onset of the first and of the last event, in cycles. */

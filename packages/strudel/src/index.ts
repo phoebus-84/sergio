@@ -5,3 +5,4 @@ export { StrudelRenderer, inspectPattern, renderPattern, builtinSounds, strudelV
 export { analyzeAudio, integratedLoudness, type AudioAnalysis, type Bands } from "./analyze.js";
 export { encodeWav, decodeWav, type WavFormat } from "./wav.js";
 export { levelAudio, type LevelOptions, type Leveled } from "./level.js";
+export { IGNORED_CONTROLS } from "./ignored-controls.js";

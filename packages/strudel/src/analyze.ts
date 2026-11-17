@@ -46,7 +46,7 @@ export interface AudioAnalysis {
     correlation: number;
     /** Side over mid, dB: −∞ mono, about −15 to −6 a natural width, above 0 wider than it is centred. */
     width: number;
-    /** Left over right, dB. */
+    /** Left over right, dB; ±99 when one side is silent. */
     balance: number;
   };
   /** RMS in dBFS of consecutive windows of `window` seconds: the shape of the piece. */
@@ -245,7 +245,8 @@ export function analyzeAudio(channels: Float32Array[], sampleRate: number): Audi
     stereo: {
       correlation: ll > 0 && rr > 0 ? round(lr / Math.sqrt(ll * rr), 2) : 1,
       width: round(dB(mid > 0 ? side / mid : 0)),
-      balance: ll > 0 && rr > 0 ? round(dB(ll / rr)) : 0,
+      // All on one side reads ±99: a number, so that it survives a record.
+      balance: ll > 0 && rr > 0 ? round(dB(ll / rr)) : ll > 0 ? 99 : rr > 0 ? -99 : 0,
     },
     envelope: { window, rms: envelope },
   };

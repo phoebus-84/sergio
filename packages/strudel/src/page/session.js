@@ -98,6 +98,7 @@ export function createSession(S) {
     let low = Infinity;
     let high = -Infinity;
     let malformed = 0;
+    const controls = new Set();
     const events = [];
     for (const hap of haps) {
       const at = hap.whole.begin.valueOf();
@@ -109,6 +110,7 @@ export function createSession(S) {
       }
       const sound = soundOf(value);
       if (sound && !REST.has(sound)) sounds.set(sound, (sounds.get(sound) ?? 0) + 1);
+      for (const key of Object.keys(value)) controls.add(key);
       const midi = midiOf(value);
       if (midi !== null && Number.isFinite(midi)) {
         low = Math.min(low, midi);
@@ -130,6 +132,7 @@ export function createSession(S) {
       sounds: [...sounds].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
       notes: Number.isFinite(low) ? { low: round(low, 2), high: round(high, 2) } : null,
       orbits: [...orbits].sort((a, b) => a - b),
+      controls: [...controls].sort(),
       malformed,
       first: haps.length ? round(haps[0].whole.begin.valueOf()) : null,
       last: haps.length ? round(haps[haps.length - 1].whole.begin.valueOf()) : null,
@@ -200,7 +203,7 @@ export function createSession(S) {
         try {
           return { ...rest, ...describe(onsets(own, from, to), from, to, events) };
         } catch (error) {
-          return { ...rest, events: 0, perCycle: [], sounds: [], notes: null, orbits: [], malformed: 0, first: null, last: null, listed: [], error: messageOf(error) };
+          return { ...rest, events: 0, perCycle: [], sounds: [], notes: null, orbits: [], controls: [], malformed: 0, first: null, last: null, listed: [], error: messageOf(error) };
         }
       });
       const known = S.soundMap.get();

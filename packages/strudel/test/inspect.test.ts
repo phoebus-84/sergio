@@ -85,6 +85,33 @@ describe.skipIf(!chrome)("inspecting a piece", () => {
     expect(asked.problems.map((p) => p.code)).toContain("unknown-part");
   });
 
+  it("says when a control changes nothing in this engine", async () => {
+    const seen = await renderer.inspect(`pad: note("c3,e3").s("sawtooth").chorus(.6).lpf(900)\nkeys: chord("<Am7 Dm7>").s("triangle").squiz(2)\nok: chord("<Am7 Dm7>").voicing().s("sine")`, { to: 2 });
+    expect(seen.ok).toBe(true);
+    expect(seen.parts.map((p) => p.controls)).toEqual([["chorus", "cutoff", "note", "s"], ["chord", "s", "squiz"], ["note", "s"]]);
+    expect(seen.problems.map((p) => [p.code, p.message])).toEqual([
+      ["ignored-control", expect.stringMatching(/^"chorus" is an effect of other Strudel outputs.*\(in pad\)$/)],
+      ["ignored-control", expect.stringMatching(/^chord\(\) names a chord but plays none: add \.voicing\(\).*\(in keys\)$/)],
+      ["ignored-control", expect.stringMatching(/^"squiz".*\(in keys\)$/)],
+    ]);
+  });
+
+  it("is right that those controls change nothing", async () => {
+    const base = `a: note("c3 e3").s("sawtooth")`;
+    const plain = await renderer.render(base, { to: 1 });
+    for (const control of ["chorus(.8)", "squiz(2)", "accelerate(3)", "comb(.5)", "ring(.7)"]) {
+      const with_ = await renderer.render(`${base}.${control}`, { to: 1 });
+      let apart = 0;
+      for (let i = 0; i < plain.channels[0].length; i++) apart = Math.max(apart, Math.abs(plain.channels[0][i]! - with_.channels[0][i]!));
+      expect(apart, control).toBeLessThan(1e-5);
+    }
+    // And that one it does read is heard.
+    const filtered = await renderer.render(`${base}.lpf(300)`, { to: 1 });
+    let apart = 0;
+    for (let i = 0; i < plain.channels[0].length; i++) apart = Math.max(apart, Math.abs(plain.channels[0][i]! - filtered.channels[0][i]!));
+    expect(apart).toBeGreaterThan(0.01);
+  });
+
   it("lists the engine's own sounds", async () => {
     const names = (await renderer.sounds()).map((s) => s.name);
     for (const name of ["sine", "triangle", "square", "sawtooth", "supersaw", "pulse", "sbd", "white", "pink", "brown"]) expect(names).toContain(name);
