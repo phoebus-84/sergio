@@ -7,7 +7,7 @@ name = "qwen-tts-worker"
 version = "1.0.0"
 description = "Persistent local Qwen3-TTS worker for MLX, CPU, CUDA and ROCm"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 authors = [
     { name = "phoebus-84" },
@@ -15,7 +15,7 @@ authors = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",

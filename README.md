@@ -54,6 +54,7 @@ narrate episodes is the studio's business, not the tool's.
 | `studio/series` | Series compilers: episode spec and narration → edit timeline |
 | `studio/episode` | An episode on disk, produced: timeline built or compiled, checked, rendered |
 | `studio/film` | A film on disk, produced: scenes and shots, footage, a cut at each level assembled, edited and rendered |
+| `studio/cast` | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | `studio/runtime` | Snapshots, leases, staleness, journal, policy |
 | `studio/pipelines` | Built-in pipeline manifests |
 | `studio/agent` | The executive-producer tools: a Pi extension, served to Claude Code over MCP |
@@ -128,3 +129,9 @@ npm run compose -- --list # available profiles
 npm run doctor            # toolchain, credentials, capability readiness
 npm run resolve:plan -- --help # offline Resolve handoff preflight; live edits use upstream MCP
 ```
+
+## Licence
+
+The reusable tools in `packages/` are Apache-2.0; the studio and everything
+else is AGPL-3.0-only. [LICENSING.md](LICENSING.md) says why, and what neither
+covers (Remotion, vendored code, your library).

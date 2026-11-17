@@ -129,7 +129,7 @@ describe("extensions/index.ts — tool registration", () => {
   });
 
   it("registers the expected suite of production tools", () => {
-    expect(mockPi.tools.length).toBe(86);
+    expect(mockPi.tools.length).toBe(90);
     const names = mockPi.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "pva_align_take",
@@ -141,7 +141,9 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_budget_status",
       "pva_build_timeline",
       "pva_capability_status",
+      "pva_cast",
       "pva_channels",
+      "pva_characters",
       "pva_check_cut",
       "pva_check_episode",
       "pva_check_provenance",
@@ -154,6 +156,7 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_compose_video",
       "pva_config",
       "pva_create_channel",
+      "pva_create_character",
       "pva_create_episode",
       "pva_create_film",
       "pva_create_scene",
@@ -212,6 +215,7 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_synthesize_nonverbal_audio",
       "pva_synthesize_sound",
       "pva_synthesize_speech",
+      "pva_update_character",
       "pva_update_unit",
       "pva_upgrade_spec",
       "pva_verify_take",

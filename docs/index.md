@@ -55,6 +55,7 @@ The product. Depends on `packages/`. All studio-specific integration lives here.
 | [series](./studio/series) | Series compilers: episode spec and narration → edit timeline |
 | [episode](./studio/episode) | An episode on disk, produced: timeline built or compiled, checked, rendered |
 | [film](./studio/film) | A film on disk, produced: scenes and shots, footage, a cut at each level assembled, edited and rendered |
+| [cast](./studio/cast) | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | [runtime](./studio/runtime) | Snapshots, leases, staleness, journal, policy |
 | [pipelines](./studio/pipelines) | Built-in pipeline manifests |
 | [agent](./studio/agent) | The executive-producer package: a Pi extension, served to Claude Code over MCP |
@@ -95,6 +96,7 @@ status: read it first, since some describe code that has since changed. The ones
 | [0048](./adr/0048-tools-written-once-served-to-any-harness) | The agent's tools are written once, for Pi, and served to other harnesses over MCP |
 | [0049](./adr/0049-channel-media-use-a-content-addressed-s3-remote) | Channel media use a content-addressed S3-compatible remote |
 | [0050](./adr/0050-a-film-is-produced-at-three-levels) | A film is produced at three levels, each with its own cut and renders |
+| [0052](./adr/0052-a-character-is-a-record-and-takes-any-form) | A character is a record, and takes any form: forms released and pinned, a production casts |
 
 ADR-0022 (independent repositories per module) is superseded by 0032,
 ADR-0009 (FFmpeg compiles a typed edit timeline) by 0034, and ADR-0023 (a

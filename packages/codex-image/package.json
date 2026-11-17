@@ -1,6 +1,7 @@
 {
   "name": "@av/codex-image",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "description": "Image generation and editing through an OpenAI ChatGPT/Codex subscription or the OpenAI Images API. Knows nothing about episodes, pipelines or Pi.",

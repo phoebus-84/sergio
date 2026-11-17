@@ -1,0 +1,1291 @@
+{
+  "characters": [
+    {
+      "name": "no id",
+      "code": "required",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "name": "The Guide",
+        "summary": "A voice that walks you through the room.",
+        "nature": "a voice",
+        "status": "draft",
+        "voice": {
+          "profile": "guide"
+        }
+      }
+    },
+    {
+      "name": "an id that is not a slug",
+      "code": "pattern",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "The Guide",
+        "name": "The Guide",
+        "summary": "A voice that walks you through the room.",
+        "nature": "a voice",
+        "status": "draft",
+        "voice": {
+          "profile": "guide"
+        }
+      }
+    },
+    {
+      "name": "a kind that is not Character",
+      "code": "const",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Persona",
+        "id": "guide",
+        "name": "The Guide",
+        "summary": "A voice that walks you through the room.",
+        "nature": "a voice",
+        "status": "draft",
+        "voice": {
+          "profile": "guide"
+        }
+      }
+    },
+    {
+      "name": "a status nobody defined",
+      "code": "enum",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "guide",
+        "name": "The Guide",
+        "summary": "A voice that walks you through the room.",
+        "nature": "a voice",
+        "status": "approved",
+        "voice": {
+          "profile": "guide"
+        }
+      }
+    },
+    {
+      "name": "a field the contract does not have",
+      "code": "additionalProperties",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "guide",
+        "name": "The Guide",
+        "summary": "A voice that walks you through the room.",
+        "nature": "a voice",
+        "status": "draft",
+        "voice": {
+          "profile": "guide"
+        },
+        "rig": "puppet.blend"
+      }
+    },
+    {
+      "name": "a document outside the character's folder",
+      "code": "pattern",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "../other/character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a medium that is not one",
+      "code": "enum",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "cursor",
+        "name": "The Cursor",
+        "nature": "a dot that hesitates",
+        "forms": [
+          {
+            "id": "dot",
+            "medium": "hologram",
+            "can": {
+              "actions": [
+                "blink",
+                "hesitate",
+                "dart"
+              ]
+            }
+          },
+          {
+            "id": "hum",
+            "medium": "sound",
+            "description": "A low hum when it thinks.",
+            "releases": [
+              {
+                "id": "v1",
+                "path": "forms/hum/v1",
+                "entry": "hum.wav",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 1,
+                  "bytes": 88244
+                }
+              }
+            ]
+          },
+          {
+            "id": "smell",
+            "medium": "other",
+            "mediumNote": "A line of text on screen that names a smell."
+          }
+        ]
+      }
+    },
+    {
+      "name": "a hash that is not sha256",
+      "code": "pattern",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "abc",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a release with no tree",
+      "code": "required",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a likeness with no permission",
+      "code": "required",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "coder",
+        "name": "The Coder",
+        "nature": "a person, as pixels",
+        "likeness": {
+          "of": "A member of the project",
+          "evidence": "references/consent.md"
+        },
+        "forms": [
+          {
+            "id": "pixels",
+            "medium": "sprites",
+            "can": {
+              "actions": [
+                "breathe",
+                "wave",
+                "talk",
+                "type",
+                "facepalm"
+              ],
+              "views": [
+                "front"
+              ]
+            },
+            "releases": [
+              {
+                "id": "v1",
+                "path": "forms/pixels/v1",
+                "entry": "manifest.json",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 212,
+                  "bytes": 4200000
+                }
+              }
+            ]
+          },
+          {
+            "id": "refs",
+            "medium": "images",
+            "description": "Three reference pictures for a generator.",
+            "releases": []
+          }
+        ],
+        "defaultForm": "pixels"
+      }
+    },
+    {
+      "name": "the same action twice",
+      "code": "uniqueItems",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "cursor",
+        "name": "The Cursor",
+        "nature": "a dot that hesitates",
+        "forms": [
+          {
+            "id": "dot",
+            "medium": "graphic",
+            "can": {
+              "actions": [
+                "blink",
+                "blink"
+              ]
+            }
+          },
+          {
+            "id": "hum",
+            "medium": "sound",
+            "description": "A low hum when it thinks.",
+            "releases": [
+              {
+                "id": "v1",
+                "path": "forms/hum/v1",
+                "entry": "hum.wav",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 1,
+                  "bytes": 88244
+                }
+              }
+            ]
+          },
+          {
+            "id": "smell",
+            "medium": "other",
+            "mediumNote": "A line of text on screen that names a smell."
+          }
+        ]
+      }
+    },
+    {
+      "name": "a form named twice",
+      "code": "duplicate",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "cursor",
+        "name": "The Cursor",
+        "nature": "a dot that hesitates",
+        "forms": [
+          {
+            "id": "dot",
+            "medium": "graphic",
+            "can": {
+              "actions": [
+                "blink",
+                "hesitate",
+                "dart"
+              ]
+            }
+          },
+          {
+            "id": "hum",
+            "medium": "sound",
+            "description": "A low hum when it thinks.",
+            "releases": [
+              {
+                "id": "v1",
+                "path": "forms/hum/v1",
+                "entry": "hum.wav",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 1,
+                  "bytes": 88244
+                }
+              }
+            ]
+          },
+          {
+            "id": "smell",
+            "medium": "other",
+            "mediumNote": "A line of text on screen that names a smell."
+          },
+          {
+            "id": "dot",
+            "medium": "sound"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a release named twice",
+      "code": "duplicate",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              },
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a default form that is not there",
+      "code": "unknown-form",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "statue",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a current release that is not there",
+      "code": "unknown-release",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v009",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    },
+    {
+      "name": "a medium of other that does not say what",
+      "code": "medium-note",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "cursor",
+        "name": "The Cursor",
+        "nature": "a dot that hesitates",
+        "forms": [
+          {
+            "id": "dot",
+            "medium": "graphic",
+            "can": {
+              "actions": [
+                "blink",
+                "hesitate",
+                "dart"
+              ]
+            }
+          },
+          {
+            "id": "hum",
+            "medium": "sound",
+            "description": "A low hum when it thinks.",
+            "releases": [
+              {
+                "id": "v1",
+                "path": "forms/hum/v1",
+                "entry": "hum.wav",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 1,
+                  "bytes": 88244
+                }
+              }
+            ]
+          },
+          {
+            "id": "smell",
+            "medium": "other"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a hash of an entry that is not named",
+      "code": "entry",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Character",
+        "id": "sergeant",
+        "name": "Sergeant Hale",
+        "summary": "A kind, literal man who follows a wrong idea to its end.",
+        "nature": "a person",
+        "status": "ready",
+        "documents": {
+          "identity": "character.md",
+          "backstory": "backstory.md",
+          "performance": "performance.md"
+        },
+        "voice": {
+          "profile": "sergeant",
+          "language": "en",
+          "note": "If the profile is missing, stop: no stand-in voice."
+        },
+        "forms": [
+          {
+            "id": "puppet",
+            "medium": "puppet-2d",
+            "title": "Cut-out puppet",
+            "description": "The form every sketch uses.",
+            "can": {
+              "actions": [
+                "idle",
+                "walk",
+                "salute",
+                "point"
+              ],
+              "expressions": [
+                "neutral",
+                "puzzled",
+                "proud"
+              ],
+              "mouths": [
+                "closed",
+                "a",
+                "o",
+                "m"
+              ],
+              "views": [
+                "front",
+                "three-quarter"
+              ]
+            },
+            "current": "v003",
+            "releases": [
+              {
+                "id": "v001",
+                "path": "blender-rig-v001",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 41,
+                  "bytes": 18233411
+                },
+                "madeWith": [
+                  {
+                    "tool": "Blender 5.2"
+                  }
+                ]
+              },
+              {
+                "id": "v003",
+                "path": "forms/puppet/v003",
+                "entry": "blender/puppet.blend",
+                "entrySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tree": {
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "files": 44,
+                  "bytes": 19100200
+                },
+                "madeWith": [
+                  {
+                    "tool": "image generation",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "note": "the part sheets"
+                  },
+                  {
+                    "tool": "Blender 5.2",
+                    "note": "cut, rigged and weighted by script"
+                  }
+                ],
+                "licence": {
+                  "id": "LicenseRef-channel",
+                  "holder": "the channel",
+                  "redistributable": false
+                },
+                "createdAt": "2026-10-18T09:00:00Z"
+              }
+            ]
+          }
+        ],
+        "defaultForm": "puppet",
+        "relations": [
+          {
+            "to": "marshal",
+            "note": "Sincere respect; takes his orders literally."
+          }
+        ],
+        "tags": [
+          "regular"
+        ]
+      }
+    }
+  ],
+  "casts": [
+    {
+      "name": "no roles",
+      "code": "required",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast"
+      }
+    },
+    {
+      "name": "a role with no character",
+      "code": "required",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast",
+        "roles": [
+          {
+            "role": "sergeant",
+            "form": "puppet",
+            "release": "v003",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "regular"
+          },
+          {
+            "role": "doctor",
+            "name": "Dr. Reed",
+            "character": "clinic/doctor",
+            "standing": "guest",
+            "note": "From the clinic channel."
+          },
+          {
+            "role": "narrator",
+            "character": "sketches/special/guide",
+            "standing": "lead",
+            "voice": "guide-warm"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a character four folders deep",
+      "code": "pattern",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast",
+        "roles": [
+          {
+            "role": "sergeant",
+            "character": "sergeant",
+            "form": "puppet",
+            "release": "v003",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "regular"
+          },
+          {
+            "role": "doctor",
+            "name": "Dr. Reed",
+            "character": "a/b/c/d",
+            "standing": "guest",
+            "note": "From the clinic channel."
+          },
+          {
+            "role": "narrator",
+            "character": "sketches/special/guide",
+            "standing": "lead",
+            "voice": "guide-warm"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a standing nobody defined",
+      "code": "enum",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast",
+        "roles": [
+          {
+            "role": "sergeant",
+            "character": "sergeant",
+            "form": "puppet",
+            "release": "v003",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "star"
+          },
+          {
+            "role": "doctor",
+            "name": "Dr. Reed",
+            "character": "clinic/doctor",
+            "standing": "guest",
+            "note": "From the clinic channel."
+          },
+          {
+            "role": "narrator",
+            "character": "sketches/special/guide",
+            "standing": "lead",
+            "voice": "guide-warm"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a role named twice",
+      "code": "duplicate",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast",
+        "roles": [
+          {
+            "role": "sergeant",
+            "character": "sergeant",
+            "form": "puppet",
+            "release": "v003",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "regular"
+          },
+          {
+            "role": "doctor",
+            "name": "Dr. Reed",
+            "character": "clinic/doctor",
+            "standing": "guest",
+            "note": "From the clinic channel."
+          },
+          {
+            "role": "narrator",
+            "character": "sketches/special/guide",
+            "standing": "lead",
+            "voice": "guide-warm"
+          },
+          {
+            "role": "sergeant",
+            "character": "sergeant",
+            "form": "puppet",
+            "release": "v003",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "regular"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a pinned tree with no release",
+      "code": "pin",
+      "doc": {
+        "apiVersion": "studio.video/v1alpha1",
+        "kind": "Cast",
+        "roles": [
+          {
+            "role": "sergeant",
+            "character": "sergeant",
+            "form": "puppet",
+            "treeSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "standing": "regular"
+          },
+          {
+            "role": "doctor",
+            "name": "Dr. Reed",
+            "character": "clinic/doctor",
+            "standing": "guest",
+            "note": "From the clinic channel."
+          },
+          {
+            "role": "narrator",
+            "character": "sketches/special/guide",
+            "standing": "lead",
+            "voice": "guide-warm"
+          }
+        ]
+      }
+    }
+  ]
+}

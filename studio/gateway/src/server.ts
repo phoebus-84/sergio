@@ -202,6 +202,18 @@ export async function createGateway(
 
   // ── Start event publisher ─────────────────────────────────────────────
   publisher.start(watcher);
+  // A cut or a journal written by another process (the agent, the CLI) is
+  // said on the event stream too: see events/production-watch.ts.
+  const { ProductionWatch } = await import("./events/production-watch.js");
+  const productionWatch = new ProductionWatch({
+    bus: events.bus,
+    root: libraryRoot,
+    publisher,
+    pipelineOf: async (ref) => {
+      const pipeline = (await ws.getEpisode(ref.channel, ref.series, ref.episode))?.pipeline;
+      return typeof pipeline === "string" && pipeline.length > 0 ? pipeline : undefined;
+    },
+  }).start();
 
   // ── Serve library assets as static files ─────────────────────────────
   // Uploads are capped so a stray request cannot fill the library's disk.
@@ -276,6 +288,7 @@ export async function createGateway(
       return addr;
     },
     stop: async () => {
+      productionWatch.close();
       publisher.stop();
       // Shut down Pi sessions before the gateway goes away, or they outlive it
       // holding episode leases with nothing left to talk to.

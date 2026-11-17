@@ -142,3 +142,33 @@ from disk, so neither needs registering by hand.
 
 A decision that constrains future work gets an ADR in `docs/adr/`. Number it
 sequentially and say what it supersedes, if anything.
+
+## Releases
+
+One number for the whole repository, in the root `package.json`, tagged on
+`main` as `vMAJOR.MINOR.PATCH`. The workspaces keep `0.1.0` until one of them
+is published on its own; from then on that package has its own number.
+
+While the major is 0:
+
+| Bump | When |
+|---|---|
+| **minor** | anything a person, a library or an agent has to change for: a tool's parameters or name, a contract or a file a library keeps, a CLI command, a pipeline's stages. Listed under *Needs action* in the changelog. |
+| **patch** | everything else: fixes, additions that ask nothing of what exists, docs |
+
+What a release does not break without saying so: an episode or a film made
+with the one before can still be read, checked and rendered. Series releases
+pin their own code (ADR-0041) and pipeline snapshots keep the plan an episode
+was resolved with, so most changes cost a library nothing; one that does is a
+minor, with the steps in the changelog.
+
+Commits already follow `type(scope): what changed`, and that is what the
+changelog is written from, by hand, for a reader who does not know the code:
+
+1. On `main`, with `npm run check` green: move *Unreleased* in `CHANGELOG.md`
+   under the new number and date, and set `version` in the root `package.json`.
+2. Commit it as `chore(release): vX.Y.Z`, tag that commit `vX.Y.Z` (annotated,
+   with the changelog's section as its message) and push the tag.
+3. Make the GitHub release from the tag, with the same text.
+
+A tag is never moved. A mistake in a release is fixed by the next one.

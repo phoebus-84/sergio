@@ -1,8 +1,19 @@
 // ---------------------------------------------------------------------------
 // Event publisher — pushes stage transitions to the event bus
 // ---------------------------------------------------------------------------
-// Polls the execution service periodically and emits events when stages change
-// state. Wires file watcher events through to the consolidated event stream.
+// Reads a unit's stages from the execution service and emits an event for each
+// one that changed state since it was last read.
+//
+// Which units: the ones whose journal changed. ProductionWatch calls
+// `pollForEpisode` when the workspace watcher reports a unit's
+// journal/events.jsonl, so a stage moved by the agent, the CLI or this gateway
+// is read again at once, whoever moved it (#91: before that nothing called
+// `pollForEpisode`, the interval polled no unit, and no stage event was ever
+// published). The interval stays as a net under a missed file event, for the
+// units that changed in the last half hour.
+//
+// The first time a unit is read there is nothing to compare it with, so that
+// reading publishes nothing: it is the state the next one is compared to.
 //
 // It used to poll `RuntimeClient.status`, which shells out to `vpr status`,
 // and matched stages across polls with `previous.find(p => p.id === s.id)`.
@@ -17,6 +28,9 @@ import { createEvent } from "./bus.js";
 import type { WorkspaceWatcher } from "./watcher.js";
 import type { EpisodeRef } from "../runtime/client.js";
 import { makeExecutionService, DEFAULT_PIPELINE } from "../runtime/service.js";
+
+/** How long after a unit's journal last changed the interval keeps reading it. */
+const WATCH_FOR_MS = 30 * 60_000;
 
 export interface EventPublisherOptions {
   bus: EventBus;
@@ -62,7 +76,7 @@ export class EventPublisher {
   private libraryRoot: string;
   private operatorKey: string | null;
   private knownStages = new Map<string, StageState[]>();
-  private watched = new Map<string, { ref: EpisodeRef; pipeline?: string }>();
+  private watched = new Map<string, { ref: EpisodeRef; pipeline?: string; touched: number }>();
   private interval: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: EventPublisherOptions) {
@@ -91,15 +105,24 @@ export class EventPublisher {
     }
   }
 
-  /** Poll one episode's status and emit stage events; the interval polls it from then on. */
+  /** Poll one episode's status and emit stage events; the interval polls it for a while from then on. */
   async pollForEpisode(ref: EpisodeRef, pipeline?: string): Promise<void> {
-    this.watched.set(`${ref.channel}/${ref.series}/${ref.episode}`, { ref, pipeline });
+    this.watched.set(`${ref.channel}/${ref.series}/${ref.episode}`, { ref, pipeline, touched: Date.now() });
     await this.pollStatus(ref, pipeline);
   }
 
+  /** The units the interval still polls. */
+  get watching(): string[] {
+    return [...this.watched.keys()];
+  }
+
   private async pollWatched(): Promise<void> {
-    for (const { ref, pipeline } of [...this.watched.values()]) {
-      await this.pollStatus(ref, pipeline);
+    const idle = Date.now() - WATCH_FOR_MS;
+    for (const [key, { ref, pipeline, touched }] of [...this.watched]) {
+      // A unit nobody has written to for a while is left until its journal changes again.
+      // What was read of it is kept, so that change is compared with it.
+      if (touched < idle) this.watched.delete(key);
+      else await this.pollStatus(ref, pipeline);
     }
   }
 

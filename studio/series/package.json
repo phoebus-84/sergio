@@ -1,6 +1,7 @@
 {
   "name": "@studio/series",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "description": "Series compilers: a pinned episode spec and its measured narration, compiled into an edit timeline (ADR-0037)",

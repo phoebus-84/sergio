@@ -1,0 +1,516 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.studio.video/v1alpha1/character.schema.json",
+  "title": "Character and Cast",
+  "description": "A character as a record apart from how it appears, the forms it takes, and a production's cast (ADR-0052).",
+  "$defs": {
+    "ResourceVersion": {
+      "const": "studio.video/v1alpha1"
+    },
+    "Slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "RelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000]+$",
+      "description": "A file or folder inside the character's own folder."
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "Name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "Documents": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The files that say who the character is. Markdown, beside the manifest.",
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "Who it is and what never changes about it."
+        },
+        "backstory": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "Where it comes from; what it wants."
+        },
+        "performance": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "How it moves, speaks and plays a scene; what it never does."
+        }
+      }
+    },
+    "Voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "A voice of the owner's voices registry, by its key."
+        },
+        "motif": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "A sound that stands for the character, when it does not speak."
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 35
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "Likeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "of",
+        "permission"
+      ],
+      "description": "The real person a character's face, voice or name is drawn from, and what permits it.",
+      "properties": {
+        "of": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "permission": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "What allows it: who agreed, when, to what use."
+        },
+        "evidence": {
+          "$ref": "#/$defs/RelativePath"
+        }
+      }
+    },
+    "Can": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What a form can do, by the names a script or a timeline asks for.",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Name"
+          },
+          "uniqueItems": true
+        },
+        "expressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Name"
+          },
+          "uniqueItems": true
+        },
+        "mouths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Name"
+          },
+          "uniqueItems": true,
+          "description": "Mouth shapes it has, for speech."
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Name"
+          },
+          "uniqueItems": true,
+          "description": "The sides it can be shown from."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "Maker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "What made it: a program, a model, a person's hand."
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "Licence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "SPDX id where there is one; else the licence's own name."
+        },
+        "holder": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "attribution": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "The credit it requires, as it must appear."
+        },
+        "redistributable": {
+          "type": "boolean",
+          "description": "Whether the files may be published with the channel."
+        }
+      }
+    },
+    "Tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "files",
+        "bytes"
+      ],
+      "description": "The release's folder as it was recorded: a hash of every file's path and hash.",
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "Release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "tree"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Slug"
+        },
+        "path": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "The release's folder. Never edited once recorded."
+        },
+        "entry": {
+          "$ref": "#/$defs/RelativePath",
+          "description": "The file to open, inside the folder."
+        },
+        "entrySha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "tree": {
+          "$ref": "#/$defs/Tree"
+        },
+        "madeWith": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Maker"
+          }
+        },
+        "licence": {
+          "$ref": "#/$defs/Licence"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Form": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "medium"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Slug"
+        },
+        "medium": {
+          "type": "string",
+          "enum": [
+            "rig-3d",
+            "model-3d",
+            "puppet-2d",
+            "sprites",
+            "vector",
+            "images",
+            "photo",
+            "graphic",
+            "sound",
+            "voice",
+            "other"
+          ]
+        },
+        "mediumNote": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "What the medium is, when it is other."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "What this form is and when a production wears it."
+        },
+        "can": {
+          "$ref": "#/$defs/Can"
+        },
+        "current": {
+          "$ref": "#/$defs/Slug",
+          "description": "The release a new casting takes."
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Release"
+          }
+        }
+      }
+    },
+    "Relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "to",
+        "note"
+      ],
+      "properties": {
+        "to": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 130
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        }
+      }
+    },
+    "Character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "id",
+        "name"
+      ],
+      "properties": {
+        "apiVersion": {
+          "$ref": "#/$defs/ResourceVersion"
+        },
+        "kind": {
+          "const": "Character"
+        },
+        "id": {
+          "$ref": "#/$defs/Slug"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Who this is, in a sentence."
+        },
+        "nature": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "What kind of thing it is, in free words: a person, a fox, a lamp, a doubt, a sound."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "ready",
+            "retired"
+          ]
+        },
+        "documents": {
+          "$ref": "#/$defs/Documents"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice"
+        },
+        "likeness": {
+          "$ref": "#/$defs/Likeness"
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Form"
+          }
+        },
+        "defaultForm": {
+          "$ref": "#/$defs/Slug"
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relation"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "uniqueItems": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "character"
+      ],
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/Slug",
+          "description": "The part, as this production's scripts name it."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "The part's name on screen, when it is not the character's."
+        },
+        "character": {
+          "type": "string",
+          "pattern": "^(?:[a-z0-9]+(?:-[a-z0-9]+)*/){0,2}[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 196,
+          "description": "A character of this production's owner by id, or another's as owner/id (channel/id, film/id, channel/series/id)."
+        },
+        "form": {
+          "$ref": "#/$defs/Slug",
+          "description": "The form it wears here. The character's default when left out."
+        },
+        "release": {
+          "$ref": "#/$defs/Slug",
+          "description": "The release it is pinned to."
+        },
+        "treeSha256": {
+          "$ref": "#/$defs/Sha256",
+          "description": "The pinned release's tree, as it was when cast."
+        },
+        "standing": {
+          "type": "string",
+          "enum": [
+            "lead",
+            "regular",
+            "guest",
+            "cameo",
+            "extra"
+          ]
+        },
+        "voice": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "A voice profile for this part, when it is not the character's own."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "Cast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiVersion",
+        "kind",
+        "roles"
+      ],
+      "properties": {
+        "apiVersion": {
+          "$ref": "#/$defs/ResourceVersion"
+        },
+        "kind": {
+          "const": "Cast"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

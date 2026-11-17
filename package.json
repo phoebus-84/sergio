@@ -1,6 +1,7 @@
 {
   "name": "video-studio",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "description": "Agentic Video Studio \u2014 a Pi-directed video production system. `packages/*` are reusable outside this project; `studio/*` is the product built on top of them.",
@@ -26,6 +27,7 @@
     "studio/series",
     "studio/episode",
     "studio/film",
+    "studio/cast",
     "studio/runtime",
     "studio/pipelines",
     "studio/adapters",

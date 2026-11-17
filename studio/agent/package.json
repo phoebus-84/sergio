@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A distributable Pi package that turns Pi into the Agentic Video Studio executive producer",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "author": "",
   "keywords": [
     "pi-package",
@@ -74,6 +74,7 @@
     "@studio/contracts": "workspace:*",
     "@studio/episode": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@studio/cast": "workspace:*",
     "@studio/film": "workspace:*"
   }
 }

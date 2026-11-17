@@ -128,7 +128,8 @@ Whatever the pipeline, two things are always the person's:
 - **Approvals.** A gate is asked with `pva_request_approval`. You never
   approve; you never work around a gate by doing a later stage's work early.
 - **Locks.** A clip or a track a person locked in a cut is theirs. Assembly
-  leaves it alone and `pva_edit_cut` refuses to touch it. Do not ask for it
+  keeps what it shows (it only moves it in time to stay end to end, and says
+  so) and `pva_edit_cut` refuses to touch it. Do not ask for it
   to be unlocked unless it is in the way of what they asked.
 
 ## The stages that run other levels

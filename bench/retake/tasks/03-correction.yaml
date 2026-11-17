@@ -1,0 +1,49 @@
+id: correction
+number: 3
+version: "0.1"
+title: Change one sentence, keep everything else
+
+given:
+  video: the accepted output of task 01 for the same arm, model and run
+  workspace: the working folder exactly as the arm left it after task 01
+  note:
+    where: the sentence of the narration that introduces `--top`
+    request: |
+      Replace that sentence with:
+      "Ask for the top three with dash dash top three: the most frequent
+      words come first, and words that tie are listed in alphabetical order."
+  # A run whose task 01 was not accepted has nothing to correct: it is
+  # reported as "no input", not as a failure of this task.
+
+ask: |
+  A reviewer left this note on the video you made. Apply it and deliver a new
+  version: the video, its captions and its script. Change nothing the note
+  does not ask for.
+
+limits:
+  spend_usd: 0.50
+  wall_clock_minutes: 20
+  operator_turns: 1        # one question may be asked, and is counted
+
+measure:
+  - completion
+  - correction.done
+  - locality.video
+  - locality.audio
+  - rework
+  - spec.loudness
+  - captions.sync
+  - accuracy.commands      # what is on screen must still be true
+  - cost.providers
+  - cost.model
+  - time.wall
+  - time.operator
+
+accepted_when: >
+  correction.done, locality.video and locality.audio pass, and the video still
+  passes the checks of task 01 that the note does not touch.
+
+report:
+  headline: [locality.video, locality.audio, time.wall]
+  per_run: the before and the after side by side, and a sheet of the frames that differ
+  per_cell: median and range over 5 runs of every measure

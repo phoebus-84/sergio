@@ -20,7 +20,7 @@ const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("f
 
 const info = (file: string, extra: Partial<MediaInfo> = {}): MediaInfo => ({
   file, kind: "video", duration: 10, width: 320, height: 180, fps: 24, hasVideo: true, hasAudio: true, audioChannels: 2,
-  sampleRate: 48000, videoCodec: "h264", audioCodec: "aac", hasAlpha: false, size: 1, mtimeMs: 1, ...extra,
+  sampleRate: 48000, videoCodec: "h264", audioCodec: "aac", hasAlpha: false, size: 1, mtimeMs: 1, identity: "1:1:1:1:1", ...extra,
 });
 
 const cutOf = (tracks: Cut["tracks"], master?: Cut["master"]): Cut => ({ width: 320, height: 180, fps: 24, tracks, ...(master ? { master } : {}) });

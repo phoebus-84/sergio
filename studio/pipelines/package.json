@@ -1,6 +1,7 @@
 {
   "name": "@studio/pipelines",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "private": true,
   "description": "Built-in YAML pipelines and Pi skills for video production use cases",
   "type": "module",

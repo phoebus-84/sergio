@@ -79,9 +79,12 @@ frame rate is the film's, in the cut's `format`.
 ## Editing
 
 `pva_edit_cut` takes a list of operations applied **together or not at
-all**: the result must be a valid cut. Pass the `expectedRevision` you read
-— if a person saved an edit meanwhile, yours is refused rather than laid
-over theirs; read the cut again and redo it on what is there.
+all**: the result must be a valid cut. Pass the `expectedRevision` you read:
+`pva_check_cut` and every edit print it as `cut revision N`, and a unit with
+no cut yet is at 0. It is required — if a person saved an edit meanwhile,
+yours is refused rather than laid over theirs; read the cut again and redo
+it on what is there. `latest: true` in its place edits the cut as it now is:
+only for an edit that is right whatever the cut holds, such as a marker.
 
 | operation | does |
 | --- | --- |
@@ -179,9 +182,13 @@ carry what `artifacts/score.json` and the footage log's licences require.
 
 ## What is a person's
 
-A clip or a track with `locked: true` was locked by a person. Assembly
-leaves it exactly as it is; any operation that would change it is refused.
-Work around it: that is what the lock asks for. If a locked clip makes the
+A clip or a track with `locked: true` was locked by a person. Any operation
+that would change it is refused. Assembly keeps what a locked clip shows —
+its source, trim, length, effects and transitions — and gives it no
+transition of its own; on the picture track it still starts where the clip
+before it ends, so it moves in time when an earlier clip changes length, and
+assembly's notes say when it did. A locked track is not reassembled at all.
+Work around a lock: that is what it asks for. If a locked clip makes the
 cut impossible (it overlaps what must go there), stop and say so, with the
 clip's id and what is in the way.
 

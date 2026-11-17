@@ -104,6 +104,19 @@ not an episode of a series — is a **film**, made with the film tools:
   `pva_cut_effects`, `pva_render_cut` — a unit's cut made, edited, checked, looked at
   and rendered; a render cascades to whatever under it is out of date.
 
+A **character** — a host, a puppet, a pixel figure, a voice, a dot — belongs to a
+channel, a series or a film, not to an episode, and is the same next week:
+
+- `pva_characters` — who a channel, a series or a film has, and one in full: who it
+  is, its voice, its forms, what each form can do.
+- `pva_create_character`, `pva_update_character` — a character made on paper, given
+  a form in any medium, and a form's files recorded as a release that is never edited.
+- `pva_cast` — who plays what in a series or a film, pinned to the release each wears;
+  with `asks`, a script checked against what the cast can do.
+
+Read the cast before writing a script. Load `character-development` to define a
+character and `character-forms` to give it a body.
+
 Every other tool takes a film's unit as `channel` / `series` / `episode` with `_` for
 the level itself: a shot is `(film, scene, shot)`, a scene `(film, scene, _)`, the film
 `(film, _, _)`. Pipelines, budget, approvals, generation, voice and archive tools all

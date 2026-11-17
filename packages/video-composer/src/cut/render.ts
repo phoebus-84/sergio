@@ -19,6 +19,7 @@ import * as path from "node:path";
 import { runProcess } from "../process-runner.js";
 import { n } from "./effects.js";
 import { mixJob, pictureEncoding, pictureJob, soundJob, type Job } from "./graph.js";
+import { fileIdentity } from "./identity.js";
 import { measureLoudness, probeFile, MediaError, type Tools } from "./media.js";
 import { buses, cutFiles, cutFrames, divide, trackEdges, validateCut, SAMPLE_RATE, type Window } from "./plan.js";
 import type { Cut, CutProblem, LoudnessReport, MediaInfo, RenderCutOptions, RenderCutResult, RenderProgress } from "./types.js";
@@ -108,15 +109,12 @@ async function run(runner: Runner, args: string[], what: string): Promise<string
  * the state of the files it reads. Returns the file and whether it was there.
  */
 async function piece(
-  runner: Runner, job: Job, encoding: string[], extension: string, media: ReadonlyMap<string, { size: number; mtimeMs: number }>, what: string,
+  runner: Runner, job: Job, encoding: string[], extension: string, media: ReadonlyMap<string, { identity: string }>, what: string,
 ): Promise<{ file: string; reused: boolean }> {
   const states = await Promise.all([...new Set(job.files)].sort().map(async (file) => {
     // A piece is named by what made it: its name is its state, and its date moves each time it is used again.
     if (path.dirname(file) === runner.pieces) return [path.basename(file)];
-    const known = media.get(file);
-    if (known) return [file, known.size, known.mtimeMs];
-    const info = await stat(file);
-    return [file, info.size, Math.round(info.mtimeMs)];
+    return [file, media.get(file)?.identity ?? await fileIdentity(file)];
   }));
   const key = createHash("sha256").update(JSON.stringify([job.args, encoding, states])).digest("hex").slice(0, 32);
   const file = path.join(runner.pieces, `${key}${extension}`);
