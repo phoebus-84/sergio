@@ -11,14 +11,14 @@
 // ---------------------------------------------------------------------------
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TRIPO_H31, tripoH31ImageTo3d, tripoH31PriceUsd } from "@av/fal-media";
 import { toMicros } from "@studio/contracts/src/budget.mjs";
 import { parseJournal, JOURNAL_RELATIVE_PATH } from "@studio/contracts/src/journal.mjs";
 import { modelGenerationStatus } from "../src/capability-status.js";
-import { MODEL_TEXTURES, describeModel, modelRequestBody, modelTerms, registerModelTools, summarizeModel } from "../src/model-tools.js";
+import { MODEL_TEXTURES, describeModel, modelRequestBody, modelTerms, pictureExtension, registerModelTools, summarizeModel } from "../src/model-tools.js";
 
 const CHANNEL = "sample-channel";
 const SERIES = "sample-series";
@@ -48,6 +48,7 @@ const DEER = glb({
   materials: [{}, {}],
   images: [{}, {}, {}],
 });
+const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x24, 0, 0, 0]), Buffer.from("WEBPVP8 "), Buffer.alloc(16)]);
 const RIGGED = glb({ accessors: [{ count: 300 }], meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }], skins: [{ joints: [1, 2, 3] }, { joints: [3, 4] }], animations: [{}, {}] });
 const FBX = Buffer.concat([Buffer.from("Kaydara FBX Binary  \0\x1a\0", "latin1"), Buffer.alloc(32)]);
 
@@ -87,6 +88,14 @@ describe("what the tool says and reads", () => {
     expect(describeModel({ format: "unknown" })).toContain("open it before using it");
   });
 
+  it("knows a picture by its bytes", () => {
+    expect(pictureExtension(WEBP)).toBe(".webp");
+    expect(pictureExtension(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]))).toBe(".png");
+    expect(pictureExtension(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe(".jpg");
+    expect(pictureExtension(Buffer.from("a preview render"))).toBeNull();
+    expect(pictureExtension(Buffer.alloc(0))).toBeNull();
+  });
+
   it("is reported by the capability status, ready only with FAL_KEY", () => {
     expect(modelGenerationStatus(true)["model-generation"]).toMatchObject({ available: true, detail: expect.stringContaining("pva_generate_model") });
     expect(modelGenerationStatus(false)["model-generation"]).toEqual({ available: false, detail: "FAL_KEY not set" });
@@ -102,7 +111,7 @@ describe("pva_generate_model", () => {
   let submitted: Record<string, unknown> | undefined;
   let uploads: { name: string; type: string; bytes: number }[];
   /** What the fake endpoint answers with; a test may change it before it calls. */
-  let answer: { mesh: Buffer; fileName: string; preview: boolean; taskId?: string };
+  let answer: { mesh: Buffer; fileName: string; preview: boolean; taskId?: string; previewBytes?: Buffer; previewNamed?: { type: string; name: string } };
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "pva-model-"));
@@ -138,13 +147,13 @@ describe("pva_generate_model", () => {
         return Response.json({
           // fal's own example gives a mesh the content type of a picture: the tool must not believe it.
           model_mesh: { url: "https://cdn.example/model.bin", content_type: "image/png", file_name: answer.fileName, file_size: answer.mesh.length },
-          ...(answer.preview ? { rendered_image: { url: "https://cdn.example/preview.webp", content_type: "image/webp", file_name: "preview.webp" } } : {}),
+          ...(answer.preview ? { rendered_image: { url: "https://cdn.example/preview.webp", content_type: answer.previewNamed?.type ?? "image/webp", file_name: answer.previewNamed?.name ?? "preview.webp" } } : {}),
           model_urls: {},
           ...(answer.taskId ? { task_id: answer.taskId } : {}),
         });
       }
       if (url === "https://cdn.example/model.bin") return new Response(answer.mesh, { status: 200 });
-      if (url === "https://cdn.example/preview.webp") return new Response(Buffer.from("a preview render"), { status: 200 });
+      if (url === "https://cdn.example/preview.webp") return new Response(answer.previewBytes ?? Buffer.from("a preview render"), { status: 200 });
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -232,6 +241,17 @@ describe("pva_generate_model", () => {
     expect(result.content[0]!.text).toContain("an FBX");
   });
 
+  it("names the preview by what it is, not by what the service calls it", async () => {
+    budget(100_000_000);
+    // The real service names its preview .png, types it image/png, and sends a WebP.
+    answer = { mesh: DEER, fileName: "model.glb", preview: true, previewBytes: WEBP, previewNamed: { type: "image/png", name: "rendered_image.png" } };
+    const result = await generate();
+    expect(readFileSync(models("deer.preview.webp")).equals(WEBP)).toBe(true);
+    expect(existsSync(models("deer.preview.png"))).toBe(false);
+    expect(provenance()).toMatchObject({ preview: "deer.preview.webp" });
+    expect(result.content[0]!.text).toContain("preview: assets/models/deer.preview.webp");
+  });
+
   it("reads the picture from a channel source when imageSource names one", async () => {
     budget(100_000_000);
     await generate({ modelId: "fox", imageSource: SOURCE, imagePath: "fox.webp" });
@@ -241,9 +261,11 @@ describe("pva_generate_model", () => {
     await expect(generate({ modelId: "c", imageSource: SOURCE, imagePath: "../../../secret.png" })).rejects.toThrow();
   });
 
-  it("refuses over budget without calling fal or writing anything", async () => {
+  it("refuses over budget without calling fal, writing anything or saying it submitted", async () => {
     budget(toMicros(tripoH31PriceUsd()) - 10_000);
-    await expect(generate()).rejects.toThrow(/budget/);
+    const updates: unknown[] = [];
+    await expect(generate({}, (u) => updates.push(u))).rejects.toThrow(/budget/);
+    expect(updates).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(journal()).toEqual([]);
     expect(existsSync(models("deer.glb"))).toBe(false);
@@ -277,5 +299,15 @@ describe("pva_generate_model", () => {
     expect(provenance().seed).toBe(1);
     await generate({ seed: 2, overwrite: true });
     expect(provenance().seed).toBe(2);
+  });
+
+  it("leaves nothing of the model it replaces when the new one is another kind of file", async () => {
+    budget(100_000_000);
+    await generate();
+    expect(readdirSync(join(dir, "assets", "models")).sort()).toEqual(["deer.glb", "deer.preview.webp", "deer.provenance.json"]);
+    await generate({ modelId: "deer-2" });
+    answer = { mesh: FBX, fileName: "quad.fbx", preview: false };
+    await generate({ quad: true, overwrite: true });
+    expect(readdirSync(join(dir, "assets", "models")).sort()).toEqual(["deer-2.glb", "deer-2.preview.webp", "deer-2.provenance.json", "deer.fbx", "deer.provenance.json"]);
   });
 });

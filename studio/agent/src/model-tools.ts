@@ -23,7 +23,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { createHash, randomInt } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import {
   createFalClient,
@@ -50,6 +50,17 @@ const HEARTBEAT_MS = 15_000;
 const MAX_WAIT_MS = 900_000;
 const IMAGE_TYPES: Readonly<Record<string, string>> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
 const PREVIEW_EXTENSIONS: Readonly<Record<string, string>> = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
+/**
+ * A picture's extension from its first bytes, or null when they say nothing.
+ * The service names its preview `.png` and sends a WebP: the bytes are right.
+ */
+export function pictureExtension(bytes: Uint8Array): string | null {
+  const head = Buffer.from(bytes.subarray(0, 12));
+  if (head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return ".png";
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return ".jpg";
+  if (head.subarray(0, 4).toString("latin1") === "RIFF" && head.subarray(8, 12).toString("latin1") === "WEBP") return ".webp";
+  return null;
+}
 
 const usd = (amount: number) => `$${Number(amount.toFixed(4))}`;
 
@@ -229,11 +240,6 @@ export function registerModelTools(pi: ExtensionAPI): void {
       const requestHash = createHash("sha256").update(JSON.stringify({ ...settings, imageSha256 })).digest("hex").slice(0, 20);
       const priceUsd = tripoH31PriceUsd({ texture, detailedGeometry: params.detailedGeometry, quad: params.quad });
       const what = `${params.modelId} (${texture === "none" ? "no textures" : `${texture} textures`}${params.detailedGeometry ? ", detailed geometry" : ""}${params.quad ? ", quad" : ""}, ~${usd(priceUsd)})`;
-      onUpdate?.({
-        content: [{ type: "text" as const, text: `Submitting ${what} to Tripo H3.1…` }],
-        details: { modelId: params.modelId, profileId: profile.profileId },
-      });
-
       const client = createFalClient(config.falKeyRef);
       const startedMs = Date.now();
       const heartbeat = setInterval(() => {
@@ -258,6 +264,11 @@ export function registerModelTools(pi: ExtensionAPI): void {
           },
           async (spend) => {
             try {
+              // Said here, after the reservation: a call the budget refuses was never submitted.
+              onUpdate?.({
+                content: [{ type: "text" as const, text: `Submitting ${what} to Tripo H3.1…` }],
+                details: { modelId: params.modelId, profileId: profile.profileId },
+              });
               // The upload is free and comes first: if it fails, nothing was generated.
               const imageUrl = await client.uploadFile({ bytes: imageBytes, fileName: `image${extname(imageFull).toLowerCase()}`, contentType: imageType }, signal);
               spend.sending();
@@ -290,6 +301,10 @@ export function registerModelTools(pi: ExtensionAPI): void {
       const modelFile = `${params.modelId}${extension}`;
 
       mkdirSync(modelDir, { recursive: true });
+      // A retake may come back as another kind of file (a quad mesh is an FBX): what the name held before goes.
+      for (const entry of readdirSync(modelDir)) {
+        if (entry.startsWith(`${params.modelId}.`)) rmSync(join(modelDir, entry), { force: true });
+      }
       writeFileSync(join(modelDir, modelFile), data);
 
       // The preview render is a convenience: a model without one is still a model.
@@ -299,8 +314,10 @@ export function registerModelTools(pi: ExtensionAPI): void {
         try {
           const picture = await fetch(preview.url, { signal });
           if (picture.ok) {
-            previewFile = `${params.modelId}.preview${PREVIEW_EXTENSIONS[preview.contentType] ?? (extname(preview.fileName ?? "").toLowerCase() || ".webp")}`;
-            writeFileSync(join(modelDir, previewFile), Buffer.from(await picture.arrayBuffer()));
+            const pictureBytes = Buffer.from(await picture.arrayBuffer());
+            const pictureType = pictureExtension(pictureBytes) ?? PREVIEW_EXTENSIONS[preview.contentType] ?? (extname(preview.fileName ?? "").toLowerCase() || ".webp");
+            previewFile = `${params.modelId}.preview${pictureType}`;
+            writeFileSync(join(modelDir, previewFile), pictureBytes);
           }
         } catch { /* no preview */ }
       }
