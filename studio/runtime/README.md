@@ -12,7 +12,7 @@ This runtime is the production clerk, not the director. It never adapts a story,
 
 ## Primary consumers
 
-`pi-video-agent`, `video-studio-gateway`, and tests in `video-built-in-pipelines`.
+The agent (`studio/agent`), the gateway (`studio/gateway`), and the tests of the built-in pipelines (`studio/pipelines`).
 
 ## Quick start
 

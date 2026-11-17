@@ -136,7 +136,7 @@ WCAG 2.1 contrast ratio calculations are available via `checkPaletteContrast()` 
 To check contrast manually:
 
 ```typescript
-import { checkPaletteContrast, contrastDiagnostics, VISUAL_BIBLE_DARK } from '@video-studio/studio-graphics-renderer';
+import { checkPaletteContrast, contrastDiagnostics, VISUAL_BIBLE_DARK } from '@av/graphics';
 
 const report = checkPaletteContrast(VISUAL_BIBLE_DARK.palette);
 const diags = contrastDiagnostics(report);
