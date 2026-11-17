@@ -12,7 +12,7 @@ import type { MediaType } from "../src/types.js";
 const live = process.env.AVG_LIVE_ARCHIVE === "1";
 const dir = mkdtempSync(join(tmpdir(), "archive-live-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
-const archive = createArchive({ userAgent: "video-studio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)" });
+const archive = createArchive({ userAgent: "sergio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)" });
 
 const CASES: [string, string, MediaType][] = [
   ["aic", "storm", "image"],

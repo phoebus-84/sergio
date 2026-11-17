@@ -15,7 +15,7 @@ import { WORKSPACE_PARAMS, workspaceOf } from "./workspace-target.js";
 import { ARCHIVE_ENV_KEYS, readEnv } from "./config.js";
 import { archiveSettings } from "./archive-tools.js";
 
-const USER_AGENT = "video-studio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)";
+const USER_AGENT = "sergio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)";
 const fail = (error: unknown) => ({
   content: [{ type: "text" as const, text: `❌ ${error instanceof Error ? error.message : String(error)}` }],
   details: {} as Record<string, unknown>,

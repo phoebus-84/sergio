@@ -37,8 +37,8 @@ test("a target takes its own settings, then the environment, then the config def
 });
 
 test("with nothing configured, ssh gets the bare name and its own config decides", () => {
-  assert.deepEqual(engineTarget("not-a-peer", { peers: [], env: {} }), { name: "not-a-peer", destination: "not-a-peer", repo: "~/video-studio" });
-  assert.deepEqual(engineTarget("box", { config: { hosts: { box: { address: "box.lan" } } }, peers: [], env: {} }), { name: "box", destination: "box.lan", repo: "~/video-studio" });
+  assert.deepEqual(engineTarget("not-a-peer", { peers: [], env: {} }), { name: "not-a-peer", destination: "not-a-peer", repo: "~/sergio" });
+  assert.deepEqual(engineTarget("box", { config: { hosts: { box: { address: "box.lan" } } }, peers: [], env: {} }), { name: "box", destination: "box.lan", repo: "~/sergio" });
 });
 
 test("readHostsConfig reads the file, and a missing file is no configuration", () => {

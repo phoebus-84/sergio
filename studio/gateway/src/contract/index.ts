@@ -14,7 +14,7 @@ export interface OpenApiInfo {
 }
 
 const DEFAULT_INFO: OpenApiInfo = {
-  title: "Video Studio Gateway",
+  title: "Sergio Gateway",
   version: "0.1.0",
   description:
     "Trusted local backend connecting browser clients, Pi RPC, and filesystem production state. " +
