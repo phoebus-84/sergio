@@ -3,7 +3,11 @@
 What changed for someone who uses the studio, newest first. How a release is
 cut and what its number promises: [contributing](docs/contributing.md#releases).
 
-## Unreleased — to be 0.2.0
+## Unreleased
+
+Nothing yet.
+
+## 0.2.0 — 2026-11-17
 
 The first release with a licence, and the first with a number that means
 something. `0.1.0` was never tagged: it is whatever `main` was before this.
