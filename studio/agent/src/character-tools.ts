@@ -272,7 +272,7 @@ export function registerCharacterTools(pi: ExtensionAPI): void {
     description:
       "A production's cast: who plays what in a series (channel and series) or a film. With nothing else, shows every role with the character, the " +
       "form it wears, the release it is pinned to, what that form can do, and whether what it pins is still there. With role and character, gives " +
-      "the role to that character and pins its form's current release (cast it again to take a newer one); a series finds a character in itself and " +
+      "the role to that character and pins its form's current release (cast it again to take a newer one: its name, standing, voice and note stay unless given anew); a series finds a character in itself and " +
       "then in its channel, and another owner's is named owner/id. With role and remove, takes the role away. With asks, checks what a script asks " +
       "of its roles — actions, expressions, mouths, views — against what their forms can do, before anything is animated. " +
       "The same character may hold different roles in different productions.",
