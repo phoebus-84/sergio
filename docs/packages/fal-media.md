@@ -1,6 +1,6 @@
 # fal-media
 
-> Tracked image and video generation jobs against fal.ai, with provenance and cost. Video is MiniMax H3.
+> Tracked image, video and 3D model generation jobs against fal.ai, with provenance and cost. Video is MiniMax H3; 3D models are Tripo H3.1.
 
 |  |  |
 |---|---|
@@ -8,7 +8,7 @@
 | Package | `@av/fal-media` |
 | Kind | node |
 | Tier | **reusable** — usable outside this project |
-| Capabilities | `image.generate`, `image.edit`, `video.generate` |
+| Capabilities | `image.generate`, `image.edit`, `video.generate`, `model.generate` |
 | Requires | `FAL_KEY` in the environment |
 | In profiles | `full`, `studio`, `headless` |
 

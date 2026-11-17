@@ -20,7 +20,7 @@ import { FalHttpError } from "./errors.js";
  * A client for every registered profile, from the environment.
  *
  * Each profile gets a contract; video-producing profiles get one that knows to
- * read a `video` file rather than an `images` array.
+ * read a `video` file rather than an `images` array, and 3D ones a `model_mesh`.
  */
 export function createFalClient(apiKey?: string): FalClientImpl {
   const key = apiKey ?? process.env["FAL_KEY"] ?? process.env["FAL_API_KEY"];
@@ -36,7 +36,9 @@ export function createFalClient(apiKey?: string): FalClientImpl {
     contracts: listProfiles().map((profile) =>
       profile.operation.endsWith("-to-video")
         ? new VideoProfileContract(profile)
-        : new ProfileContract(profile),
+        : profile.operation.endsWith("-to-3d")
+          ? new ModelProfileContract(profile)
+          : new ProfileContract(profile),
     ),
   });
 }
@@ -50,7 +52,7 @@ export function createFalClient(apiKey?: string): FalClientImpl {
 // ---------------------------------------------------------------------------
 
 import type { EndpointContract } from "./contracts/v1.js";
-import { ProfileContract, VideoProfileContract } from "./contracts/v1.js";
+import { ModelProfileContract, ProfileContract, VideoProfileContract } from "./contracts/v1.js";
 import type {
   Clock,
   FalAdapterConfig,
