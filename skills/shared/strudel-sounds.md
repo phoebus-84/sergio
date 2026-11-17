@@ -24,8 +24,8 @@ engine's own sources — `sine`, `triangle`, `square`, `sawtooth`, `supersaw`,
 
 Copy a part into a piece under its own label and re-tune it: the comment
 says which control moves what. Each block is a catalogue played at once, not
-a mix. A part that sets `room` or `delay` goes on its own `.orbit(n)` in a
-piece (one reverb and one delay per orbit).
+a mix. In a piece, parts on one orbit share its reverb and its delay
+(`strudel-music`, Space).
 
 Levels as written: sustained parts sit near −18 LUFS and peak under −6 dBFS
 alone. Check the mix after adding one (`pva_music_render`, `stems: true`).
@@ -51,16 +51,16 @@ hats and shaker −14 to −17, ride −17 dBFS; the mix −18 LUFS, peak −3 d
 - **kick** (`sbd`): `decay` is its length (exponential; .2 tight, 1.2 an 808
   boom — then one per bar, tails add). `pdecay` shorter = more thud, less
   "pew". `penv` = sweep depth in semitones. `note("g1")` tunes the body
-  (default about 45 Hz). `sbd` ignores `attack`, `sustain`, `release`.
+  (default about 45 Hz). `sbd` ignores `attack`, `sustain`, `release`, and
+  rings for its whole `decay` past the end of its event.
 - **snare**: a pitched body plus noise. The two inner `gain`s are the
-  balance; scale the whole with `postgain` (a later `.gain()` replaces
-  both). Noise `lpf` 5000–9000 = dark to bright.
-- **clap**: `struct` first, then the `late` copies — a `struct` after them
-  puts every burst back on the grid. `late` is in cycles: 15 ms is
-  `.015 × cps`; the values here are for 120 bpm.
+  balance; scale the whole with `postgain`. Noise `lpf` 5000–9000 = dark to
+  bright.
+- **clap**: four bursts, each `late` by 7.5 ms more — in cycles, so these
+  values are for 120 bpm (`strudel-music`, Time).
 - **hats**: `decay` .02–.08 closed, .3 open; `hpf` 4000–10000 = body. There
-  is no choke: `cut` only acts on samples. Every noise hit is the same
-  waveform, so two noise parts on one step add 6 dB.
+  is no choke. Two noise parts on one step add 6 dB: every noise hit is the
+  same waveform.
 - **ride / metal hat**: six inharmonic squares; `bpf` 3500–5200 = pitch of
   the ping, `decay` 1+ = a wash. For a crash: `s("white").hpf(4000).decay(1.5)`.
 - Softer kit for a quiet bed: the kick below, and
@@ -105,8 +105,8 @@ reese: note("c1 c1 g1 bb1").s("supersaw").unison(3).detune(.4).spread(.3).lpf(50
 setcpm(60/4)
 warm: note("<[c3,eb3,g3,bb3] [ab2,c3,eb3,g3]>").s("supersaw").lpf(1400).attack(.6).release(1.5).room(.4).rsize(4).gain(.4)
 soft: note("<[c3,eb3,g3,bb3] [ab2,c3,eb3,g3]>").add(note("0,.1")).s("triangle").lpf(2000).attack(1).release(2).room(.4).rsize(4).gain(.22)
-glass: note("<[c4,eb4,g4,bb4] [ab3,c4,eb4,g4]>").s("sine").fm(1.2).fmh(2.005).fmattack(1.5).attack(.4).release(2).room(.5).rsize(5).gain(.23)
-strings: note("<[c3,g3,eb4,bb4] [ab2,eb3,c4,g4]>").s("supersaw").unison(7).detune(.3).hpf(180).lpf(3500).vib("5.5:.12").attack(.18).release(.5).room(.3).rsize(3).gain(.36)
+glass: note("<[c4,eb4,g4,bb4] [ab3,c4,eb4,g4]>").s("sine").fm(1.2).fmh(2.005).fmattack(1.5).attack(.4).release(2).room(.5).rsize(4).gain(.23)
+strings: note("<[c3,g3,eb4,bb4] [ab2,eb3,c4,g4]>").s("supersaw").unison(7).detune(.3).hpf(180).lpf(3500).vib("5.5:.12").attack(.18).release(.5).room(.3).rsize(4).gain(.36)
 ```
 
 - `warm`: `lpf` 400 / 800 / 1600 / 3200 moves the centroid 209 / 289 / 360 /
@@ -127,9 +127,8 @@ organ: note("<[c3,g3,c4,e4] [f3,a3,c4,f4]>").s("user").partials([1,.8,.6,.5,0,.3
 ```
 
 - `drone`: one event per cycle, 8 s here; `lprate` (Hz) and `lpdepth` move
-  the filter inside the note — a signal on `lpf` would not (it is read once
-  per event). `tension` is the same with a minor second and a faint high
-  sine: raise that sine's `gain` for more unease.
+  the filter inside the note. `tension` is the same with a minor second and
+  a faint high sine: raise that sine's `gain` for more unease.
 - `organ`: `partials([...])` are drawbars (harmonic 1, 2, 3…).
 
 ## Keys, plucks, tuned percussion
@@ -148,9 +147,8 @@ bell: note("c5 g4 eb5 bb4").s("sine").fm(3).fmh(3.5).fmdecay(1.2).decay(2.5).sus
 glock: n("0 4 7 4 9 7 4 2").scale("C6:major").s("sine").fm(1.5).fmh(5.4).fmdecay(.15).decay(.9).sustain(0).release(.9).gain(.32)
 ```
 
-- The shape of all of these is `decay(d).sustain(0).release(…)`: a decay
-  stops when its event ends, and the `release` is what lets a short note
-  ring.
+- The shape of all of these is `decay(d).sustain(0).release(…)`: the
+  `release` is what lets a short note ring.
 - `epiano`: `fm` = bark; `fm20(.5).fmh2(14).fmdecay2(.06)` is the tine (a
   second operator straight into the carrier, for 60 ms).
 - `softpiano` is a mellow electric piano, not a piano: no hammer, no
@@ -193,21 +191,20 @@ shimmer: n(irand(10).segment(16)).scale("C6:major:pentatonic").s("sine").decay(.
 - `wind`: `bprate`/`bpdepth` wander the band, the sine `tremolo` makes the
   gusts; `bpq` 4–8 howls. `ocean`: change `lprate` and the tremolo rate
   together — that is the wave's period.
-- `.jux(x=>x.late(.013))` is what makes noise stereo: two noise events are
-  the same samples, so panning them apart alone stays mono. It is as wide
-  as stereo gets (correlation about 0): right for an ambience on its own,
-  too wide for a part of a mix.
+- `.jux(x=>x.late(.013))` is what makes noise stereo, and as wide as
+  stereo gets (correlation about 0): right for an ambience on its own, too
+  wide for a part of a mix.
 - `rain`: `density` is the drops (about 450 × density a second).
 - `roomtone`: `freq(60)` where the mains are 60 Hz.
-- `pink` is 13 LU quieter than `white`, `brown` 25: their gains are high on
-  purpose.
+- The gains of `pink` and `brown` are high on purpose: they are quiet
+  sources.
 
 ## Designed sounds: transitions, hits, interface
 
 One-shots. Render each alone (`only`, a `tail` as long as its ring) into
 `assets/audio/` or `assets/sounds/`. Times in seconds do not change with
-the tempo; the event's length does: these are written for the default
-tempo, where a cycle is 2 s.
+the tempo; an event's length does. A block that sets no tempo is written
+for the default, where a cycle is 2 s.
 
 ```strudel
 riser: s("white").slow(2).lpf(200).lpenv(6).lpattack(4).lpq(6).attack(4).release(.05).gain(.8)
@@ -242,8 +239,10 @@ subdrop: note("c1").s("sine").penv(24).pdecay(1.5).decay(2).sustain(0).gain(1).s
 
 - **riser / downlifter**: the length is `.slow`, `lpattack` and `attack`
   (or `decay`) changed together. A rising sweep is `lpenv(+n).lpattack`, a
-  falling one `lpenv(-n).lpattack`. A riser ends on the cut: place its last
-  sample there, and let an `impact` start on it.
+  falling one `lpenv(-n).lpattack`. A riser is loudest at the end of its
+  event: in a piece, make it the last event before the hit
+  (`strudel-forms`); as a file, render it with `tail: 0` and start the
+  impact on its last frame.
 - **pitchriser**: `panchor(0)` makes the pitch start on the note and rise;
   keep `release` short, the pitch snaps back at note-off.
 - **whoosh**: 1 s, left to right; `pan(1)` with `depthabs: -2` for right to

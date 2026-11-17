@@ -106,17 +106,19 @@ arp: n("0 2 1 3 2 4 3 1").chord(prog).anchor("e5").voicing().s("triangle").decay
 tune: n("<[~ ~ 4 ~] [~ 2 ~ ~] [~ ~ 3 4] [1 ~ ~ ~]>").scale("A4:minor").s("sine").decay(.8).sustain(.1).release(.8).gain(.35)
 ```
 
-- `chord(prog).voicing()` is the chord; `.anchor("a4")` sets the note the
-  voicing stays under, so chords move smoothly in one register.
+- `chord(prog).voicing()` is the chord, in five notes even for a plain `C`
+  (four for `Csus`, `C5`): a pad of them wants `gain(.12–.2)`.
+  `.anchor("a4")` sets the note the voicing stays under, so chords move
+  smoothly in one register.
 - `prog.rootNotes(2).note()` is the bass: each chord's root in octave 2.
 - `n("0 2 1 3").chord(prog).voicing()` plays the chord's own notes by
   number: an arpeggio that follows the harmony.
 - A melody is scale steps: `n(…).scale("A4:minor")`. Rests are `~`.
 - Symbols that give notes: `C` `Cm` `C7` `Cm7` `C^7` (major seventh) `C6`
   `Cm6` `C9` `Cm9` `C^9` `Cadd9` `C69` `Csus` `C7sus` `C5` `C2` `Co` `Co7`
-  `Cm7b5` `Caug` `C11` `C13` `C7b9` `C7#9`. **Silent, with no error:**
-  `Cmaj7`, `Cdim`, `Csus4`, `Csus2`, a lower-case root. `.dict("triads")`
-  gives three-note chords, and is silent on a seventh.
+  `Cm7b5` `Caug` `C11` `C13` `C7b9` `C7#9`. Any other is silent, with no
+  error. `.dict("triads")` gives three-note chords, and is silent on a
+  seventh.
 - The other way is scale steps, with one line of degrees for every part:
   `const deg = "<0 0 5 6>"`, then `n("0,2,4".add(deg)).scale("D3:minor")`
   for the chord and `n(deg).scale("D2:minor")` for the bass
@@ -146,14 +148,14 @@ works on parts that play many notes, and not on a held one.
 record says so.
 
 **A loop** is rendered with `loop: true` and a `tail`. It is seamless only
-when every part repeats within its length:
+when every part repeats within its length; the render names the parts that
+do not.
 
-- an alternation `<a b c d>` repeats every 4 cycles, `<…>/2` every 8: the
-  loop's length must be a multiple of every one of them;
-- chance does not repeat: close it, `.degradeBy(.7).ribbon(7, 8)` plays
-  cycles 7–14 of the random pattern for ever (not from 0: `strudel-music`
-  says why);
-- nothing ends on a hard chord: the loop's last bar leads into its first.
+- An alternation `<a b c d>` repeats every 4 cycles, `<…>/2` every 8: the
+  loop's length must be a multiple of every one of them.
+- Chance is closed with `.ribbon(7, 8)` (`strudel-music`, Chance), its
+  length a divisor of the loop's.
+- Nothing ends on a hard chord: the loop's last bar leads into its first.
 
 ## An event on a timecode
 
@@ -178,7 +180,8 @@ to leave the voice its room.
 - **Darker**: pad `lpf` 900 → 450, the plucks' filter capped near 1.7 kHz.
   (High-passing the pad at 300 Hz did nothing for the voice.)
 - **Softer**: attacks of 15 ms and up, a sine bass, the kick halved and
-  low-passed at 180 Hz.
+  low-passed at 180 Hz — 2 dB under the bass, where the full version has it
+  5 over.
 - **A flat level**: no build, no drops — the edit sets how loud it is.
 - **Air above the voice is fine**: a quiet shaker over 9 kHz keeps it alive.
 - **A loop**, so it fits any length of narration.

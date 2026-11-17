@@ -101,9 +101,10 @@ Each of these was measured.
   `.voicing()`.
 - **A wrong name is silence, not an error.** Scales take colons —
   `"C:minor"`, `"A2:minor:pentatonic"`; `"C minor"`, `"C:min"`, `"C:maj"`
-  lose notes or all of them. Chords: `Cmaj7`, `Cdim`, `Csus4` and a
-  lower-case root play nothing; write `C^7`, `Co`, `Csus`. After writing
-  harmony, check that **every cycle has events**.
+  lose notes or all of them. Chords: `Cmaj7`, `Cdim`, `Csus4`, `Csus2` and
+  a lower-case root play nothing; write `C^7`, `Co`, `Csus` (`strudel-forms`
+  lists the symbols that work). After writing harmony, check that **every
+  cycle has events**.
 - `.add("<0 3>")` after `n(…)` or `note(…)` changes nothing: add inside,
   `n("0,2,4".add("<0 3 4 5>"))`, or add a `note(…)`.
 
@@ -113,6 +114,9 @@ Each of these was measured.
   `brown` 25.
 - Chords add: three notes are +7 dB of peak, six +11. A four-note pad wants
   `gain(.25–.4)`.
+- **What starts on the same sample adds at its peak**: a kick at −5.9 dBFS,
+  a bass at −13.7 and a chord at −16.6 peak at −3.1 together. The piece's
+  highest peak is where most parts meet, usually beat 1.
 - `gain`, `postgain` and `velocity` are plain factors: half is −6 dB. A
   later `.gain()` **replaces** an earlier one, also inside a `stack`: scale
   a stack, or every part with `all(x => x.postgain(.7))`, by `postgain`.
@@ -127,6 +131,7 @@ Each of these was measured.
   (sustain 0).
 - **A decay stops where its event ends.** A bell on eighth notes is a short
   note unless it has a `release` to ring in: `decay(2).sustain(0).release(1.5)`.
+  Only `sbd` rings for its whole `decay`, whatever its event's length.
 - The amplitude envelope is linear: a 1 s decay is gone at 1.0 s sharp.
   Filter and FM envelopes are exponential.
 - `clip(.5)` halves a note's length; `legato` is the same.
@@ -139,9 +144,11 @@ Each of these was measured.
   after the control.
 
 **Space**
-- **One reverb and one delay per orbit.** Parts with different `rsize` or
-  `delaytime` on the same orbit cut each other's tails: give each its own
-  `.orbit(2)`, `.orbit(3)`…
+- **An orbit has one reverb and one delay.** Parts that ask it for
+  different `rsize`, or a different `delaytime` or `delayfeedback`, cut each
+  other's tails, and the check warns. Give them the same values — an
+  `rsize` written on one part serves those that write none; a `delay` with
+  no time asks for the default — or each its own `.orbit(2)`, `.orbit(3)`…
 - `room` is the amount; the length is `.rsize(seconds)`, 2 by default.
   `room(".5:4")` does not set it. A reverb rings about 0.6 × `rsize`
   seconds after the sound: that is the `tail` to ask for.
@@ -166,8 +173,8 @@ Each of these was measured.
   ones it finds. `crush(1)` and `crush(2)` render silence. `compressor` is
   not a limiter: it works on each note and makes the mix louder.
 - These do not exist: `seqP`, `ur`, `whenmod`, `while`, `sew`, `stitch`,
-  `fix`, `rot`, `humanize`, `rolled`, `arpeggiate`, `fadeIn`, `fadeOut`,
-  `once`, `euclidOff`.
+  `fix`, `rot`, `humanize`, `rolled`, `arpeggiate`, `once`, `euclidOff`,
+  and `fadeIn`/`fadeOut` on a pattern (a fade is the render's).
 
 **Chance**
 - `rand`, `irand`, `perlin`, `degradeBy`, `sometimes`, `?` give the same
@@ -209,27 +216,40 @@ a variant.
 | One instrument, or the piece without one | `only: ["bass"]`, `mute: ["lead"]` |
 | Stems for the cut to mix | `stems: true` |
 | A sound effect | its part alone (`only`), a few cycles, a `tail`, `output: "assets/audio/…"` |
+| A sound the next one cuts (a riser into a hit) | `tail: 0`; the render then says it is still sounding where it ends, which is what was asked |
 | Another take of the same notes | `seed` |
 
-A file is brought to −16 LUFS with one gain (`loudness: null` keeps its own
-level, as a one-shot effect usually should). Rendering runs several times
-faster than the music; a render holds 15 minutes at most.
+`from`, `cycles` and `lead` are cycles; `tail`, `fadeIn` and `fadeOut` are
+seconds. A file is brought to −18 LUFS with one gain, its peaks kept under
+−1 dBFS (`loudness`, `peak`; `loudness: null` keeps its own level, as a
+one-shot effect usually should). Rendering runs several times faster than
+the music; a render holds 15 minutes at most.
 
 ## Mixing by numbers
 
-`pva_music_render` returns, for the file and for each stem: loudness,
-peak, the share of the energy in six bands, the centroid, the crest, the
-stereo correlation and width, and the level through time. Read them as a
-person would listen.
+`pva_music_render` returns, for the file: its loudness, its peak and when
+it falls, the share of the energy in six bands, the centroid, the crest,
+the stereo correlation and width, and the level through time; and for each
+stem its loudness, peak, crest, strongest bands, centroid and correlation.
+Read them as a person would listen. The bands: `sub` under 60 Hz, `bass`
+60–250, `low-mid` 250–500, `mid` 500–2000, `high-mid` 2–6 kHz, `high`
+above.
 
-**Headroom.** Nothing limits the engine: parts add, and above 0 dBFS the
-studio's player clips. Balance the parts with `gain`, render, and read the
-peak the piece had *before* the tool's gain. Aim it at −6 to −3 dBFS with
-one line, the master fader — `all(x => x.postgain(k))`, k = 10^((target −
-peak) / 20), so 3 dB down is .7 — and then let no part use `postgain`
-itself. When a render says the file was **held by its peaks** (crest above
-about 20 dB), one part hits much harder than the rest plays: lower it or
-soften its attack; the whole comes up.
+**Headroom.** Nothing limits the engine, and what goes over 0 dBFS clips
+when a person plays the piece in the studio — the render's gain hides it in
+the file. The render prints the peak the piece itself has: keep it under 0
+with a few dB to spare. One line does it, the master fader:
+`all(x => x.postgain(k))`, k = 10^(dB / 20), so 3 dB down is .7 — and then
+no part uses `postgain` itself.
+
+**Loudness.** The file is then brought to −18 LUFS as far as the −1 dBFS
+ceiling allows. Music with drums peaks 15–18 dB over its loudness and can
+land up to 1 dB under: the edit sets the level anyway. A render 3 dB or more
+short says so, with the second and the cycle of its highest peak. Look at
+what meets there (`pva_music_check` with `from` that cycle, `cycles: 1`,
+`events: 8`; the stems' peaks say which part is hardest): lower that part,
+move an accent off that beat, or give a bass or a chord that starts with
+the kick `attack(.03)` — 1 dB.
 
 **Balance, by the stems' loudness** (LUFS; what held across the tested
 pieces in `strudel-forms`):
@@ -244,7 +264,8 @@ pieces in `strudel-forms`):
 | shakers, textures | 18 dB or more |
 
 With no drums, set the others against the main instrument: bass about 3 dB
-under it, a pad or a top line 5–6 under.
+under it, a pad or a top line 5–6 under. Under a voice the kick comes down:
+in the tested bed it is 2 dB under the bass and level with the pad.
 
 **Spectrum** (share of the energy per band, as the render prints it):
 
@@ -274,8 +295,9 @@ render says so.
 **The level through time** is the piece's shape. Windows that fall to −50
 between notes are notes cut short: `clip(2)` or a longer `release`. A build
 shows as a rise, a section as a step: a flat line where a build was meant
-is a ramp on a held note. A loop whose first and last windows differ has
-too short a tail, or something in it that does not repeat.
+is a ramp on a held note. A loop is checked for you: the render compares
+what each part plays in the loop's cycles and in the next ones, and names
+the parts that do not come round.
 
 **Under a voice** a bed measures: `high-mid` share at −35 or under, `mid` at
 −14 or under, centroid under 200 Hz, the level through time within 3–4 dB,

@@ -68,12 +68,21 @@ Two languages of the same family were considered:
   parts, a lead-in, a tail, or a seamless loop (the tail folded over the
   start), and each part alone as a stem at the gain it has in the mix.
 - **Levelled with one gain, never a compressor.** A file is brought to a
-  loudness (−16 LUFS unless asked otherwise) when its peaks allow it; when
-  they do not it stays under the ceiling, quieter than asked, and says so.
+  loudness (−18 LUFS unless asked otherwise) when its peaks allow it; when
+  they do not it stays under the ceiling (−1 dBFS), quieter than asked, and
+  its record says by how much and where its highest peak is. −18 is what
+  music with drums reaches under that ceiling without being squeezed, and
+  the level the pieces of a long version are set to.
 - **`<file>.music.json`** beside every rendered file: the piece and the file
   by hash, what was asked, the tempo, the parts, the level, the measurements
-  (loudness, spectrum by band, stereo image, the level through time), the
-  workspace samples it loaded, and what to listen for.
+  (loudness, spectrum by band, stereo image, the level through time; for
+  each stem its loudness, bands and width), the workspace samples it
+  loaded, and what to listen for.
+- **A check and a render say what the numbers show is wrong**: a sound that
+  does not exist, a control the engine ignores, parts that ask one orbit
+  for two reverbs, a loop whose parts do not play after its last cycle what
+  they played from its first (their events are compared over two passes),
+  an ending cut while it sounds.
 - **Synthesis first.** The engine's own sounds are oscillators and noise.
   Strudel's usual drum machines, pianos and soundfonts are sample packs on
   other people's servers, of mixed and often unstated licence: none is

@@ -36,4 +36,4 @@ hit:   only({ x: stack(
          s("sbd").decay(1.2).pdecay(.25).penv(24).gain(.5),
          s("white").lpf(3000).decay(.6).sustain(0).gain(.25),
          note("d1").s("sine").decay(3).sustain(0).release(1.5).gain(.35)
-       ).room(.6).rsize(5) })
+       ).room(.6).rsize(6) })

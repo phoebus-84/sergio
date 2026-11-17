@@ -2,23 +2,26 @@
 // This keeps them so:
 // - every ```strudel block in a strudel-* skill is a complete piece that
 //   evaluates with nothing to report, and sounds;
-// - every whole piece beside the forms skill is rendered from its first cycle
-//   to its last, as its own first lines say to, and comes out as long as they
-//   say, without a problem and under full scale.
+// - every whole piece beside the forms skill is rendered as a production
+//   renders it, from its first cycle to its last, as its own first lines say
+//   to: it comes out as long as they say, under full scale before any gain,
+//   at the studio's loudness, and with nothing for its record to warn about.
 // A block that stops working — a control a new Strudel renamed, a typo in an
 // edit — fails here, not in a production. Without a Chrome to render with,
 // only the skills' own bookkeeping is checked.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SKILLS = join(root, "skills", "shared");
-const built = existsSync(join(root, "packages", "strudel", "dist", "index.js"));
+const built = existsSync(join(root, "packages", "strudel", "dist", "index.js")) && existsSync(join(root, "studio", "episode", "dist", "index.js"));
 const strudel = built ? await import("@av/strudel") : null;
+const studio = built ? await import("@studio/episode") : null;
 const chrome = (() => {
   try {
     return strudel ? strudel.findChrome() : null;
@@ -107,8 +110,10 @@ test("every block of the skills evaluates clean and sounds", { skip: chrome ? fa
   }
 });
 
-test("every whole piece renders from end to end as its first lines say", { skip: chrome ? false : "no Chrome to render with", timeout: 1_800_000 }, async (t) => {
+test("every whole piece renders from end to end as its first lines say, with nothing to warn about", { skip: chrome ? false : "no Chrome to render with", timeout: 1_800_000 }, async (t) => {
   const renderer = await strudel.StrudelRenderer.launch();
+  const workspace = mkdtempSync(join(tmpdir(), "music-skills-"));
+  mkdirSync(join(workspace, "music"));
   try {
     for (const piece of pieces) {
       await t.test(piece.name, async () => {
@@ -116,18 +121,22 @@ test("every whole piece renders from end to end as its first lines say", { skip:
         const seen = await renderer.inspect(piece.code, { to: how.cycles });
         assert.deepEqual(problemsOf(seen), []);
         assert.ok(seen.parts.length >= 3 && seen.parts.every((p) => p.events > 0), "every part plays somewhere in the piece");
-        const made = await renderer.render(piece.code, { to: how.cycles, tail: how.tail, loop: how.loop });
-        assert.deepEqual(problemsOf(made), []);
-        assert.ok(Math.abs(made.seconds - how.seconds) < 0.06, `${made.seconds.toFixed(2)} s rendered, ${how.seconds} s written`);
-        const measured = strudel.analyzeAudio(made.channels, made.sampleRate);
-        assert.equal(measured.silent, false);
-        // Mixed with headroom: before any levelling the piece stays under full scale, and it holds together in mono.
-        assert.ok(measured.peak <= 0, `peaks at ${measured.peak} dBFS before levelling`);
-        assert.ok(measured.stereo.correlation > 0.2, `stereo correlation ${measured.stereo.correlation}`);
-        assert.ok(measured.head < 0.5, `${measured.head} s of silence at the start`);
+        writeFileSync(join(workspace, "music", piece.name), piece.code);
+        const { record } = await studio.renderMusic(workspace, { path: `music/${piece.name}`, cycles: how.cycles, tail: how.tail, ...(how.loop ? { loop: true } : {}) }, { renderer });
+        t.diagnostic(`${piece.name}: ${record.level.loudness} LUFS, peak ${record.level.peak} dBFS (${(record.level.peak - record.level.gain).toFixed(1)} before the gain), crest ${record.analysis.crest} dB`);
+        // What a production would be told to listen for: a seam in a loop, peaks that hold it down, a cut-off ending.
+        assert.deepEqual(record.concerns, []);
+        assert.ok(Math.abs(record.output.durationSeconds - how.seconds) < 0.06, `${record.output.durationSeconds} s rendered, ${how.seconds} s written`);
+        // Mixed with headroom: before any gain the piece stays under full scale, where a person playing it would hear it clip.
+        const own = record.level.peak - record.level.gain;
+        assert.ok(own <= 0, `peaks at ${own.toFixed(1)} dBFS before levelling`);
+        assert.ok(Math.abs(record.level.loudness - studio.MUSIC_LOUDNESS) < 3, `${record.level.loudness} LUFS`);
+        assert.ok(record.analysis.stereo.correlation > 0.2, `stereo correlation ${record.analysis.stereo.correlation}`);
+        assert.ok(record.analysis.head < 0.5, `${record.analysis.head} s of silence at the start`);
       });
     }
   } finally {
     await renderer.close();
+    rmSync(workspace, { recursive: true, force: true });
   }
 });

@@ -414,21 +414,24 @@ Each labelled statement is a **part**. Three tools work on a piece:
 
 - `pva_music_check` evaluates it without a sound: its tempo, how many events
   each part plays in every cycle, their notes and sounds, and what is wrong (a
-  syntax error, a sound that does not exist, a silent part). It also takes
-  `code`, to try something before saving it.
+  syntax error, a sound that does not exist, a silent part, a control the
+  engine ignores, two reverbs asked of one orbit). It also takes `code`, to
+  try something before saving it.
 - `pva_music_render` writes a WAV (48 kHz stereo, 24-bit):
   - the whole piece or a stretch: `from`, and `cycles` or `seconds`;
   - every part or some: `only`, `mute`; with `stems`, each part alone too,
     at the gain it has in the mix;
   - with a `tail` for reverb to ring out, or as a seamless `loop`;
-  - brought to −16 LUFS with one gain (`loudness`, `peak` to change it),
-    never compressed.
+  - brought to −18 LUFS with one gain, its peaks under −1 dBFS (`loudness`,
+    `peak` to change them), never compressed.
 
   The file goes to `assets/sounds/<piece>.wav` unless `output` says
   otherwise — `music/…` for a film's score, `assets/audio/…` for a scene's
   sound. `<file>.music.json` beside it names the piece and the file by hash
-  and holds what was measured: the level, the spectrum by band, the stereo
-  image, the level through time, and what to listen for.
+  and holds what was measured: the level and where the highest peak is, the
+  spectrum by band, the stereo image, the level through time, the same for
+  each stem, and what to listen for — a loop that does not come round, an
+  ending cut while it sounds, peaks that kept it well under its loudness.
 - `pva_music` lists a workspace's pieces and what was rendered from each,
   and which renders went stale when the piece changed.
 

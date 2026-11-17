@@ -29,7 +29,7 @@ roll:  only({ b: s("white*16").mask("<0!7 1>")         // snare roll in the last
 hats:  only({ b: s("white*4"), p: s("white*8") }).hpf(8000).decay(.03).gain("[.7 .4]*4").pan(.6)
 lead:  only({ p: n("<[4 ~ 4 5] [4 ~ 2 ~] [0 ~ 2 4] [5 4 2 ~]>") })   // 4-bar melody, played twice in the peak
          .scale("F5:major").s("triangle").lpf(3500).attack(.01).decay(.3).sustain(.4).release(.2)
-         .delay(.3).delaytime(60/120*.75).delayfeedback(.35).room(.3).gain(.75).pan(.55)
+         .delay(.3).delaytime(60/120*.75).delayfeedback(.3).room(.3).gain(.75).pan(.55)
 riser: only({ b: s("white").slow(2).mask("<0!6 1!2>")  // only the 2-bar event that starts at bar 6 of the section
               .lpf(300).lpenv(5.5).lpattack(3.9).attack(3.9).release(.05).gain(.4) })
 crash: only({ p: s("white").hpf(4000).decay(1.5).sustain(0).mask("<1 0!7>") }).room(.4).gain(.4)
