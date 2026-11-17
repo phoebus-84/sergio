@@ -13,8 +13,7 @@
 //
 // - the model is read after it arrives: how many triangles, materials and
 //   textures it has, and that it has no skeleton. A model is not a rig;
-//   rigging it is another step, and the provenance keeps the provider's task
-//   id that step can start from;
+//   rigging it is another step (`pva_rig_model`), which takes the file;
 // - every number — the prices, the face limits — is read from the profile in
 //   @av/fal-media.
 // ---------------------------------------------------------------------------
@@ -40,6 +39,7 @@ import { resolveConfig } from "./config.js";
 import { guardEpisodePath } from "./trust-guards.js";
 import { guardWorkspacePath, workspaceOf } from "./workspace-target.js";
 import { paidCall, providerCost } from "./spend.js";
+import { IDENTITY, multiply, nodeMatrix, readGlb, type GltfDocument, type Mat4 } from "./glb.js";
 
 export const MODEL_TOOL = "pva_generate_model";
 export const MODEL_PROFILE = tripoH31ImageTo3d;
@@ -114,33 +114,6 @@ export interface ModelSummary {
   bounds?: { min: [number, number, number]; max: [number, number, number] };
 }
 
-type Mat4 = number[];
-const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-/** Column-major, as glTF writes them. */
-const multiply = (a: Mat4, b: Mat4): Mat4 => IDENTITY.map((_, i) => {
-  const column = Math.floor(i / 4), row = i % 4;
-  return a[row]! * b[column * 4]! + a[4 + row]! * b[column * 4 + 1]! + a[8 + row]! * b[column * 4 + 2]! + a[12 + row]! * b[column * 4 + 3]!;
-});
-function nodeMatrix(node: { matrix?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }): Mat4 {
-  if (node.matrix?.length === 16) return node.matrix;
-  const [tx, ty, tz] = node.translation ?? [0, 0, 0], [x, y, z, w] = node.rotation ?? [0, 0, 0, 1], [sx, sy, sz] = node.scale ?? [1, 1, 1];
-  return [
-    (1 - 2 * (y! * y! + z! * z!)) * sx!, 2 * (x! * y! + z! * w!) * sx!, 2 * (x! * z! - y! * w!) * sx!, 0,
-    2 * (x! * y! - z! * w!) * sy!, (1 - 2 * (x! * x! + z! * z!)) * sy!, 2 * (y! * z! + x! * w!) * sy!, 0,
-    2 * (x! * z! + y! * w!) * sz!, 2 * (y! * z! - x! * w!) * sz!, (1 - 2 * (x! * x! + y! * y!)) * sz!, 0,
-    tx!, ty!, tz!, 1,
-  ];
-}
-
-interface GltfDocument {
-  scene?: number;
-  scenes?: { nodes?: number[] }[];
-  nodes?: { mesh?: number; children?: number[]; matrix?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }[];
-  meshes?: { primitives: { mode?: number; indices?: number; attributes: Record<string, number> }[] }[];
-  accessors?: { count: number; min?: number[]; max?: number[] }[];
-  materials?: unknown[]; images?: unknown[]; skins?: { joints: number[] }[]; animations?: unknown[];
-}
-
 /** The box the default scene's meshes fill, from the bounds every position accessor must state. */
 function sceneBounds(gltf: GltfDocument): ModelSummary["bounds"] {
   const min: [number, number, number] = [Infinity, Infinity, Infinity], max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
@@ -174,13 +147,10 @@ function sceneBounds(gltf: GltfDocument): ModelSummary["bounds"] {
  * read is `unknown`, and the tool says so.
  */
 export function summarizeModel(bytes: Uint8Array): ModelSummary {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (bytes.byteLength >= 23 && new TextDecoder().decode(bytes.subarray(0, 18)) === "Kaydara FBX Binary") return { format: "fbx" };
-  if (bytes.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67 || view.getUint32(16, true) !== 0x4e4f534a) return { format: "unknown" };
-  const length = view.getUint32(12, true);
-  if (20 + length > bytes.byteLength) return { format: "unknown" };
+  const gltf = readGlb(bytes)?.json;
+  if (!gltf) return { format: "unknown" };
   try {
-    const gltf = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))) as GltfDocument;
     let triangles = 0;
     for (const mesh of gltf.meshes ?? []) {
       for (const primitive of mesh.primitives ?? []) {
@@ -408,7 +378,7 @@ export function registerModelTools(pi: ExtensionAPI): void {
         profileId: result.profileId,
         schemaFingerprint: result.schemaFingerprint,
         providerRequestId: result.providerRequestId,
-        // Tripo's own id of the model: its rigging endpoints take it in place of the file.
+        // Tripo's own id of the model. Nothing on fal takes it yet; it is kept because it costs nothing to keep.
         ...(taskId ? { providerTaskId: taskId } : {}),
         idempotencyKey: result.idempotencyKey,
         modelId: params.modelId,
