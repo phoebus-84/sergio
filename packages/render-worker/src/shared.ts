@@ -250,6 +250,7 @@ export function sharedRenderer(options: SharedRendererOptions): (render: RenderT
     // assembly takes them from there, and no machine's speed counts them. When
     // what is left takes this machine less than an engine's start, it draws
     // alone: a correction redraws a few seconds and waits for no engine.
+    const queued = (r: (typeof runs)[number]) => ({ host: r.host, prior: r.weight, fromFront: r.host === front });
     const queueReady = (async () => {
       const toDraw = Array.from({ length: total }, (_, i) => i);
       let drawing = runs;
@@ -266,9 +267,9 @@ export function sharedRenderer(options: SharedRendererOptions): (render: RenderT
           log(`${cached.size} s of video cached here, ${missing.length} s to draw${drawing !== runs ? `, ${LOCAL} alone` : ""}`);
         }
         report();
-        return new SegmentQueue(missing, drawing.map((r) => ({ host: r.host, prior: r.weight, fromFront: r.host === front })));
+        return new SegmentQueue(missing, drawing.map(queued));
       }
-      return new SegmentQueue(toDraw, drawing.map((r) => ({ host: r.host, prior: r.weight, fromFront: r.host === front })));
+      return new SegmentQueue(toDraw, drawing.map(queued));
     })();
 
     /** `host` draws chunks from the queue until it has nothing more to draw. */
@@ -438,6 +439,18 @@ export function sharedRenderer(options: SharedRendererOptions): (render: RenderT
         for (const run of warm) if (run.host !== LOCAL) void engineOf(run.host).catch(() => undefined);
       }, () => undefined);
       const work = runs.map(drawShare);
+      // This machine, when it assembles and draws nothing, readies the
+      // soundtrack while the engines draw: mixed and normalised at the end, it
+      // was 3.6 s of a short's 31 s with every machine but this one idle.
+      const sound = assembler === LOCAL && !drawers.includes(LOCAL) ? (async () => {
+        try {
+          if (options.draw) await options.draw({ ...drawOptions, cacheDir: render.cacheDir!, segments: [], dir: sharedDir, audio: true });
+          else await (await openLocal()).draw({ segments: [], audio: true });
+        } catch (error) {
+          // The assembly readies it then, as before.
+          if (!abort.signal.aborted) log(`the soundtrack waits for the assembly: ${(error as Error).message}`);
+        }
+      })() : undefined;
       // A remote assembler that draws nothing still needs the files.
       if (assembler !== LOCAL && !drawers.includes(assembler)) work.push(engineOf(assembler).then(() => undefined));
       const settled = await Promise.allSettled(work.map((w) => w.catch((e: unknown) => {
@@ -445,6 +458,7 @@ export function sharedRenderer(options: SharedRendererOptions): (render: RenderT
         throw e;
       })));
       await Promise.all(travelling.values());
+      await sound;
       // Its browsers leave the assembly the memory; a remote assembler's lock is free again.
       await closeLocal();
       const failed = settled.find((s): s is PromiseRejectedResult => s.status === "rejected");

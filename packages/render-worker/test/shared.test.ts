@@ -104,6 +104,21 @@ test("a share here and one on an engine, assembled here", async () => {
   assert.ok(!existsSync(`${options.outputPath}.shared`), "the shared folder is gone");
 });
 
+test("this machine, assembling what an engine alone drew, readies the soundtrack while it draws", async () => {
+  const { ep, options } = episode();
+  const { engines, exec } = machines();
+  const here: { segments: readonly number[]; audio: boolean | undefined }[] = [];
+  const draw: SharedRendererOptions["draw"] = async (o) => {
+    here.push({ segments: o.segments, audio: o.audio });
+    return fakeDraw("local")(o);
+  };
+  const result = await renderer(exec, { hosts: ["box-a"], draw })(options);
+  assert.deepEqual(here, [{ segments: [], audio: true }], "no segment is drawn here, only the soundtrack");
+  assert.ok(engines.get("box-a")!.draws.every((d) => !d.audio));
+  assert.deepEqual(drawnBy(path.join(ep, "out.mp4")).map((d) => d.by), Array(5).fill("box-a"));
+  assert.equal(result.engine.assembler, "local");
+});
+
 test("three engines, one of them assembles: the others' segments reach it through here", async () => {
   const { ep, options } = episode();
   const { engines, exec } = machines();
