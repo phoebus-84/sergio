@@ -41,6 +41,11 @@ something. `0.1.0` was never tagged: it is whatever `main` was before this.
   casts it in a role, pinned to the release it wears. `pva_characters`,
   `pva_create_character`, `pva_update_character`, `pva_cast`, and the skills
   `character-development` and `character-forms`.
+- **A 3D model from one picture** (`model.generate`): `pva_generate_model`
+  asks Tripo H3.1 through fal for a textured model, on the episode's budget
+  at the price of what is asked, and says what came back — triangles,
+  materials, textures, and that it has no skeleton. Not yet run against the
+  real service: its tests use a stand-in.
 - **Retake** (`bench/retake`): the specification of a benchmark for what
   happens after the first take. No harness and no numbers yet.
 

@@ -8,10 +8,13 @@ Proposed. Implemented with it:
   cast resolved to what it pins;
 - the character tools (`pva_characters`, `pva_create_character`,
   `pva_update_character`, `pva_cast`) and the skills `character-development`
-  and `character-forms`.
+  and `character-forms`;
+- `model.generate`, the first of the capabilities that make a form: a 3D
+  model from one picture, by Tripo H3.1 through `@av/fal-media`
+  (`pva_generate_model`).
 
-Not implemented: the browser's view of a cast, and the capabilities that make
-a form (image to 3D model, automatic rigging, motion from text, motion from a
+Not implemented: the browser's view of a cast, and the other capabilities
+that make a form (automatic rigging, motion from text, motion from a
 generated video). They are named below so that each arrives as a provider
 behind a capability, not as a pipeline of its own.
 

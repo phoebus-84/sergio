@@ -9,6 +9,7 @@
 
 import { CODEX_PROVIDER, resolveImageProvider } from "./image-provider.js";
 import { AVATAR_SPEECH_TOOL, avatarTerms } from "./avatar-tools.js";
+import { MODEL_TOOL, modelTerms } from "./model-tools.js";
 import { elevenLabsSpeechTerms } from "./elevenlabs-speech.js";
 
 /** The CustomVoice size the worker's /synthesize loads. */
@@ -152,6 +153,15 @@ export function elevenLabsStatus(keySet: boolean): {
  * Generated video: every fal route needs only FAL_KEY, but they are different
  * tools at very different prices, so each says so on its own line.
  */
+/** 3D models through fal: one tool, priced per model. */
+export function modelGenerationStatus(falConfigured: boolean): { "model-generation": CapabilityReport } {
+  return {
+    "model-generation": falConfigured
+      ? { available: true, detail: `fal.ai Tripo H3.1 configured (${MODEL_TOOL}: picture → 3D model; ${modelTerms()})` }
+      : { available: false, detail: "FAL_KEY not set" },
+  };
+}
+
 export function videoGenerationStatus(falConfigured: boolean): {
   "video-generation": CapabilityReport;
   "video-generation-flux3-max": CapabilityReport;
