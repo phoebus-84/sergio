@@ -23,6 +23,7 @@
     "packages/video-composer",
     "packages/remotion-composer",
     "packages/render-worker",
+    "packages/strudel",
     "studio/contracts",
     "studio/series",
     "studio/episode",
