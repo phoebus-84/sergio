@@ -48,6 +48,11 @@ export default defineConfig(({ command }) => ({
   build: {
     target: "es2022",
   },
+  // The Strudel engine reaches its clock worker by a URL relative to its own
+  // file: served as it is, not folded into a pre-bundle, that URL holds.
+  optimizeDeps: {
+    exclude: ["@strudel/web"],
+  },
   server: {
     port: 5173,
     strictPort: true,

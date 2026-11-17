@@ -57,12 +57,14 @@ export interface FileEntry {
 const TEXT_EXT = new Set([
   ".md", ".txt", ".yaml", ".yml", ".json", ".jsonl", ".srt", ".vtt",
   ".ts", ".js", ".mjs", ".py", ".sh", ".css", ".html", ".xml", ".csv",
+  // A piece of music written as code (ADR-0053).
+  ".strudel",
 ]);
 
 const CONTENT_TYPES: Record<string, string> = {
   ".md": "text/markdown", ".txt": "text/plain", ".yaml": "text/yaml",
   ".yml": "text/yaml", ".json": "application/json", ".jsonl": "application/jsonl",
-  ".srt": "text/plain", ".vtt": "text/vtt", ".csv": "text/csv",
+  ".srt": "text/plain", ".vtt": "text/vtt", ".csv": "text/csv", ".strudel": "text/x-strudel",
   ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
   ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
   ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",

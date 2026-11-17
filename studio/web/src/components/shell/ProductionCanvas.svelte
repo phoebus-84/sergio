@@ -25,6 +25,7 @@
   import StoryboardTab from "../storyboard/StoryboardTab.svelte";
   import NarrationTab from "../narration/NarrationTab.svelte";
   import AudioTab from "../audio/AudioTab.svelte";
+  import MusicTab from "../music/MusicTab.svelte";
   import RenderViewer from "../render/RenderViewer.svelte";
   import AgentBar from "../agent/AgentBar.svelte";
   import FilmBoard from "../film/FilmBoard.svelte";
@@ -161,6 +162,8 @@
         <NarrationTab />
       {:else if studio.view === "audio"}
         <AudioTab />
+      {:else if studio.view === "music"}
+        <MusicTab />
       {:else if studio.view === "render"}
         <RenderViewer />
       {/if}

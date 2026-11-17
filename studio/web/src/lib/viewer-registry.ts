@@ -26,6 +26,7 @@ import ImageViewer from "$components/viewers/ImageViewer.svelte";
 import VideoViewer from "$components/viewers/VideoViewer.svelte";
 import AudioViewer from "$components/viewers/AudioViewer.svelte";
 import DownloadViewer from "$components/viewers/DownloadViewer.svelte";
+import StrudelViewer from "$components/music/StrudelViewer.svelte";
 
 /** Props every viewer receives. */
 export interface ViewerProps {
@@ -54,6 +55,8 @@ const REGISTRY: Record<string, Component<ViewerProps>> = {
   video: VideoViewer,
   audio: AudioViewer,
   download: DownloadViewer,
+  // A piece of music written as code: its text, with a player and a render.
+  strudel: StrudelViewer,
   // model-3d, data-table and timeline are declared in the contract but have no
   // component yet. They resolve to the download card until one is registered,
   // which is the point: the contract can describe more than the studio renders.
@@ -84,6 +87,7 @@ export function resolveViewer(
   const type = contentType?.toLowerCase() ?? "";
   const extension = path?.toLowerCase().split(".").pop() ?? "";
 
+  if (extension === "strudel" || type.includes("strudel")) return "strudel";
   if (type.includes("yaml") || extension === "yaml" || extension === "yml") {
     return "yaml";
   }

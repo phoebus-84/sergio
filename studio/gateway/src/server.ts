@@ -16,6 +16,7 @@ import { registerWorkspaceFileRoutes } from "./routes/workspace-files.js";
 import { registerAssetRoutes } from "./routes/assets.js";
 import { registerBudgetRoutes } from "./routes/budget.js";
 import { registerFilmRoutes } from "./routes/films.js";
+import { registerMusicRoutes } from "./routes/music.js";
 import * as path from "node:path";
 import { realpathSync } from "node:fs";
 import { registerOpenApiRoute } from "./contract/index.js";
@@ -253,6 +254,8 @@ export async function createGateway(
     ["episode", "/api/channels/:channel/series/:series/episodes/:episode"],
   ] as const) {
     registerWorkspaceFileRoutes(app, { root: libraryRoot, level, prefix });
+    // Music written as code, at the same levels (ADR-0053).
+    registerMusicRoutes(app, { root: libraryRoot, level, prefix });
   }
 
   // Films: the tree, the footage, the cuts and their renders (ADR-0050).

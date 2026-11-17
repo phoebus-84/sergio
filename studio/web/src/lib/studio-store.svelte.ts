@@ -24,6 +24,7 @@ export type View =
   | "storyboard"
   | "narration"
   | "audio"
+  | "music"
   | "render";
 
 export type InspectorTab =
@@ -62,6 +63,7 @@ export const VIEWS: Record<Level, ViewDef[]> = {
     { key: "storyboard", label: "Storyboard" },
     { key: "narration", label: "Narration" },
     { key: "audio", label: "Audio" },
+    { key: "music", label: "Music" },
     { key: "render", label: "Render" },
   ],
 };
@@ -79,18 +81,21 @@ export const FILM_VIEWS: Record<Level, ViewDef[]> = {
     { key: "overview", label: "Board" },
     { key: "cut", label: "Cut" },
     { key: "footage", label: "Footage" },
+    { key: "music", label: "Music" },
     { key: "stages", label: "Stages" },
     { key: "files", label: "Files" },
   ],
   series: [
     { key: "overview", label: "Scene" },
     { key: "cut", label: "Cut" },
+    { key: "music", label: "Music" },
     { key: "stages", label: "Stages" },
     { key: "files", label: "Files" },
   ],
   episode: [
     { key: "overview", label: "Shot" },
     { key: "cut", label: "Cut" },
+    { key: "music", label: "Music" },
     { key: "stages", label: "Stages" },
     { key: "files", label: "Files" },
   ],

@@ -32,14 +32,15 @@ const MIME: Record<string, string> = {
   ".json": "application/json",
 };
 
-interface Bundle { web: Buffer; harness: Buffer; assets: string; version: string }
+interface Bundle { web: Buffer; harness: Buffer; session: Buffer; assets: string; version: string }
 let bundle: Bundle | null = null;
 
 function loadBundle(): Bundle {
   if (bundle) return bundle;
   const web = require.resolve("@strudel/web/dist/index.mjs");
   const version = (JSON.parse(readFileSync(join(dirname(web), "..", "package.json"), "utf-8")) as { version: string }).version;
-  bundle = { web: readFileSync(web), harness: readFileSync(join(HERE, "page", "harness.js")), assets: join(dirname(web), "assets"), version };
+  const page = (name: string) => readFileSync(join(HERE, "page", name));
+  bundle = { web: readFileSync(web), harness: page("harness.js"), session: page("session.js"), assets: join(dirname(web), "assets"), version };
   return bundle;
 }
 
@@ -117,7 +118,7 @@ class Session {
   ) {}
 
   static async open(browser: Browser, options: PieceOptions): Promise<Session> {
-    const { web, harness, assets } = loadBundle();
+    const { web, harness, session, assets } = loadBundle();
     const context = await browser.newContext();
     const requests: Request[] = [];
     const root = options.files ? realpathSync(options.files) : null;
@@ -140,6 +141,7 @@ class Session {
         if (path === "/") return await route.fulfill({ contentType: "text/html", body: "<!doctype html><meta charset=\"utf-8\"><title>strudel</title><body></body>" });
         if (path === "/__strudel__/web.mjs") return await route.fulfill({ contentType: "text/javascript", body: web });
         if (path === "/__strudel__/harness.js") return await route.fulfill({ contentType: "text/javascript", body: harness });
+        if (path === "/__strudel__/session.js") return await route.fulfill({ contentType: "text/javascript", body: session });
         if (path.startsWith("/__strudel__/assets/")) {
           const file = join(assets, path.slice("/__strudel__/assets/".length).replace(/[^\w.-]/g, ""));
           return existsSync(file) ? await route.fulfill({ contentType: "text/javascript", body: readFileSync(file) }) : await route.fulfill({ status: 404, body: "" });

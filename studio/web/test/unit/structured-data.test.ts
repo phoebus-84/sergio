@@ -82,6 +82,8 @@ test("text that is one JSON value is shown as fields; a log of lines stays text"
   expect(resolveViewer("text", "application/jsonl", "journal/events.jsonl")).toBe("text");
   expect(resolveViewer("text", null, "film.yaml")).toBe("yaml");
   expect(resolveViewer("markdown", "text/markdown", "brief.md")).toBe("markdown");
+  // A piece of music is text with a player.
+  expect(resolveViewer("text", "text/x-strudel", "music/theme.strudel")).toBe("strudel");
   // An artifact that asked for a viewer keeps it.
   expect(resolveViewer("download", "application/json", "data.json")).toBe("download");
 });
