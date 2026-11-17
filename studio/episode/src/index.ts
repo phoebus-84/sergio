@@ -26,3 +26,4 @@ export type { MediaRules } from "./media-integrity.js";
 export * from "./mapillary-produce.js";
 export * from "./take-verify.js";
 export * from "./audio-edit.js";
+export * from "./music.js";

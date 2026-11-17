@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.studio.video/v1alpha1/music-render.schema.json",
+  "title": "An audio file rendered from a piece of music written as code: the piece and the file by hash, what was asked, what was measured (ADR-0053)",
+  "$defs": {
+    "Hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "Path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$", "description": "Relative to the workspace." },
+    "Level": { "type": ["number", "null"], "description": "A level in dB; null when there is nothing to measure." },
+    "Part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "muted", "selected", "solo"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "The part's label in the code; $1, $2… for unlabelled ones." },
+        "muted": { "type": "boolean", "description": "Written muted in the code." },
+        "selected": { "type": "boolean", "description": "It plays in this file." },
+        "solo": { "type": "boolean", "description": "Its label solos it: the engine plays such parts alone." }
+      }
+    },
+    "Stem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["part", "path", "hash", "loudness", "peak"],
+      "properties": {
+        "part": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/Path" },
+        "hash": { "$ref": "#/$defs/Hash" },
+        "loudness": { "$ref": "#/$defs/Level", "description": "Integrated, LUFS, at the gain it has in the mix." },
+        "peak": { "$ref": "#/$defs/Level", "description": "dBFS." }
+      }
+    },
+    "MusicRender": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "engine", "source", "request", "tempo", "range", "output", "parts", "level", "analysis", "inputs", "fetched", "stems", "concerns", "createdAt"],
+      "properties": {
+        "apiVersion": { "const": "studio.video/v1alpha1" },
+        "kind": { "const": "MusicRender" },
+        "engine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": { "name": { "const": "strudel" }, "version": { "type": "string", "minLength": 1 } }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "hash"],
+          "properties": { "path": { "$ref": "#/$defs/Path" }, "hash": { "$ref": "#/$defs/Hash" } },
+          "description": "The piece: the code this file was rendered from."
+        },
+        "request": { "type": "object", "description": "What was asked, as it was given: the stretch, the parts, the tail or the loop, the seed, the level." },
+        "tempo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cps", "cyclesPerMinute"],
+          "properties": { "cps": { "type": "number", "exclusiveMinimum": 0 }, "cyclesPerMinute": { "type": "number", "exclusiveMinimum": 0 } }
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": { "from": { "type": "number", "minimum": 0 }, "to": { "type": "number", "exclusiveMinimum": 0 } },
+          "description": "The cycles rendered."
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "hash", "durationSeconds", "bodySeconds", "sampleRate", "channels", "loop"],
+          "properties": {
+            "path": { "$ref": "#/$defs/Path" },
+            "hash": { "$ref": "#/$defs/Hash" },
+            "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
+            "bodySeconds": { "type": "number", "exclusiveMinimum": 0, "description": "Seconds that are the cycles themselves; what follows is the tail." },
+            "sampleRate": { "type": "integer", "minimum": 8000 },
+            "channels": { "enum": [1, 2] },
+            "loop": { "type": "boolean", "description": "The tail is folded over the start: the file repeats without a seam." }
+          }
+        },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/Part" } },
+        "level": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gain", "basis", "held", "loudness", "peak"],
+          "properties": {
+            "gain": { "type": "number", "description": "The one gain applied to the render, dB." },
+            "basis": { "enum": ["loudness", "peak", "given", "none"] },
+            "held": { "type": "boolean", "description": "The peak ceiling kept the file under the loudness asked for." },
+            "loudness": { "$ref": "#/$defs/Level", "description": "Integrated, LUFS." },
+            "peak": { "$ref": "#/$defs/Level", "description": "dBFS." }
+          }
+        },
+        "analysis": { "type": "object", "description": "The file measured: spectrum by band, stereo image, level through time (@av/strudel's AudioAnalysis)." },
+        "inputs": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Hash" }, "description": "Every file of the workspace the piece loaded as a sample, by its path." },
+        "fetched": {
+          "type": "array",
+          "description": "What the piece took from the network, when that was allowed.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url", "hash", "bytes"],
+            "properties": { "url": { "type": "string", "format": "uri" }, "hash": { "$ref": "#/$defs/Hash" }, "bytes": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "stems": { "type": "array", "items": { "$ref": "#/$defs/Stem" } },
+        "concerns": { "type": "array", "items": { "type": "string" }, "description": "What a person should know or listen for, in plain words." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "description": "<output>.music.json beside the file a render made."
+    }
+  }
+}

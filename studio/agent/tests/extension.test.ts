@@ -129,7 +129,7 @@ describe("extensions/index.ts — tool registration", () => {
   });
 
   it("registers the expected suite of production tools", () => {
-    expect(mockPi.tools.length).toBe(91);
+    expect(mockPi.tools.length).toBe(94);
     const names = mockPi.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "pva_align_take",
@@ -192,6 +192,9 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_list_skills",
       "pva_load_skill",
       "pva_mapillary",
+      "pva_music",
+      "pva_music_check",
+      "pva_music_render",
       "pva_plan_rerun",
       "pva_poly_haven",
       "pva_probe_media",

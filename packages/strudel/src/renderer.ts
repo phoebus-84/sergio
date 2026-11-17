@@ -12,7 +12,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser, type BrowserContext, type JSHandle, type Route } from "playwright-core";
+import type { Browser, BrowserContext, JSHandle, Route } from "playwright-core";
 import { findChrome, type ChromeSearch } from "./chrome.js";
 import { StrudelError } from "./errors.js";
 import type { BuiltinSound, InspectOptions, Inspection, PartSummary, PieceOptions, Problem, RenderOptions, Rendering, Request } from "./types.js";
@@ -178,13 +178,21 @@ class Session {
   }
 }
 
-/** Run `work` until it ends, the caller aborts or the time is up; whichever comes first closes the page. */
-async function bounded<T>(options: PieceOptions, session: Session, work: () => Promise<T>): Promise<T> {
-  const limit = options.timeoutMs ?? 120_000;
+/**
+ * Run `work` until it ends, the caller aborts or the time is up; whichever comes first closes the page.
+ * Without a limit of the caller's, `work` may ask for more time once it knows how long the piece is.
+ */
+async function bounded<T>(options: PieceOptions, session: Session, work: (allow: (ms: number) => void) => Promise<T>): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   let onAbort: (() => void) | undefined;
+  let allow: (ms: number) => void = () => undefined;
   const stopped = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new StrudelError("timeout", `the piece took more than ${Math.round(limit / 1000)} s: render a shorter stretch, or raise the limit`)), limit);
+    const arm = (ms: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => reject(new StrudelError("timeout", `the piece took more than ${Math.round(ms / 1000)} s: render a shorter stretch, or raise the limit`)), ms);
+    };
+    arm(options.timeoutMs ?? 120_000);
+    if (options.timeoutMs === undefined) allow = arm;
     if (options.signal) {
       if (options.signal.aborted) reject(new StrudelError("aborted", "cancelled"));
       onAbort = () => reject(new StrudelError("aborted", "cancelled"));
@@ -192,7 +200,7 @@ async function bounded<T>(options: PieceOptions, session: Session, work: () => P
     }
   });
   try {
-    return await Promise.race([work(), stopped]);
+    return await Promise.race([work((ms) => allow(ms)), stopped]);
   } catch (error) {
     if (error instanceof StrudelError) throw error;
     throw new StrudelError("render-failed", error instanceof Error ? error.message.split("\n")[0]! : String(error));
@@ -210,6 +218,8 @@ export class StrudelRenderer {
   static async launch(search: ChromeSearch = {}): Promise<StrudelRenderer> {
     const chromePath = findChrome(search);
     try {
+      // Loaded here, not with the module: whoever imports this package without rendering does not pay for it.
+      const { chromium } = await import("playwright-core");
       const browser = await chromium.launch({ executablePath: chromePath, headless: true, args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio"] });
       return new StrudelRenderer(browser, chromePath);
     } catch (error) {
@@ -277,7 +287,7 @@ export class StrudelRenderer {
     if ((options.to === undefined) === (options.seconds === undefined)) throw new StrudelError("bad-options", "give to (a cycle) or seconds, one of them");
 
     const session = await Session.open(this.browser, options);
-    return bounded(options, session, async () => {
+    return bounded(options, session, async (allow) => {
       const evaluated = await session.harness.evaluate((h, args) => h.evaluate(args), { code, only: options.only ?? null, mute: options.mute ?? [] });
       if (!evaluated.ok) {
         const refused = requestProblems(session.requests).map((p) => p.message);
@@ -295,6 +305,8 @@ export class StrudelRenderer {
       const total = bodySeconds + lead / cps + tail;
       if (total > MAX_RENDER_SECONDS) throw new StrudelError("bad-options", `${Math.round(total)} s is more than one render holds (${MAX_RENDER_SECONDS} s): render a loop, or the piece in sections`);
 
+      // A render runs several times faster than the music; a dense piece on a slow machine may not.
+      allow(120_000 + total * 2000);
       const made = await session.harness.evaluate((h, args) => h.render(args), { from, to, lead, tail, loop: Boolean(options.loop), sampleRate });
       const channels = [new Float32Array(made.frames), new Float32Array(made.frames)] as [Float32Array, Float32Array];
       const chunk = 1 << 19;

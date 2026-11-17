@@ -97,7 +97,7 @@ export interface PieceOptions {
   /** Let the piece fetch from the network (sample packs). Off by default: a render then depends only on the code and `files`. */
   network?: boolean;
   signal?: AbortSignal;
-  /** Default 120 000. */
+  /** Give up after this long. Default: two minutes to evaluate, and for a render two more seconds for each second of music. */
   timeoutMs?: number;
 }
 
