@@ -24,6 +24,9 @@ export const CAPABILITIES = Object.freeze([
   // Generating new footage from a prompt and references, as opposed to
   // composing existing footage into a timeline.
   "video.generate",
+  // A 3D model made from a picture or from words: a mesh with no skeleton.
+  // Giving it one, and making it move, are other capabilities (ADR-0052).
+  "model.generate",
   "video.compose",
   "media.probe",
 ]);

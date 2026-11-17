@@ -17,6 +17,7 @@
         "scene.render",
         "terminal.record",
         "video.generate",
+        "model.generate",
         "video.compose",
         "media.probe"
       ]
