@@ -141,7 +141,12 @@ channel, a series or a film, not to an episode, and is the same next week:
 - `pva_rig_shot` — a rigged character filmed playing one of its clips (Blender and
   FFmpeg, local, free): a `role` of the cast or a rig of the episode, the camera and the
   framing asked for in words, a clip of video in `assets/video/`. One character on an
-  empty stage; a set is a Blender scene.
+  empty stage.
+- `pva_stage_shot` — several characters in one picture, on a set or an empty stage
+  (Blender and FFmpeg, local, free): each a role or a rig, on a mark, doing one thing
+  after another — a clip, a walk to another mark at its clip's pace, a turn, a wait. The
+  set is a `.blend` with marks; the camera is the set's or asked for in words. It says
+  who was out of the picture, hidden by the set, in another's place, or sliding.
 
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.

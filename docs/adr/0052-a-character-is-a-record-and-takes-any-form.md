@@ -27,11 +27,15 @@ Proposed. Implemented with it:
 - a model or a rig released as a form in one step (`pva_release_model`):
   the figure stood in its file — facing +z, on y 0, at the character's
   height — by one node above its scene's roots, and its clips, sheets and
-  records copied and put on the character's record.
+  records copied and put on the character's record;
+- characters staged in one picture (`pva_stage_shot`, by `@av/blender`):
+  roles of the cast or rigs of the episode on the marks of a set, each doing
+  one thing after another, a walk taken at the pace read from its clip, and
+  what a single frame does not show measured and said.
 
 Not implemented: the browser's view of a cast; motion from a generated
-video, for a body that is not a person's; a face; and a character placed by
-the studio in a set, or beside another.
+video, for a body that is not a person's; a face; and contact — a hand on a
+door, an object carried, two bodies that touch.
 
 ## Context
 

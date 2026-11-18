@@ -116,6 +116,26 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   - A rig is refused when its exam fails, and when it was not posed since
     its file last changed. A clip is released as an action only when it was
     played on the rig's sheet; the others are left out and named.
+- **Characters in one picture, and in a place**: `pva_stage_shot` films
+  several rigged characters on a set or on an empty stage, locally and at
+  no cost, into `assets/video/<shotId>.mp4`.
+  - Each player is a role of the cast or a rig of the episode. It starts at
+    a place, turned as its mark is or towards another player, and does one
+    thing after another: a clip, a walk to another place while a clip
+    plays, a turn, a wait.
+  - **A walk goes at its clip's pace**, read from the foot that carries the
+    body: the body is moved as far as its feet step. Given a time of its
+    own, a way is taken in that time, and the tool says the feet slide.
+  - **A set is a `.blend` of the episode**, in metres, with no character in
+    it. An object named `mark.<name>` is a place by that name. The set
+    brings its light and its world; its own camera films when asked, or a
+    camera is asked for in words about the players it is on.
+  - It reports what one frame does not show: the share of the shot each
+    player was in the picture, the share the set hid it, and pairs that
+    came to stand in one place.
+  - Nobody touches anything: a hand on a door, an object carried and two
+    bodies in contact are still a scene built by hand.
+  `@av/blender/stage-shot` is the reusable part.
 - **`pva_rig_shot` films a role of the cast.** `role` in place of `rigPath`
   films the release the role pins, after reading its files back against
   their record; the shot's provenance says who played it.

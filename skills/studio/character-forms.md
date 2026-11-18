@@ -108,7 +108,7 @@ drawn, then cut, pivoted and weighted in Blender by script
 (`pva_blender_create_scene`, the `blender-scene` skill). The master file is
 never saved over: an episode appends the rig and animates a copy.
 
-**A 3D rig.** Six steps, each checked before the next is paid for:
+**A 3D rig.** Seven steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
    - **Draw it to be rigged.** Arms held away from the body with ground
@@ -335,12 +335,57 @@ looked at.
    - **What is behind.** `background` is one colour; `ground: false` takes
      the floor and its shadow away, for a character laid over something
      else in the edit.
-   - **It is one character on an empty stage.** A set, two characters in one
-     picture, a camera that moves on its own, a light that means something:
-     build the scene in Blender (`blender-scene`) and append the rig there.
+   - **It is one character on an empty stage.** Two characters in one
+     picture, or a character in a place, is the next step.
    - Look at what was filmed before it is used. A hand through the head, a
      body that sinks into the floor, a walk that slides are seen, not
      measured.
+
+7. **A scene.** `pva_stage_shot { channel, series, episode, shotId, set,
+   players }` films several characters in one picture, on a set or on an
+   empty stage. Local, free; it lands in `assets/video/` as a shot does.
+   - **Who.** Each player is a `role` of the cast, or a `rigPath` still in
+     the episode. Release each at its own `height` first: a child of 0.95
+     beside a man of 1.7 is in proportion only then.
+   - **Where.** A stage is laid out as it is seen from the front: x to the
+     right, y away from the audience, in metres. A place is a mark of the
+     set by name, or `"x, y"`. `turn` is in degrees — 0 faces the audience,
+     90 the right of the picture, -90 the left, 180 away — and `towards`
+     names another player to face, wherever it goes.
+   - **What each does**, one thing after another, in `does`: play a `clip`
+     (once, `loops` times, for `seconds`); go `to` a place while a clip
+     plays; turn; wait `seconds`. `loops: 0` on the last act goes on for as
+     long as the shot. One clip gives way to the next over a quarter of a
+     second; a body with nothing to play returns to its rest pose, so give
+     it a standing clip if it has one.
+   - **A walk goes at its clip's pace.** The pace is read from the foot that
+     carries the body, and the way takes as long as that says: the same
+     walk measured 0.70 m/s on a figure one metre tall and 0.83 on the same
+     figure at 1.2. Give `seconds` to a way only when the shot needs it
+     sooner, and expect to be told the feet slide. A clip that carries the
+     body by itself is kept on the way. The floor is followed: a step up
+     onto a pavement is taken where it is.
+   - **The set** is a `.blend` of the episode, made as any Blender scene is
+     (`blender-scene`): in metres, z up, its front towards -y, with no
+     character in it. An object named `mark.<name>` is a place called
+     `<name>`, and its own -y is the way a player stands on it. The set
+     brings its world and its lights; with none, a sun is added and that is
+     said. Its Python is never run.
+   - **The camera** is the set's own (`setCamera: true`), moved as the set
+     moves it; or one asked for in words: `view` front, three-quarter, side,
+     back, seen from the audience's side; `framing` wide, full, medium,
+     close; `on` the players it is about. It goes with them unless `follow`
+     is false, and then it holds everywhere they go.
+   - **Read what it measured.** For each player, the share of the shot its
+     chest was in the picture and the share something of the set was
+     between it and the camera; pairs that came to stand in one place; a
+     body moved faster or slower than its feet step. Then look at the film:
+     a hand through a wall, a look that misses the other's face, a light
+     that flatters nobody are seen, not measured.
+   - **What it does not do.** Nobody touches anything: no hand on a door, no
+     object carried, no two bodies in contact. No face moves. A player
+     walks in straight lines from place to place. For those, the scene is
+     still built by hand in Blender.
 
 A model is made in an episode, where the budget is, and lands in
 `assets/models/`. `pva_release_model` (step 5) makes it the character's: do
