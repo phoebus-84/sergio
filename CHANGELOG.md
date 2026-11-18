@@ -89,6 +89,16 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     rig.
   - `@av/blender/clip-sample` is the reusable part: a clip in a `.glb` or an
     `.fbx` read as turns from the rest pose, in the world.
+- **A rigged character, filmed**: `pva_rig_shot` films a rig playing one of
+  its clips, locally and at no cost, into `assets/video/<shotId>.mp4` — a
+  clip of video like any other, with no sound. The camera is asked for in a
+  shot's words: front, three-quarter, side or back; full, medium or close.
+  It follows the body as it travels, in the film's own size and frame rate,
+  on a colour of your choosing, with or without a floor that takes the
+  shadow. It is one character on an empty stage; a set is still a Blender
+  scene. With it, a picture becomes a model, a rig, a motion and footage
+  without a script written by hand. `@av/blender/rig-shot` is the reusable
+  part.
 - **A fal call that runs out of time names the request it left.** The job
   may still finish and be charged; the message says which one it was.
 

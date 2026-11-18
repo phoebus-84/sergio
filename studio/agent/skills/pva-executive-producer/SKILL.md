@@ -135,6 +135,9 @@ channel, a series or a film, not to an episode, and is the same next week:
   local, free): a clip made for another rig, a motion from a library.
 - `pva_generate_motion` — a person's motion from one sentence (Hunyuan Motion on fal,
   paid per motion), carried to the rig. Play it on the sheet before it is used.
+- `pva_rig_shot` — a rigged character filmed playing one of its clips (Blender and
+  FFmpeg, local, free): the camera and the framing asked for in words, a clip of video
+  in `assets/video/`. One character on an empty stage; a set is a Blender scene.
 
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.

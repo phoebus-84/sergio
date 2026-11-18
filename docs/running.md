@@ -583,8 +583,10 @@ before the rig is released. A rig gets its motion three ways: stock clips
 asked for with it (`pva_stock_clips` lists them), a clip carried from
 another skeleton (`pva_retarget_clip`, local), and a person's motion made
 from a sentence (`pva_generate_motion`, Hunyuan Motion through fal, paid per
-motion). Motion from a video, a face, and placing a rigged character in a
-shot are not built. The browser studio has no view of a cast.
+motion). `pva_rig_shot` then films the character playing a clip, locally,
+into a clip of video like any other: one character on an empty stage.
+Motion from a video, a face, and a character placed in a set or beside
+another are not built. The browser studio has no view of a cast.
 
 ## 1b. The same agent in Claude Code
 

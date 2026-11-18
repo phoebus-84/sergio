@@ -106,6 +106,30 @@ were. That is what carrying a motion from one skeleton to another needs: two
 rigs name, point and size their bones differently, and a turn in the world
 means the same on both. The carrying itself is arithmetic and is not here.
 
+## A rigged character, filmed
+
+`rigShot` lights a rigged body on a plain ground and renders it playing the
+one clip its file holds, from a camera asked for in the words a shot is
+described in:
+
+```ts
+import { rigShot } from "@av/blender/rig-shot";
+
+const { mediaPath, report } = await rigShot({
+  path: "figure.clip.walking.glb",   // the body with one motion; or the rig, to film it standing
+  outputDir: "/tmp/figure-shot-001",
+  camera: "three-quarter",           // front, three-quarter, side, back
+  framing: "full",                   // full, medium (waist up), close (head and shoulders)
+  loops: 3, width: 1280, height: 720, fps: 24,
+});
+```
+
+The camera, the light and the ground are made from the body's own size and
+the way it faces; the camera keeps the body in frame as it travels unless
+`follow` is false. Frames are rendered with Eevee and joined by FFmpeg into
+an H.264 file with no sound. No script comes with a request, so it asks for
+no `trustedInput`. One character on an empty stage: anything more is a scene.
+
 ## Standalone workflow
 
 Create `request.json` (paths relative to the process working directory):

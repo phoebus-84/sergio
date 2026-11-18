@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rigSheet } from "../src/rig-sheet.js";
 import { sampleClip } from "../src/clip-sample.js";
+import { rigShot } from "../src/rig-shot.js";
+import { spawnSync } from "node:child_process";
 import { stickFigure } from "./fixtures/stick-figure.js";
 
 const live = { skip: process.env.BLENDER_LIVE !== "1", timeout: 300_000 };
@@ -65,6 +67,26 @@ test("LIVE: a clip is read as turns from the rest pose, in the world and in glTF
   assert.deepEqual(turn("LeftLeg", 0), eighth);
   assert.deepEqual(turn("Head", 0).map(Math.abs), [0, 0, 0, 1]);
   assert.deepEqual(clip.positions["Hips"]![0]!.map((v) => Math.round(v * 1000) / 1000 + 0), [0, 1, 0]);
+});
+
+test("LIVE: a figure is filmed playing its clip, and the frames become a file a player opens", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "rig-shot-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, "figure.glb");
+  await writeFile(path, stickFigure());
+  const { report, mediaPath } = await rigShot({ path, outputDir: join(root, "shot"), width: 128, height: 72, fps: 12, loops: 2, samples: 1 });
+  // The walk is a second long: played twice at twelve frames a second.
+  assert.deepEqual({ frames: report.frames, seconds: report.seconds, action: report.action, clipSeconds: report.clipSeconds, travel: report.travel }, { frames: 24, seconds: 2, action: "walk", clipSeconds: 1, travel: 0 });
+  const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,width,height,nb_frames", "-of", "json", mediaPath], { encoding: "utf8" });
+  assert.equal(probe.status, 0, probe.stderr);
+  assert.deepEqual(JSON.parse(probe.stdout).streams, [{ codec_name: "h264", width: 128, height: 72, nb_frames: "24" }]);
+
+  // With no clip in the file the body stands for two seconds; a shot too long is refused before a frame is rendered.
+  const still = join(root, "still.glb");
+  await writeFile(still, stickFigure({ walk: false }));
+  const stood = await rigShot({ path: still, outputDir: join(root, "still"), width: 64, height: 64, fps: 6, samples: 1, camera: "front", framing: "close", ground: false });
+  assert.deepEqual({ frames: stood.report.frames, action: stood.report.action }, { frames: 12, action: null });
+  await assert.rejects(rigShot({ path, outputDir: join(root, "long"), fps: 60, seconds: 60 }), /the shot would be 3600 frames .*: at most 1800/);
 });
 
 test("LIVE: a body whose bones' names say nothing has its limbs swung, and takes poses of its own", live, async (t) => {
