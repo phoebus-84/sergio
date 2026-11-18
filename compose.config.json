@@ -29,13 +29,14 @@
       "path": "packages/fal-media",
       "kind": "node",
       "standalone": true,
-      "summary": "Tracked image, video, 3D model and rigging jobs against fal.ai, with provenance and cost. Video is MiniMax H3; 3D models are Tripo H3.1; rigs are Hyper3D and Meshy.",
+      "summary": "Tracked image, video, 3D model, rigging and motion jobs against fal.ai, with provenance and cost. Video is MiniMax H3; 3D models are Tripo H3.1; rigs are Hyper3D and Meshy; motion from words is Hunyuan Motion.",
       "capabilities": [
         "image.generate",
         "image.edit",
         "video.generate",
         "model.generate",
-        "rig.create"
+        "rig.create",
+        "motion.generate"
       ],
       "requires": {
         "env": [

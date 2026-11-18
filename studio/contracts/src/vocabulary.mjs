@@ -30,6 +30,9 @@ export const CAPABILITIES = Object.freeze([
   // A skeleton and skin weights for a 3D model, so it can be posed; it may
   // come with stock clips. Motion made for it is another capability.
   "rig.create",
+  // A motion for a rig, made from words: what a body does, not the body.
+  // Carrying a clip from one skeleton to another is local and is no capability.
+  "motion.generate",
   "video.compose",
   "media.probe",
 ]);

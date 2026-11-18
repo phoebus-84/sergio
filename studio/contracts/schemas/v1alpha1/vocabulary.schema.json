@@ -19,6 +19,7 @@
         "video.generate",
         "model.generate",
         "rig.create",
+        "motion.generate",
         "video.compose",
         "media.probe"
       ]

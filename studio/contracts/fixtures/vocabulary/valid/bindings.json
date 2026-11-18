@@ -61,6 +61,11 @@
       "model": "hyper3d/rigging"
     },
     {
+      "capability": "motion.generate",
+      "provider": "fal-ai",
+      "model": "fal-ai/hunyuan-motion"
+    },
+    {
       "capability": "video.compose",
       "provider": "ffmpeg-video-composer",
       "model": "v1"
