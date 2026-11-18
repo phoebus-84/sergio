@@ -141,7 +141,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
       "Saves assets/models/<rigId>.glb (the rigged model), any clips that came with it as <rigId>.clip.<name>.glb, and <rigId>.provenance.json, " +
       "then examines the rig — vertices no bone moves, bones outside the body, nothing near the ground, a left with no right — and says what it found. " +
       "A rig that fails the exam is kept on disk and must not be released: make another attempt, with another engine, skeleton or skinning. " +
-      "A rig that passes is still not proven: pose it and look. Check pva_budget_status first.",
+      "A rig that passes is still not proven: pose it and look, with pva_rig_sheet. Check pva_budget_status first.",
     parameters: Type.Object({
       channel: Type.String({ description: "Channel slug" }),
       series: Type.String({ description: "Series slug" }),
@@ -374,7 +374,8 @@ export function registerRigTools(pi: ExtensionAPI): void {
             ...clipLines,
             ...(lost.length > 0 ? [`   ⚠️ not downloaded: ${lost.join(", ")} (fal request ${result.providerRequestId})`] : []),
             exam.ok
-              ? "   to make it a character's form: pose it and look first; then copy the rig, its clips and this provenance into characters/<id>/forms/<form>/<release>/ and record it " +
+              ? `   pose it and look before anything else: pva_rig_sheet { channel, series, episode, rigPath: "assets/models/${rigFile}" }\n` +
+                "   then, to make it a character's form: copy the rig, its clips and this provenance into characters/<id>/forms/<form>/<release>/ and record it " +
                 `with pva_update_character { form: { id, medium: "rig-3d", can: { actions: [${clips.map((clip) => `"${clip.name}"`).join(", ")}] } }, release: { form, release, entry: "${rigFile}", ` +
                 `madeWith: [{ tool: "${RIG_TOOL}", provider: "fal", model: "${terms.profile.endpointId}" }] } }`
               : "   it is kept for you to look at, and must not be released. Another attempt is another paid call: change the engine, the skeleton or the skinning, or lighten and clean the model first",

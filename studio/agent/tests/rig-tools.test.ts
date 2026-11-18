@@ -168,6 +168,7 @@ describe("pva_rig_model", () => {
     expect(said).toContain("✅ assets/models/figure-rig.glb");
     expect(said).toContain("11 joints, 4 deep; 11 vertices bound; 2 joints near the ground");
     expect(said).toContain("exam: nothing wrong found at rest. That is not yet a good rig: pose it and look");
+    expect(said).toContain('pose it and look before anything else: pva_rig_sheet { channel, series, episode, rigPath: "assets/models/figure-rig.glb" }');
     expect(said).toContain('medium: "rig-3d"');
     expect(said).toContain(`model: "${hyper3dRigging.endpointId}"`);
     expect(result.details).toMatchObject({ exam: { ok: true }, estimatedCostUsd: HYPER3D_RIG.priceUsd });
