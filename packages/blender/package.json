@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "description": "Editable Blender scenes and background Eevee/Cycles animation rendering, independent of any studio.",
-  "exports": { ".": "./src/index.ts", "./poly-haven": "./src/poly-haven.ts", "./rig-sheet": "./src/rig-sheet.ts" },
+  "exports": { ".": "./src/index.ts", "./poly-haven": "./src/poly-haven.ts", "./rig-sheet": "./src/rig-sheet.ts", "./clip-sample": "./src/clip-sample.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",

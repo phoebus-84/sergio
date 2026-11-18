@@ -10,6 +10,8 @@ No studio imports, cloud-rendering dependency, add-on installation or MCP server
 - Poly Haven metadata search and bounded, checksum-verified CC0 downloads.
 - A rigged `.glb` posed and rendered on a sheet, with how far each pose
   pulled its surface out of shape (`@av/blender/rig-sheet`).
+- A clip in a `.glb` or an `.fbx` read as turns from the rest pose, to be
+  carried to another skeleton (`@av/blender/clip-sample`).
 - Exclusive attempt directories, source hashes, logs, cancellation and timeouts.
 
 ## Setup
@@ -84,6 +86,25 @@ const { report, outputDir } = await rigSheet({
 
 It runs no code that came with the model, so it asks for no `trustedInput`.
 `npm run test:live` poses a small figure built by the test.
+
+## A motion, read out of a file
+
+`sampleClip` plays a clip held in a `.glb` or an `.fbx` and returns what
+every bone did:
+
+```ts
+import { sampleClip } from "@av/blender/clip-sample";
+
+const clip = await sampleClip({ path: "walk.fbx", outputDir: "/tmp/walk-sample-001" });
+clip.rotations["LeftUpLeg"][12]; // x y z w: the turn from its rest pose, in the world
+clip.positions["Hips"][12];      // where the bone starts in that frame
+```
+
+Turns are measured from the rest pose and in the world, not in a bone's own
+axes, and everything is written in glTF's axes (y up) whatever the file's
+were. That is what carrying a motion from one skeleton to another needs: two
+rigs name, point and size their bones differently, and a turn in the world
+means the same on both. The carrying itself is arithmetic and is not here.
 
 ## Standalone workflow
 
