@@ -29,6 +29,7 @@ import { registerModelTools } from "../src/model-tools.js";
 import { registerRigTools } from "../src/rig-tools.js";
 import { registerRigSheetTools } from "../src/rig-sheet-tools.js";
 import { registerMotionTools } from "../src/motion-tools.js";
+import { registerRigShotTools } from "../src/rig-shot-tools.js";
 import { registerSkillTools } from "../src/skill-tools.js";
 import { registerSlashCommands } from "../src/slash-commands.js";
 import { registerTuiComponents } from "../src/tui-status.js";
@@ -325,6 +326,7 @@ export default function (pi: ExtensionAPI): void {
   registerRigTools(pi);
   registerRigSheetTools(pi);
   registerMotionTools(pi);
+  registerRigShotTools(pi);
 
   // --- Register skill and context tools ---------------------------------
 
