@@ -22,7 +22,12 @@ Proposed. Implemented with it:
   skeleton to another (`pva_retarget_clip`) and stock clips asked for with a
   rig (`pva_stock_clips`, `clips` on `pva_rig_model`);
 - a rigged character filmed playing a clip (`pva_rig_shot`, by `@av/blender`):
-  one character on an empty stage, as a clip of video like any other.
+  one character on an empty stage, as a clip of video like any other, named
+  by a rig of the episode or by a role of the cast;
+- a model or a rig released as a form in one step (`pva_release_model`):
+  the figure stood in its file — facing +z, on y 0, at the character's
+  height — by one node above its scene's roots, and its clips, sheets and
+  records copied and put on the character's record.
 
 Not implemented: the browser's view of a cast; motion from a generated
 video, for a body that is not a person's; a face; and a character placed by
