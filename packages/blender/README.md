@@ -128,7 +128,48 @@ The camera, the light and the ground are made from the body's own size and
 the way it faces; the camera keeps the body in frame as it travels unless
 `follow` is false. Frames are rendered with Eevee and joined by FFmpeg into
 an H.264 file with no sound. No script comes with a request, so it asks for
-no `trustedInput`. One character on an empty stage: anything more is a scene.
+no `trustedInput`. One character on an empty stage.
+
+## Characters on a set, filmed
+
+`stageShot` puts several rigged bodies in one picture and, when a set is
+given, in a place. Each player stands on a mark, turned the way it is told,
+and does one thing after another:
+
+```ts
+import { stageShot } from "@av/blender/stage-shot";
+
+const { mediaPath, report } = await stageShot({
+  outputDir: "/tmp/street-001",
+  set: "street.blend",                       // metres, z up, front towards -y; without it, an empty stage
+  camera: "set",                             // or { view: "three-quarter", framing: "wide", on: ["guide"], follow: true }
+  players: [
+    { name: "guide", path: "guide.glb", at: "left",
+      does: [{ clip: "guide.walking.glb", to: "lamp" }, { towards: "child" }, { clip: "guide.wave.glb" }] },
+    { name: "child", path: "child.glb", at: "door", towards: "guide",
+      does: [{ seconds: 3 }, { clip: "child.running.glb", to: [1.5, 2.1] }] },
+  ],
+});
+```
+
+- **A stage** is laid out as it is seen from the front: x to the right, y
+  away from the audience, in metres. A place is `[x, y]`, or the name of a
+  mark: an object of the set called `mark.<name>`, whose own -y is the way a
+  player stands on it. A place in metres stands on the set's floor there.
+- **A walk goes at its clip's pace.** The pace is read from the joint that
+  stays down and goes backwards under the body, and the way takes as long
+  as that says unless `seconds` is given. A clip that carries the body by
+  itself is kept on the way.
+- **The camera** is the set's own, or made from the size of the players it
+  is on and where they stand.
+- **The report** says, for each player, what it did and when, the pace and
+  the speed of each way, the share of the shot its chest was in the picture
+  and the share the set hid it; and the pairs that came to stand in one
+  place.
+
+The set's own Python is not run, and no script comes with a request. Nobody
+touches anything: there is no contact between a body and the set, or
+another body.
 
 ## Standalone workflow
 
