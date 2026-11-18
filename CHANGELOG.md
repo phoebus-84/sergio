@@ -57,8 +57,8 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   no bone moves, bones outside the body, a body that stands on nothing, a
   left with no right, clips that move nothing. A rig that fails is kept and
   not released. A model that faces another way is turned to face +z before
-  it is sent. Not yet run against the real services: its tests use
-  stand-ins.
+  it is sent. The exam also says where the body stands and whether vertices
+  follow more than four bones, which some renderers do not read.
 
 ### Documentation
 

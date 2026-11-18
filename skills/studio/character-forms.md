@@ -111,6 +111,12 @@ never saved over: an episode appends the rig and animates a copy.
 **A 3D rig.** Four steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
+   - **Draw it to be rigged.** Arms away from the body, legs apart, nothing
+     worn across two limbs. A model is one skin: where a sleeve rests on a
+     coat they are joined, and no rig separates them — raise the arm and the
+     coat comes with it, lift the leg and the hem does. A long coat, a cape,
+     a skirt to the ground are the hard cases; decide here whether the
+     character needs them.
 2. **A model** from that picture: `pva_generate_model { channel, series,
    episode, modelId, imagePath, texture }`. It is paid per model and goes
    through the episode's budget, so approve the picture first. It answers
@@ -142,20 +148,35 @@ never saved over: an episode appends the rig and animates a copy.
      `meshy` rigs humanoids with clear limbs only, from a GLB, on a skeleton
      animation tools already know (`mixamo`, `blender_rigify_basic_human`,
      …), and adds a walk and a run to every rig.
+   - **What each gives back**, on the same small figure in a long coat:
+     `hyper3d` answered in twenty seconds with 52 joints, fingers among
+     them, up to nine bones a vertex, and left the model where it was (its
+     origin at its middle). Its skin is crisp: the sleeves lifted clean off
+     the coat, and the coat's hem went with the leg as a slab. `meshy`
+     answered in fifty with 24 joints, four bones a vertex, the feet on
+     y 0, an FBX beside the GLB, the walk and the run. Its skin is soft: the
+     leg and the head moved cleanly, and the coat followed the arms like
+     wings. Neither was wrong at rest. Which suits a character is seen in
+     the pose, not read from the exam.
    - **Send it facing +z.** Say which way the model faces with `faces`; a
      GLB is turned before it is sent. A model from `pva_generate_model`
      faces +x. Send the light model, not the million-triangle one.
    - **Read the exam.** The tool examines what comes back before it answers:
      vertices no bone moves, bones outside the body, a body that stands on
      nothing, a left with no right, clips that move nothing. A rig that
-     fails is kept on disk and must not be released.
+     fails is kept on disk and must not be released. It also says where the
+     body stands (on y 0, or with its origin elsewhere) and whether vertices
+     follow more than four bones: Blender reads them all, a renderer that
+     reads four drops the rest.
    - **Automatic rigging is good and not reliable.** Make more than one
      attempt — another engine, another skeleton, `skinning: "core"` — and
      keep one by what the exam and your eyes say, not by which came first.
      The exam reads the rest pose: it can say a rig is broken, never that it
      is good. Open the rig, raise its arms, lift a leg, turn its head, and
      look at the shoulders, the hips and whatever the character wears: a rig
-     chosen by eye in one pose deforms in the next.
+     chosen by eye in one pose deforms in the next. Turn each bone about the
+     world's axes through its head, not about its own: two rigs' bones point
+     different ways, and the same numbers give two different poses.
    - A rig is a `rig-3d` form. The clips that came with it are its first
      `can.actions`; a form lists only what it has a clip or a pose for.
 4. **Motion.** In rising order of cost:
