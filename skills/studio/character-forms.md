@@ -111,12 +111,18 @@ never saved over: an episode appends the rig and animates a copy.
 **A 3D rig.** Four steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
-   - **Draw it to be rigged.** Arms away from the body, legs apart, nothing
-     worn across two limbs. A model is one skin: where a sleeve rests on a
-     coat they are joined, and no rig separates them — raise the arm and the
-     coat comes with it, lift the leg and the hem does. A long coat, a cape,
-     a skirt to the ground are the hard cases; decide here whether the
-     character needs them.
+   - **Draw it to be rigged.** Arms held away from the body with ground
+     showing between each arm and the torso, legs apart with ground showing
+     between them, nothing worn across two limbs. A model is one skin: where
+     a sleeve rests on a coat they are joined, and no rig separates them —
+     raise the arm and the coat comes with it, lift the leg and the hem
+     does. A long coat, a cape, a skirt to the ground are the hard cases;
+     decide here whether the character needs them. The same figure drawn
+     both ways and rigged by the same engine: in a long coat with its arms
+     at its sides, raising the arms tore 800 edges of the surface; in a
+     short jacket and an A-pose, three.
+   - **Ask for a tall picture.** A standing figure on a square canvas loses
+     its cap and its boots: `outputWidth: 1024, outputHeight: 1536`.
 2. **A model** from that picture: `pva_generate_model { channel, series,
    episode, modelId, imagePath, texture }`. It is paid per model and goes
    through the episode's budget, so approve the picture first. It answers
@@ -148,16 +154,19 @@ never saved over: an episode appends the rig and animates a copy.
      `meshy` rigs humanoids with clear limbs only, from a GLB, on a skeleton
      animation tools already know (`mixamo`, `blender_rigify_basic_human`,
      …), and adds a walk and a run to every rig.
-   - **What each gives back**, on the same small figure in a long coat:
-     `hyper3d` answered in twenty seconds with 52 joints, fingers among
-     them, up to nine bones a vertex, and left the model where it was (its
-     origin at its middle). Its skin is crisp: the sleeves lifted clean off
-     the coat, and the coat's hem went with the leg as a slab. `meshy`
-     answered in fifty with 24 joints, four bones a vertex, the feet on
-     y 0, an FBX beside the GLB, the walk and the run. Its skin is soft: the
-     leg and the head moved cleanly, and the coat followed the arms like
-     wings. Neither was wrong at rest. Which suits a character is seen in
-     the pose, not read from the exam.
+   - **What each gives back**, on two figures of 17,000 vertices, each
+     through both: `hyper3d` answers in twenty seconds with 52 joints,
+     fingers among them, up to ten bones a vertex, and leaves the model
+     where it was (its origin at its middle). `meshy` answers in fifty with
+     24 joints, four bones a vertex, the feet on y 0, an FBX beside the GLB,
+     a walk and a run. Every one of those rigs passed the exam.
+   - **Leave Hyper3D's skinning at `core`**, which is what the tool asks for.
+     The service's own default, `shell`, tore the surface ten times as often
+     in the same poses on both figures: a seam under the chin when the head
+     turned, the coat's hem carried off by the leg as a slab. With `core`,
+     Hyper3D and Meshy were as clean as each other on the figure drawn for
+     a rig; on the one in a long coat Hyper3D was far the cleaner, and
+     Meshy pulled the coat up with the arms like wings.
    - **Send it facing +z.** Say which way the model faces with `faces`; a
      GLB is turned before it is sent. A model from `pva_generate_model`
      faces +x. Send the light model, not the million-triangle one.
@@ -168,15 +177,29 @@ never saved over: an episode appends the rig and animates a copy.
      body stands (on y 0, or with its origin elsewhere) and whether vertices
      follow more than four bones: Blender reads them all, a renderer that
      reads four drops the rest.
+   - **Pose it and look**: `pva_rig_sheet { channel, series, episode,
+     rigPath }`, local and free. The exam reads the rest pose: it can say a
+     rig is broken, never that it is good, and a rig that is right at rest
+     and wrong the moment it moves is the usual failure. The sheet puts a
+     two-legged body in seven poses — arms up, arms down, reach, step, wide,
+     head turn, bow — each from the front, three-quarter and the side, and
+     plays the clips that came with the rig over six moments. For any other
+     body it swings each of the largest limbs; give `poses` of your own to
+     see more, as turns of named bones about the body's axes (`front`, `up`,
+     `side`), never about a bone's own: two rigs' bones point different
+     ways, and the same numbers would give two different poses.
+   - **Read the sheet, then the numbers.** For each pose the tool says how
+     much of the surface was strained and how many edges were torn, and
+     marks the poses that went further than a sound rig does (ten hand-made
+     two-legged rigs stay under 1% strained and tear almost nothing). The
+     numbers say where to look and let two attempts be compared pose for
+     pose; they do not see a hand passing through a hat, or a face that no
+     longer looks like the character. Look at the shoulders, the hips, the
+     neck and whatever the character wears.
    - **Automatic rigging is good and not reliable.** Make more than one
-     attempt — another engine, another skeleton, `skinning: "core"` — and
-     keep one by what the exam and your eyes say, not by which came first.
-     The exam reads the rest pose: it can say a rig is broken, never that it
-     is good. Open the rig, raise its arms, lift a leg, turn its head, and
-     look at the shoulders, the hips and whatever the character wears: a rig
-     chosen by eye in one pose deforms in the next. Turn each bone about the
-     world's axes through its head, not about its own: two rigs' bones point
-     different ways, and the same numbers give two different poses.
+     attempt — the other engine, another skeleton — and keep one by what the
+     sheet shows, not by which came first. When every attempt fails in the
+     same place, the fault is in the model or the picture: go back a step.
    - A rig is a `rig-3d` form. The clips that came with it are its first
      `can.actions`; a form lists only what it has a clip or a pose for.
 4. **Motion.** In rising order of cost:

@@ -14,7 +14,8 @@ Proposed. Implemented with it:
   (`pva_generate_model`);
 - `rig.create`: a skeleton and weights for a model, by Hyper3D or Meshy
   through `@av/fal-media` (`pva_rig_model`), with the exam a generated rig
-  sits before it is released.
+  sits before it is released, and the sheet of known poses it is looked at
+  in (`pva_rig_sheet`, by `@av/blender`).
 
 Not implemented: the browser's view of a cast, and the capability that makes
 a form move (`motion.generate`: motion from text, motion from a generated

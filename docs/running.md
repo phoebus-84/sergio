@@ -577,8 +577,10 @@ are built. `pva_generate_model` turns one picture into a 3D model (Tripo H3.1
 through fal, paid per model on the episode's budget): what comes back has no
 skeleton, and can be placed, turned and lit, not posed. `pva_rig_model` gives
 a model a skeleton and weights (Hyper3D or Meshy through fal, paid per rig)
-and examines the rig before it answers. Turning words or a video into motion
-is not built. The browser studio has no view of a cast.
+and examines the rig before it answers; `pva_rig_sheet` then poses it in
+Blender, at no cost, and renders the poses and the clips on sheets to read
+before the rig is released. Turning words or a video into motion is not
+built. The browser studio has no view of a cast.
 
 ## 1b. The same agent in Claude Code
 

@@ -53,12 +53,24 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   to a rigging service through fal — Hyper3D for a human, a quadruped, a
   bird, a dragon, a kaiju or a body described in words; Meshy for humanoids
   on a standard skeleton, with a walk and a run — on the episode's budget, at
-  $0.20 a rig. What comes back is examined before the tool answers: vertices
-  no bone moves, bones outside the body, a body that stands on nothing, a
-  left with no right, clips that move nothing. A rig that fails is kept and
-  not released. A model that faces another way is turned to face +z before
+  $0.20 a rig. Hyper3D is asked for `core` skinning, which tore the surface
+  a tenth as often as the service's own default on the figures tried. What
+  comes back is examined before the tool answers: vertices no bone moves,
+  bones outside the body, a body that stands on nothing, a left with no
+  right, clips that move nothing. A rig that fails is kept and not released. A model that faces another way is turned to face +z before
   it is sent. The exam also says where the body stands and whether vertices
   follow more than four bones, which some renderers do not read.
+- **A rig posed and looked at**: `pva_rig_sheet` puts a rigged model in
+  known poses in Blender, at no cost, and renders them on one sheet beside
+  the rig — for a two-legged body arms up, arms down, reach, step, wide, head
+  turn and bow, each from the front, three-quarter and the side; for any
+  other, each of its largest limbs swung, or poses of your own. The clips
+  that came with the rig are played over six moments each. For every pose
+  it says how much of the surface was strained and how many edges were torn,
+  and marks the poses that went further than a sound rig does. It is the
+  step between `pva_rig_model` and a release: the first rigs made all passed
+  the exam at rest, and it was the poses that told them apart.
+  `@av/blender/rig-sheet` is the reusable part.
 
 ### Documentation
 
