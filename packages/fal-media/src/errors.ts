@@ -94,12 +94,18 @@ export class FalCancelledError extends FalAdapterError {
 export class FalTimeoutError extends FalAdapterError {
   public readonly timeoutMs: number;
 
-  constructor(timeoutMs: number, context = "operation") {
+  /**
+   * `job` names a request fal had already accepted when the wait ran out: it
+   * may still finish and be charged, so the message says which one it was.
+   */
+  constructor(timeoutMs: number, context = "operation", job?: { requestId: string; endpointId: string }) {
     super(
-      `${context} timed out after ${timeoutMs}ms`,
+      job
+        ? `fal request ${job.requestId} (${job.endpointId}) did not finish within ${Math.round(timeoutMs / 1000)}s: it may still finish, and be charged`
+        : `${context} timed out after ${timeoutMs}ms`,
       "FAL_TIMEOUT",
       true,
-      { timeoutMs },
+      { timeoutMs, ...(job ?? {}) },
     );
     this.name = "FalTimeoutError";
     this.timeoutMs = timeoutMs;

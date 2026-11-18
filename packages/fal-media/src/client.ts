@@ -375,6 +375,9 @@ export class FalClientImpl implements FalClient {
       : fallbackResultUrl;
     const statusUrl = typeof queued["status_url"] === "string"
       ? queued["status_url"]
+    // Named as soon as it is known: a wait that runs out can then say which job it left behind.
+    this.logger.info("fal queued", { endpointId: input.binding.endpointId, idempotencyKey: input.idempotencyKey, requestId });
+
       : `${resultUrl}/status`;
 
     let sleptMs = 0;
@@ -419,7 +422,7 @@ export class FalClientImpl implements FalClient {
       pollMs = Math.min(pollMs * 1.5, 15_000);
     }
 
-    const timeout = new FalTimeoutError(maxWaitMs);
+    const timeout = new FalTimeoutError(maxWaitMs, "operation", { requestId, endpointId: input.binding.endpointId });
     this.logError(timeout, input);
     throw timeout;
   }

@@ -80,6 +80,13 @@ describe("FalTimeoutError", () => {
     const err = new FalTimeoutError(5000, "poll");
     expect(err.retryable).toBe(true);
     expect(err.timeoutMs).toBe(5000);
+    expect(err.message).toBe("poll timed out after 5000ms");
+  });
+
+  it("names the job it left behind, which may still finish and be charged", () => {
+    const err = new FalTimeoutError(900_000, "operation", { requestId: "req-7", endpointId: "hyper3d/rigging" });
+    expect(err.message).toBe("fal request req-7 (hyper3d/rigging) did not finish within 900s: it may still finish, and be charged");
+    expect(err.toJSON().details).toEqual({ timeoutMs: 900_000, requestId: "req-7", endpointId: "hyper3d/rigging" });
   });
 });
 
