@@ -374,8 +374,10 @@ looked at.
    - **The camera** is the set's own (`setCamera: true`), moved as the set
      moves it; or one asked for in words: `view` front, three-quarter, side,
      back, seen from the audience's side; `framing` wide, full, medium,
-     close; `on` the players it is about. It goes with them unless `follow`
-     is false, and then it holds everywhere they go.
+     close; `on` the players it is about. It goes with them and keeps the
+     framing asked for, so it comes nearer as two walk towards each other
+     and draws back as they part. With `follow: false` it stays where it
+     is and holds everywhere they go: a wide of the whole way.
    - **Read what it measured.** For each player, the share of the shot its
      chest was in the picture and the share something of the set was
      between it and the camera; pairs that came to stand in one place; a

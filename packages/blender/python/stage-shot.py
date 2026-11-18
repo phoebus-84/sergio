@@ -445,30 +445,34 @@ def main():
         across_axis = UP.cross(view).normalized()
         share, aim, across = FRAMINGS[asked["framing"]]
         tall = max(plan["tall"] for plan in watched)
-        # Everyone it is on, where they start — and, for a camera that stays, everywhere they go — measured across the picture.
-        stood = [(plan, spot) for plan in watched for spot in ([plan["start"]] + ([] if follows else [entry["to"] for entry in plan["acts"] if entry["to"] is not None]))]
-        reach = [spot.dot(across_axis) + side * plan["wide"] / 2 for plan, spot in stood for side in (-1, 1)]
-        depth = [spot.dot(view) for _plan, spot in stood]
-        group_wide = max(reach) - min(reach)
-        centre = across_axis * ((max(reach) + min(reach)) / 2) + view * ((max(depth) + min(depth)) / 2)
-        base = min(spot.z for _plan, spot in stood)
-        held = max(tall * share, group_wide * across * height / width)
         data = bpy.data.cameras.new("stage-camera")
         data.lens = 85 if asked["framing"] == "close" else 50
         data.sensor_fit = "VERTICAL"
         data.sensor_height = 24
-        distance = (held / 2) / math.tan(math.atan(12 / data.lens)) + (max(depth) - min(depth)) / 2
-        data.clip_start, data.clip_end = max(distance / 100, 0.01), max(distance * 100, 1000)
+        data.clip_start, data.clip_end = 0.05, 2000
         camera = bpy.data.objects.new("stage-camera", data)
         scene.collection.objects.link(camera)
         scene.camera = camera
-        target = mathutils.Vector((centre.x, centre.y, base + tall * aim))
-        offset = view * distance + UP * distance * 0.12
 
-        def place(at):
-            camera.location = at + offset
-            camera.rotation_euler = (at - camera.location).to_track_quat("-Z", "Y").to_euler()
-        place(target)
+        def framed(stood):
+            """What the camera looks at and from how far, to hold players standing in these places."""
+            reach = [spot.dot(across_axis) + side * plan["wide"] / 2 for plan, spot in stood for side in (-1, 1)]
+            depth = [spot.dot(view) for _plan, spot in stood]
+            centre = across_axis * ((max(reach) + min(reach)) / 2) + view * ((max(depth) + min(depth)) / 2)
+            held = max(tall * share, (max(reach) - min(reach)) * across * height / width)
+            distance = (held / 2) / math.tan(math.atan(12 / data.lens)) + (max(depth) - min(depth)) / 2
+            return mathutils.Vector((centre.x, centre.y, min(spot.z for _plan, spot in stood) + tall * aim)), distance
+
+        def place(stood):
+            target, distance = framed(stood)
+            # A little above what it looks at, so the ground is seen and a face is not looked up at.
+            camera.location = target + view * distance + UP * distance * 0.12
+            camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
+            return target
+
+        # A camera that stays holds everyone it is on, where they start and everywhere they go.
+        everywhere = [(plan, spot) for plan in watched for spot in ([plan["start"]] + [entry["to"] for entry in plan["acts"] if entry["to"] is not None])]
+        place(everywhere if not follows else [(plan, plan["start"]) for plan in watched])
 
     # ── Light and ground. A set brings its own; an empty stage is lit as one character's is ──
     ground = None
@@ -516,7 +520,6 @@ def main():
     (OUT / "frames").mkdir()
     seen = {plan["player"]["name"]: {"in": 0, "hidden": 0, "from": None, "far": 0.0} for plan in plans}
     close = {}
-    watched_start = None
     for index in range(frames):
         moment = index / fps
         for plan in plans:
@@ -525,13 +528,10 @@ def main():
         graph = bpy.context.evaluated_depsgraph_get()
         spots = {plan["player"]["name"]: where(plan) for plan in plans}
         if place is not None and follows:
-            now = sum((spots[plan["player"]["name"]] for plan in watched), mathutils.Vector()) / len(watched)
-            if watched_start is None:
-                watched_start = now
-            moved = flat(now - watched_start)
-            place(target + moved)
+            # It goes with them and holds them as it was asked to: nearer as they come together, further as they part.
+            target = place([(plan, mathutils.Vector((spots[plan["player"]["name"]].x, spots[plan["player"]["name"]].y, plan["handle"].location.z + plan["feet"]))) for plan in watched])
             if ground:
-                ground.location = (moved.x, moved.y, 0)
+                ground.location = (target.x, target.y, 0)
             bpy.context.view_layer.update()
         eye = camera.matrix_world.translation
         for plan in plans:

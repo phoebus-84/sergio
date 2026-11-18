@@ -161,7 +161,8 @@ const { mediaPath, report } = await stageShot({
   as that says unless `seconds` is given. A clip that carries the body by
   itself is kept on the way.
 - **The camera** is the set's own, or made from the size of the players it
-  is on and where they stand.
+  is on and where they stand. It goes with them and keeps its framing,
+  nearer as they come together; told to stay, it holds everywhere they go.
 - **The report** says, for each player, what it did and when, the pace and
   the speed of each way, the share of the shot its chest was in the picture
   and the share the set hid it; and the pairs that came to stand in one
