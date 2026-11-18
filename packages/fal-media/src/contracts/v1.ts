@@ -487,3 +487,31 @@ export class RigProfileContract extends ProfileContract {
     return typeof taskId === "string" && taskId ? { taskId } : undefined;
   }
 }
+
+/**
+ * A motion endpoint's answer: one file that holds a skeleton and how it
+ * moves, and the seed that made it. No body comes with it worth keeping: the
+ * motion is carried to a rig by whoever asked.
+ */
+export class MotionProfileContract extends ProfileContract {
+  protected override parseOutputs(result: Record<string, unknown>): OutputAsset[] {
+    const file = result["fbx_file"];
+    if (!file || typeof file !== "object" || Array.isArray(file) || typeof (file as Record<string, unknown>)["url"] !== "string") {
+      throw new FalContractError("fbx_file", "object", file === null ? "null" : typeof file);
+    }
+    const value = file as Record<string, unknown>;
+    return [{
+      url: value["url"] as string,
+      contentType: typeof value["content_type"] === "string" && value["content_type"] ? (value["content_type"] as string) : "application/octet-stream",
+      contentLength: optionalNumber(value["file_size"]),
+      sha256: optionalString(value["sha256"]),
+      role: "motion",
+      ...(typeof value["file_name"] === "string" && value["file_name"] ? { fileName: value["file_name"] } : {}),
+    }];
+  }
+
+  protected override parseDetails(result: Record<string, unknown>): Record<string, string> | undefined {
+    const seed = result["seed"];
+    return typeof seed === "number" && Number.isFinite(seed) ? { seed: String(seed) } : undefined;
+  }
+}

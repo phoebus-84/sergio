@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { FetchTransport } from "./transport.js";
-import { listProfiles } from "./profiles.js";
+import { HYPER3D_CLIPS_ENDPOINT, listProfiles } from "./profiles.js";
 import type { Transport } from "./types.js";
 import { FalHttpError } from "./errors.js";
 
@@ -22,6 +22,9 @@ import { FalHttpError } from "./errors.js";
  * Each profile gets a contract; video-producing profiles get one that knows to
  * read a `video` file rather than an `images` array, and 3D ones a `model_mesh`.
  */
+/** Endpoints that list what can be asked for, at $0. */
+export const FREE_LOOKUPS: readonly string[] = [HYPER3D_CLIPS_ENDPOINT];
+
 export function createFalClient(apiKey?: string): FalClientImpl {
   const key = apiKey ?? process.env["FAL_KEY"] ?? process.env["FAL_API_KEY"];
   if (!key) throw new Error("FAL_KEY or FAL_API_KEY required");
@@ -40,7 +43,9 @@ export function createFalClient(apiKey?: string): FalClientImpl {
           ? new ModelProfileContract(profile)
           : profile.operation === "model-to-rig"
             ? new RigProfileContract(profile)
-            : new ProfileContract(profile),
+            : profile.operation === "text-to-motion"
+              ? new MotionProfileContract(profile)
+              : new ProfileContract(profile),
     ),
   });
 }
@@ -54,7 +59,7 @@ export function createFalClient(apiKey?: string): FalClientImpl {
 // ---------------------------------------------------------------------------
 
 import type { EndpointContract } from "./contracts/v1.js";
-import { ModelProfileContract, RigProfileContract, ProfileContract, VideoProfileContract } from "./contracts/v1.js";
+import { ModelProfileContract, MotionProfileContract, RigProfileContract, ProfileContract, VideoProfileContract } from "./contracts/v1.js";
 import type {
   Clock,
   FalAdapterConfig,
@@ -71,6 +76,7 @@ import {
   FalCancelledError,
   FalTimeoutError,
   FalUnavailableError,
+  FalValidationError,
 } from "./errors.js";
 
 /** The contract-driven client surface. */
@@ -369,15 +375,15 @@ export class FalClientImpl implements FalClient {
       throw error;
     }
 
+    // Named as soon as it is known: a wait that runs out can then say which job it left behind.
+    this.logger.info("fal queued", { endpointId: input.binding.endpointId, idempotencyKey: input.idempotencyKey, requestId });
+
     const fallbackResultUrl = `${this.queueUrl}/${input.binding.endpointId}/requests/${requestId}`;
     const resultUrl = typeof queued["response_url"] === "string"
       ? queued["response_url"]
       : fallbackResultUrl;
     const statusUrl = typeof queued["status_url"] === "string"
       ? queued["status_url"]
-    // Named as soon as it is known: a wait that runs out can then say which job it left behind.
-    this.logger.info("fal queued", { endpointId: input.binding.endpointId, idempotencyKey: input.idempotencyKey, requestId });
-
       : `${resultUrl}/status`;
 
     let sleptMs = 0;
@@ -425,6 +431,18 @@ export class FalClientImpl implements FalClient {
     const timeout = new FalTimeoutError(maxWaitMs, "operation", { requestId, endpointId: input.binding.endpointId });
     this.logError(timeout, input);
     throw timeout;
+  }
+
+  /**
+   * Ask an endpoint that makes nothing and costs nothing: a catalogue. Only
+   * the endpoints named in FREE_LOOKUPS are answered for, so this is no way
+   * round a caller's spend ledger.
+   */
+  async lookup(endpointId: string, body: Record<string, unknown> = {}, signal?: AbortSignal): Promise<Record<string, unknown>> {
+    if (!FREE_LOOKUPS.includes(endpointId)) throw new FalValidationError(`${endpointId} is not a free lookup`, { endpointId });
+    return this.request("POST", `${this.config.baseUrl}/${endpointId}`, JSON.stringify(body), {
+      idempotencyKey: `lookup-${endpointId}`, binding: { endpointId, contractVersion: "v1", baseUrl: "" }, parameters: body, timeoutMs: this.config.defaultTimeoutMs,
+    }, signal);
   }
 
   /**
