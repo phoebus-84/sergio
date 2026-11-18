@@ -20,11 +20,13 @@ Proposed. Implemented with it:
   through `@av/fal-media` (`pva_generate_motion`); and, with no capability
   of their own because nothing is generated, a clip carried from one
   skeleton to another (`pva_retarget_clip`) and stock clips asked for with a
-  rig (`pva_stock_clips`, `clips` on `pva_rig_model`).
+  rig (`pva_stock_clips`, `clips` on `pva_rig_model`);
+- a rigged character filmed playing a clip (`pva_rig_shot`, by `@av/blender`):
+  one character on an empty stage, as a clip of video like any other.
 
 Not implemented: the browser's view of a cast; motion from a generated
-video, for a body that is not a person's; a face; and a rigged character
-placed in a shot by the studio itself.
+video, for a body that is not a person's; a face; and a character placed by
+the studio in a set, or beside another.
 
 ## Context
 

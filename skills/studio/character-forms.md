@@ -108,7 +108,7 @@ drawn, then cut, pivoted and weighted in Blender by script
 (`pva_blender_create_scene`, the `blender-scene` skill). The master file is
 never saved over: an episode appends the rig and animates a copy.
 
-**A 3D rig.** Four steps, each checked before the next is paid for:
+**A 3D rig.** Five steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
    - **Draw it to be rigged.** Arms held away from the body with ground
@@ -273,6 +273,30 @@ never saved over: an episode appends the rig and animates a copy.
 A form lists a clip as an action only when the clip has been played and
 looked at. Record the release with `madeWith` saying exactly what made the
 rig and each clip: every clip has a provenance beside it.
+
+5. **A shot.** `pva_rig_shot { channel, series, episode, shotId, rigPath,
+   clip, camera, framing }` films the character playing one of its clips:
+   local, free, a couple of dozen seconds for a few seconds of film. It
+   lands in `assets/video/<shotId>.mp4` with no sound, as generated clips
+   do, and goes on a timeline or in a cut like any other.
+   - **Ask for the shot in a shot's words.** `camera`: front, three-quarter,
+     side, back. `framing`: full (the whole body), medium (waist up), close
+     (head and shoulders). Give the film's own `width`, `height` and `fps`;
+     a tall frame is not let cut the shoulders.
+   - **How long.** The clip once, or `loops` times, or `seconds`. A clip
+     that travels jumps back when it repeats: loop one that plays on the
+     spot, and let the edit move the picture.
+   - **The camera follows the body** unless `follow` is false; then a walk
+     crosses the frame and leaves it.
+   - **What is behind.** `background` is one colour; `ground: false` takes
+     the floor and its shadow away, for a character laid over something
+     else in the edit.
+   - **It is one character on an empty stage.** A set, two characters in one
+     picture, a camera that moves on its own, a light that means something:
+     build the scene in Blender (`blender-scene`) and append the rig there.
+   - Look at what was filmed before it is used. A hand through the head, a
+     body that sinks into the floor, a walk that slides are seen, not
+     measured.
 
 A model is made in an episode, where the budget is, and lands in
 `assets/models/`. To make it the character's, copy the model, its preview and
