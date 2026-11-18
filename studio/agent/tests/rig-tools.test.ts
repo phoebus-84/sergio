@@ -103,6 +103,13 @@ describe("pva_rig_model", () => {
         uploads.push({ name: url.split("/").pop()!, type: init.headers!["content-type"]!, bytes: Buffer.from(init.body as Uint8Array) });
         return new Response("", { status: 200 });
       }
+      if (url === "https://fal.run/hyper3d/rigging/animations") {
+        return Response.json({ animations: [
+          { animation_id: "human_000089", category: "human", display_name: "walking", duration_seconds: 1.03, loop: { kind: "in_place" } },
+          { animation_id: "human_000002", category: "human", display_name: "big jump", duration_seconds: 2.37, loop: { kind: "none" } },
+          { animation_id: "canine_000004", category: "canine", display_name: "walking", duration_seconds: 0.9, loop: { kind: "in_place" } },
+        ] });
+      }
       for (const profile of [hyper3dRigging, meshyRigging]) {
         const queue = `https://queue.fal.run/${profile.endpointId}`;
         if (url === queue && init?.method === "POST") {
@@ -138,6 +145,39 @@ describe("pva_rig_model", () => {
   const models = (name: string) => join(dir, "assets", "models", name);
   const provenance = (id = "figure-rig") => JSON.parse(readFileSync(models(`${id}.provenance.json`), "utf-8")) as Record<string, unknown>;
   const mine = () => readdirSync(join(dir, "assets", "models")).filter((name) => name.startsWith("figure-rig")).sort();
+
+  it("asks Hyper3D for stock clips by id, and files them under the names the catalogue gives", async () => {
+    budget(100_000_000);
+    files["https://cdn.example/walk.glb"] = WALK;
+    files["https://cdn.example/jump.glb"] = WALK;
+    files["https://cdn.example/dog.glb"] = WALK;
+    answer = {
+      model_mesh: { url: "https://cdn.example/rig.glb" }, rigged_character_glb: { url: "https://cdn.example/rig.glb" },
+      animations: [
+        { action_id: "human_000089", animation_glb: { url: "https://cdn.example/walk.glb" } },
+        { action_id: "human_000002", animation_glb: { url: "https://cdn.example/jump.glb" } },
+        { action_id: "canine_000004", animation_glb: { url: "https://cdn.example/dog.glb" } },
+      ],
+    };
+    const result = await rig({ clips: ["human_000089", "human_000002", "canine_000004"], inPlace: true });
+    expect(submitted!.body).toMatchObject({ animation_presets: ["human_000089", "human_000002", "canine_000004"], in_place: true });
+    // Two clips are called "walking": the second keeps its number.
+    expect(readdirSync(join(dir, "assets", "models")).filter((file) => file.includes(".clip.")).sort()).toEqual([
+      "figure-rig.clip.big-jump.glb", "figure-rig.clip.walking-000004.glb", "figure-rig.clip.walking.glb",
+    ]);
+    expect(provenance()).toMatchObject({ clips: [{ name: "walking" }, { name: "big-jump" }, { name: "walking-000004" }] });
+    expect(result.content[0]!.text).toContain('can: { actions: ["walking", "big-jump", "walking-000004"] }');
+  });
+
+  it("refuses a stock clip that does not exist before anything is paid, and clips an engine does not have", async () => {
+    budget(100_000_000);
+    await expect(rig({ clips: ["human_999999"] })).rejects.toThrow("no stock clip has the id human_999999: pva_stock_clips lists them");
+    await expect(rig({ clips: ["human_000089", "human_000089"] })).rejects.toThrow("the same clip is named twice");
+    await expect(rig({ inPlace: true })).rejects.toThrow("inPlace is for clips");
+    await expect(rig({ engine: "meshy", clips: ["human_000089"] })).rejects.toThrow("clips are hyper3d's stock clips");
+    expect(submitted).toBeUndefined();
+    expect(journal()).toEqual([]);
+  });
 
   it("names its engines and every skeleton they have", () => {
     expect(tool.description).toContain(rigTerms());

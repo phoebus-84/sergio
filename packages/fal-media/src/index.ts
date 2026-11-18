@@ -63,7 +63,7 @@ export { HttpDownloader } from "./downloader.js";
 export type { EndpointContract } from "./contracts/v1.js";
 export { createFalServer } from "./server.js";
 export type { FalServerHandle } from "./server.js";
-export { V1BaseContract, ProfileContract, ModelProfileContract, RigProfileContract } from "./contracts/v1.js";
+export { V1BaseContract, ProfileContract, ModelProfileContract, RigProfileContract, MotionProfileContract } from "./contracts/v1.js";
 
 // Profiles
 export {
@@ -92,7 +92,13 @@ export {
   MESHY_RIG,
   meshyRigPriceUsd,
   meshyRigging,
+  HUNYUAN_MOTION,
+  hunyuanMotion,
+  HYPER3D_CLIP_CATEGORIES,
+  HYPER3D_CLIPS_ENDPOINT,
+  readStockClips,
 } from "./profiles.js";
+export type { Hyper3dClipCategory, StockClip } from "./profiles.js";
 
 // Client
 export { FalClientImpl, createFalClient } from "./client.js";

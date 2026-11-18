@@ -30,8 +30,10 @@ import {
   createFalClient,
   FalHttpError,
   FalValidationError,
+  HYPER3D_CLIPS_ENDPOINT,
   HYPER3D_RIG,
   hyper3dRigging,
+  readStockClips,
   MESHY_RIG,
   meshyRigging,
   type EndpointProfile,
@@ -102,7 +104,13 @@ export interface RigRequest {
   imageUrl?: string;
   fingers?: boolean;
   heightMeters?: number;
+  /** hyper3d: stock clips, by id. */
+  clips?: string[];
+  inPlace?: boolean;
 }
+
+/** A stock clip's name as a file's: lower case, words joined by dashes. */
+export const clipSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
 
 /** The tool's request as each endpoint's own parameters. */
 export function rigRequestBody(r: RigRequest): Record<string, unknown> {
@@ -121,6 +129,7 @@ export function rigRequestBody(r: RigRequest): Record<string, unknown> {
     ...(r.skeletonDescription ? { skeleton_description: r.skeletonDescription } : {}),
     skinning_method: r.skinning ?? HYPER3D_SKINNING_DEFAULT,
     ...(r.imageUrl ? { image_url: r.imageUrl } : {}),
+    ...(r.clips?.length ? { animation_presets: r.clips, ...(r.inPlace ? { in_place: true } : {}) } : {}),
     // A binary glTF is what the exam reads.
     geometry_file_format: "glb",
   };
@@ -145,8 +154,9 @@ export function registerRigTools(pi: ExtensionAPI): void {
       `Paid: ${rigTerms()}; reserved on the episode's spend ledger. ` +
       "The model is an episode file (a .glb, or an .fbx with hyper3d), as pva_generate_model leaves it or brought in; a light one — 10,000–50,000 faces — rigs better than a heavy one. " +
       "It must face +z: say which way it faces with `faces` and a .glb is turned before it is sent (a model from pva_generate_model faces +x). " +
-      "Saves assets/models/<rigId>.glb (the rigged model), any clips that came with it as <rigId>.clip.<name>.glb, and <rigId>.provenance.json, " +
-      "then examines the rig — vertices no bone moves, bones outside the body, nothing near the ground, a left with no right — and says what it found. " +
+      "Saves assets/models/<rigId>.glb (the rigged model), any clips that came with it as <rigId>.clip.<name>.glb, and <rigId>.provenance.json. " +
+      "hyper3d can add stock clips to the rig it makes, at no price of their own: name them by id in `clips` (pva_stock_clips lists them). The tool " +
+      "examines the rig — vertices no bone moves, bones outside the body, nothing near the ground, a left with no right — and says what it found. " +
       "A rig that fails the exam is kept on disk and must not be released: make another attempt, with another engine, skeleton or skinning. " +
       "A rig that passes is still not proven: pose it and look, with pva_rig_sheet. Check pva_budget_status first.",
     parameters: Type.Object({
@@ -164,6 +174,8 @@ export function registerRigTools(pi: ExtensionAPI): void {
       imagePath: Type.Optional(Type.String({ description: "hyper3d: a picture of the character, episode-relative, to guide auto and custom skeletons" })),
       fingers: Type.Optional(Type.Boolean({ description: "meshy: rig the fingers" })),
       heightMeters: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 100, description: `meshy: about how tall the character is, in metres (default ${MESHY_RIG.defaultHeightMeters})` })),
+      clips: Type.Optional(Type.Array(Type.String(), { maxItems: HYPER3D_RIG.maxClips, description: `hyper3d: stock clips to come with the rig, by id (pva_stock_clips lists them; up to ${HYPER3D_RIG.maxClips}, at no price of their own)` })),
+      inPlace: Type.Optional(Type.Boolean({ description: "hyper3d, with clips: clips that loop are played on the spot" })),
       faces: Type.Optional(StringEnum(FACINGS as unknown as [Facing, ...Facing[]], { default: "+z", description: "Which way the model faces in its file. Other than +z, a .glb is turned to face +z before it is sent" })),
       overwrite: Type.Optional(Type.Boolean({ default: false, description: "Replace an existing rig of this rigId" })),
     }),
@@ -199,10 +211,14 @@ export function registerRigTools(pi: ExtensionAPI): void {
       }
       if (engine === "hyper3d") {
         if (params.fingers !== undefined || params.heightMeters !== undefined) throw new Error("fingers and heightMeters are for engine meshy");
+        if (params.inPlace !== undefined && !params.clips?.length) throw new Error("inPlace is for clips: name some");
+        if (new Set(params.clips ?? []).size !== (params.clips ?? []).length) throw new Error("clips: the same clip is named twice");
         if (params.skeleton === "custom" && !params.skeletonDescription?.trim()) throw new Error("skeleton custom needs skeletonDescription: the body's anatomy and limbs in words");
         if (params.skeleton !== "custom" && params.skeletonDescription !== undefined) throw new Error("skeletonDescription is only for skeleton custom");
       } else if (params.skeletonDescription !== undefined || params.skinning !== undefined || params.imagePath !== undefined) {
         throw new Error("skeletonDescription, skinning and imagePath are for engine hyper3d");
+      } else if (params.clips !== undefined || params.inPlace !== undefined) {
+        throw new Error("clips are hyper3d's stock clips: meshy adds a walk and a run to every rig, and nothing by name");
       }
 
       const faces: Facing = params.faces ?? "+z";
@@ -234,6 +250,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
         ...(engine === "hyper3d" ? { skinning: params.skinning ?? HYPER3D_SKINNING_DEFAULT } : {}),
         ...(params.fingers ? { fingers: true } : {}),
         ...(params.heightMeters !== undefined ? { heightMeters: params.heightMeters } : {}),
+        ...(params.clips?.length ? { clips: params.clips, ...(params.inPlace ? { inPlace: true } : {}) } : {}),
         faces,
       };
       // A rig has no seed: asking twice is two attempts, and each is its own request.
@@ -241,6 +258,19 @@ export function registerRigTools(pi: ExtensionAPI): void {
       const what = `${params.rigId} (${terms.label}${params.skeleton ? `, ${params.skeleton}` : ""}, ~${usd(terms.priceUsd)})`;
 
       const client = createFalClient(config.falKeyRef);
+      // Stock clips are looked up before anything is paid for: one that does not exist is refused here,
+      // and each is filed under the name the catalogue gives it.
+      const clipNames = new Map<string, string>();
+      if (params.clips?.length) {
+        const known = new Map(readStockClips(await client.lookup(HYPER3D_CLIPS_ENDPOINT, {}, signal)).map((clip) => [clip.id, clip]));
+        const unknown = params.clips.filter((id) => !known.has(id));
+        if (unknown.length > 0) throw new Error(`no stock clip has the id ${unknown.join(", ")}: pva_stock_clips lists them`);
+        for (const id of params.clips) {
+          let name = clipSlug(known.get(id)!.name) || id;
+          if ([...clipNames.values()].includes(name)) name = `${name}-${id.replace(/\D+/g, "")}`;
+          clipNames.set(id, name);
+        }
+      }
       const startedMs = Date.now();
       const heartbeat = setInterval(() => {
         onUpdate?.({
@@ -278,7 +308,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
                 binding: { endpointId: terms.profile.endpointId, contractVersion: terms.profile.contractVersion, baseUrl: "" },
                 parameters: rigRequestBody({
                   engine, modelUrl, skeleton: params.skeleton, skeletonDescription: params.skeletonDescription, skinning: params.skinning,
-                  imageUrl, fingers: params.fingers, heightMeters: params.heightMeters,
+                  imageUrl, fingers: params.fingers, heightMeters: params.heightMeters, clips: params.clips, inPlace: params.inPlace,
                 }),
                 timeoutMs: MAX_WAIT_MS,
               }, signal, { maxWaitMs: MAX_WAIT_MS });
@@ -323,7 +353,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
         try {
           const bytes = await fetchBytes(output.url, output.role);
           const ext = modelExtension(bytes) ?? pictureExtension(bytes) ?? (extname(output.fileName ?? "").toLowerCase() || ".bin");
-          const clip = output.role.startsWith("clip:") ? output.role.slice(5) : null;
+          const clip = output.role.startsWith("clip:") ? clipNames.get(output.role.slice(5)) ?? output.role.slice(5) : null;
           const file = clip ? `${params.rigId}.clip.${clip}${ext}`
             : output.role === "rig-with-clips" ? `${params.rigId}.with-clips${ext}`
             : output.role === "rig-fbx" ? `${params.rigId}.fbx`

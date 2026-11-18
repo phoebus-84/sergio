@@ -15,12 +15,16 @@ Proposed. Implemented with it:
 - `rig.create`: a skeleton and weights for a model, by Hyper3D or Meshy
   through `@av/fal-media` (`pva_rig_model`), with the exam a generated rig
   sits before it is released, and the sheet of known poses it is looked at
-  in (`pva_rig_sheet`, by `@av/blender`).
+  in (`pva_rig_sheet`, by `@av/blender`);
+- `motion.generate`: a person's motion from a sentence, by Hunyuan Motion
+  through `@av/fal-media` (`pva_generate_motion`); and, with no capability
+  of their own because nothing is generated, a clip carried from one
+  skeleton to another (`pva_retarget_clip`) and stock clips asked for with a
+  rig (`pva_stock_clips`, `clips` on `pva_rig_model`).
 
-Not implemented: the browser's view of a cast, and the capability that makes
-a form move (`motion.generate`: motion from text, motion from a generated
-video, clips from a library retargeted to a rig). It is named below so that
-it arrives as a provider behind a capability, not as a pipeline of its own.
+Not implemented: the browser's view of a cast; motion from a generated
+video, for a body that is not a person's; a face; and a rigged character
+placed in a shot by the studio itself.
 
 ## Context
 

@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rigSheet } from "../src/rig-sheet.js";
+import { sampleClip } from "../src/clip-sample.js";
 import { stickFigure } from "./fixtures/stick-figure.js";
 
 const live = { skip: process.env.BLENDER_LIVE !== "1", timeout: 300_000 };
@@ -38,6 +39,32 @@ test("LIVE: a two-legged figure is put in seven poses, its walk played, and the 
   assert.equal(report.clips.length, 1);
   assert.deepEqual({ name: report.clips[0]!.name, from: report.clips[0]!.from, seconds: report.clips[0]!.seconds, travel: report.clips[0]!.travel }, { name: "walk", from: "rig", seconds: 1, travel: 0 });
   assert.deepEqual(await size(join(outputDir, "clip.walk.png")), [6 * 128, 2 * 128]);
+});
+
+test("LIVE: a clip is read as turns from the rest pose, in the world and in glTF's axes", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "clip-sample-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, "figure.glb");
+  await writeFile(path, stickFigure());
+  const clip = await sampleClip({ path, outputDir: join(root, "sample") });
+
+  assert.deepEqual({ action: clip.action, actions: clip.actions, seconds: clip.seconds }, { action: "walk", actions: ["walk"], seconds: 1 });
+  assert.equal(clip.bones.length, 11);
+  // Where the file puts its joints, y up: Blender's own axes are not what comes back.
+  const at = (name: string) => clip.bones.find((bone) => bone.name === name)!.rest.map((v) => Math.round(v * 1000) / 1000 + 0);
+  assert.deepEqual(at("Hips"), [0, 1, 0]);
+  assert.deepEqual(at("LeftUpLeg"), [0.12, 0.95, 0]);
+  assert.deepEqual(at("Head"), [0, 1.7, 0]);
+  // The walk swings the left thigh an eighth of a turn about x, one way then the other; the right one opposite.
+  const turn = (name: string, frame: number) => clip.rotations[name]![frame]!.map((v) => Math.round(v * 1000) / 1000 + 0);
+  const eighth = [Math.round(Math.sin(Math.PI / 8) * 1000) / 1000, 0, 0, Math.round(Math.cos(Math.PI / 8) * 1000) / 1000];
+  assert.deepEqual(turn("LeftUpLeg", 0), eighth);
+  assert.deepEqual(turn("RightUpLeg", 0), [-eighth[0]!, 0, 0, eighth[3]!]);
+  assert.deepEqual(turn("LeftUpLeg", clip.times.length - 1), eighth);
+  // A bone the clip does not move turns with what carries it: the shin with its thigh, the head not at all.
+  assert.deepEqual(turn("LeftLeg", 0), eighth);
+  assert.deepEqual(turn("Head", 0).map(Math.abs), [0, 0, 0, 1]);
+  assert.deepEqual(clip.positions["Hips"]![0]!.map((v) => Math.round(v * 1000) / 1000 + 0), [0, 1, 0]);
 });
 
 test("LIVE: a body whose bones' names say nothing has its limbs swung, and takes poses of its own", live, async (t) => {

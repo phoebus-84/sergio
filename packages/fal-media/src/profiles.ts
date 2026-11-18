@@ -1214,6 +1214,95 @@ export const hyper3dRigging: EndpointProfile = defineProfile({
   pricing: { unit: "inference", estimatedUnitCost: HYPER3D_RIG.priceUsd, currency: "USD" },
 });
 
+/** The kinds of body Hyper3D has stock clips for. */
+export const HYPER3D_CLIP_CATEGORIES = Object.freeze(["human", "canine", "bird", "fish", "heavyhooved", "leanhooved", "lizard", "rodentia", "seaturtle"] as const);
+export type Hyper3dClipCategory = (typeof HYPER3D_CLIP_CATEGORIES)[number];
+
+/** A stock clip Hyper3D can add to a rig it makes: asked for by its id, at no price of its own. */
+export interface StockClip {
+  id: string;
+  category: string;
+  name: string;
+  description: string;
+  seconds: number;
+  /** Whether it comes round to where it began, and so can be repeated. */
+  loops: boolean;
+}
+
+/** The free endpoint that lists them. */
+export const HYPER3D_CLIPS_ENDPOINT = "hyper3d/rigging/animations";
+
+/** Read the catalogue's answer: entries that have no id are left out. */
+export function readStockClips(answer: Record<string, unknown>): StockClip[] {
+  const list = Array.isArray(answer["animations"]) ? (answer["animations"] as unknown[]) : [];
+  const clips: StockClip[] = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const id = record["animation_id"];
+    if (typeof id !== "string" || !id) continue;
+    const loop = record["loop"] && typeof record["loop"] === "object" ? (record["loop"] as Record<string, unknown>)["kind"] : undefined;
+    clips.push({
+      id,
+      category: typeof record["category"] === "string" ? (record["category"] as string) : "",
+      name: typeof record["display_name"] === "string" && record["display_name"] ? (record["display_name"] as string) : id,
+      description: typeof record["content_description"] === "string" ? (record["content_description"] as string) : "",
+      seconds: typeof record["duration_seconds"] === "number" ? Math.round((record["duration_seconds"] as number) * 100) / 100 : 0,
+      loops: typeof loop === "string" && loop !== "none",
+    });
+  }
+  return clips;
+}
+
+/** What the Hunyuan Motion profile knows in numbers. */
+export const HUNYUAN_MOTION: Readonly<{
+  priceUsd: number;
+  seconds: Readonly<{ min: number; max: number; default: number }>;
+  guidance: Readonly<{ min: number; max: number; default: number }>;
+}> = Object.freeze({
+  priceUsd: 0.08,
+  seconds: Object.freeze({ min: 0.5, max: 12, default: 5 }),
+  guidance: Object.freeze({ min: 1, max: 10, default: 5 }),
+});
+
+/**
+ * Hunyuan Motion on fal: a human motion from a sentence, as an FBX.
+ *
+ * What comes back is a skeleton that moves, on a body of its own — the SMPL
+ * family's, whose bones are named for the joint they start at (`L_Shoulder`
+ * is the upper arm, `L_Knee` the shin) and rest in a T-pose with the pelvis
+ * at the origin. It is of no use until it is carried to the rig that will
+ * play it. A person's body only: no animal, no object.
+ */
+export const hunyuanMotion: EndpointProfile = defineProfile({
+  profileId: "fal-ai/hunyuan-motion@v1",
+  endpointId: "fal-ai/hunyuan-motion",
+  operation: "text-to-motion",
+  contractVersion: "v1",
+  parameterSchema: [
+    { name: "prompt", type: "string", required: true, description: "The motion in a sentence: who does what, in which order." },
+    { name: "seed", type: "integer", required: false, min: 0, description: "The same seed and sentence give the same motion." },
+    {
+      name: "duration", type: "number", required: false, defaultValue: HUNYUAN_MOTION.seconds.default,
+      min: HUNYUAN_MOTION.seconds.min, max: HUNYUAN_MOTION.seconds.max, description: "Seconds of motion.",
+    },
+    {
+      name: "guidance_scale", type: "number", required: false, defaultValue: HUNYUAN_MOTION.guidance.default,
+      min: HUNYUAN_MOTION.guidance.min, max: HUNYUAN_MOTION.guidance.max, description: "How closely the sentence is followed.",
+    },
+    { name: "output_format", type: "enum", required: false, defaultValue: "fbx", enumValues: ["fbx", "dict"], description: "fbx: an animation file. dict: raw numbers." },
+  ],
+  capabilities: {
+    supportedAspectRatios: [],
+    supportsSeed: true,
+    supportsReferenceImages: false,
+    maxReferenceImages: 0,
+    supportsNegativePrompt: false,
+    defaultImageSize: "",
+  },
+  pricing: { unit: "inference", estimatedUnitCost: HUNYUAN_MOTION.priceUsd, currency: "USD" },
+});
+
 export type MeshyRigTemplate =
   | "meshyrig" | "mixamo" | "ue5_mannequin" | "unity_humanoid" | "maya_human_ik"
   | "blender_rigify_basic_human" | "max_biped" | "cc5_hd_neutral_base" | "daz_genesis9";
@@ -1294,6 +1383,7 @@ const PROFILES: readonly EndpointProfile[] = Object.freeze([
   tripoH31ImageTo3d,
   hyper3dRigging,
   meshyRigging,
+  hunyuanMotion,
   deprecationExample,
 ]);
 

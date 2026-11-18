@@ -57,9 +57,10 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   a tenth as often as the service's own default on the figures tried. What
   comes back is examined before the tool answers: vertices no bone moves,
   bones outside the body, a body that stands on nothing, a left with no
-  right, clips that move nothing. A rig that fails is kept and not released. A model that faces another way is turned to face +z before
-  it is sent. The exam also says where the body stands and whether vertices
-  follow more than four bones, which some renderers do not read.
+  right, clips that move nothing. A rig that fails is kept and not released.
+  A model that faces another way is turned to face +z before it is sent. The
+  exam also says where the body stands and whether vertices follow more than
+  four bones, which some renderers do not read.
 - **A rig posed and looked at**: `pva_rig_sheet` puts a rigged model in
   known poses in Blender, at no cost, and renders them on one sheet beside
   the rig — for a two-legged body arms up, arms down, reach, step, wide, head
@@ -71,6 +72,25 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   step between `pva_rig_model` and a release: the first rigs made all passed
   the exam at rest, and it was the poses that told them apart.
   `@av/blender/rig-sheet` is the reusable part.
+- **Motion for a rig**, three ways. Each gives a clip beside the rig,
+  `<rig>.clip.<name>.glb`, that `pva_rig_sheet` plays.
+  - **Stock clips, asked for with the rig.** `pva_stock_clips` lists what
+    Hyper3D has, free: 113 for a human body, and clips for eight kinds of
+    animal. Name up to ten by id in `clips` on `pva_rig_model`: they come
+    with the rig, filed under their names, at no price beyond the rig's.
+  - **A clip carried from another skeleton**: `pva_retarget_clip`, local and
+    free. Bones are paired by the part they play and every turn is copied in
+    the world from the rest pose, so the two skeletons may name, point and
+    size their bones differently and rest in different poses. Two-legged
+    bodies by name; any other with a `map`.
+  - **A motion from a sentence** (`motion.generate`): `pva_generate_motion`
+    asks Hunyuan Motion through fal for a person's motion, $0.08 on the
+    episode's budget, keeps it in `assets/motion/` and carries it to the
+    rig.
+  - `@av/blender/clip-sample` is the reusable part: a clip in a `.glb` or an
+    `.fbx` read as turns from the rest pose, in the world.
+- **A fal call that runs out of time names the request it left.** The job
+  may still finish and be charged; the message says which one it was.
 
 ### Documentation
 

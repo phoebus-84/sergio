@@ -151,7 +151,10 @@ export type ProfileOperation =
   | "image-to-3d"
   // A skeleton and skin weights for a model that has none: the model goes in
   // as a file, and comes back rigged, sometimes with clips that move it.
-  | "model-to-rig";
+  | "model-to-rig"
+  // A motion from words: no body, only a skeleton that moves, to be carried
+  // to whatever rig will play it.
+  | "text-to-motion";
 
 /** A single parameter definition in an endpoint profile. */
 export interface ParameterField {
