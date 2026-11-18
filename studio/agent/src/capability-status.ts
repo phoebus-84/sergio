@@ -11,6 +11,7 @@ import { CODEX_PROVIDER, resolveImageProvider } from "./image-provider.js";
 import { AVATAR_SPEECH_TOOL, avatarTerms } from "./avatar-tools.js";
 import { MODEL_TOOL, modelTerms } from "./model-tools.js";
 import { RIG_TOOL, rigTerms } from "./rig-tools.js";
+import { RETARGET_TOOL, motionTerms } from "./motion-tools.js";
 import { elevenLabsSpeechTerms } from "./elevenlabs-speech.js";
 
 /** The CustomVoice size the worker's /synthesize loads. */
@@ -169,6 +170,14 @@ export function rigCreationStatus(falConfigured: boolean): { "rig-creation": Cap
     "rig-creation": falConfigured
       ? { available: true, detail: `fal.ai rigging configured (${RIG_TOOL}: 3D model → skeleton and weights, examined; ${rigTerms()})` }
       : { available: false, detail: "FAL_KEY not set" },
+  };
+}
+
+export function motionGenerationStatus(falConfigured: boolean): { "motion-generation": CapabilityReport } {
+  return {
+    "motion-generation": falConfigured
+      ? { available: true, detail: `fal.ai motion configured (${motionTerms()})` }
+      : { available: false, detail: `FAL_KEY not set (${RETARGET_TOOL} needs no key: it carries a clip from another skeleton, locally)` },
   };
 }
 

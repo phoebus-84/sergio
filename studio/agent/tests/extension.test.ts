@@ -129,7 +129,7 @@ describe("extensions/index.ts — tool registration", () => {
   });
 
   it("registers the expected suite of production tools", () => {
-    expect(mockPi.tools.length).toBe(96);
+    expect(mockPi.tools.length).toBe(99);
     const names = mockPi.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "pva_align_take",
@@ -182,6 +182,7 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_generate_images",
       "pva_generate_minimax_h3_video",
       "pva_generate_model",
+      "pva_generate_motion",
       "pva_generate_wan_video",
       "pva_health",
       "pva_ingest_footage",
@@ -206,6 +207,7 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_render_terminal",
       "pva_render_vector_animation",
       "pva_request_approval",
+      "pva_retarget_clip",
       "pva_reuse_local_media",
       "pva_rig_model",
       "pva_rig_sheet",
@@ -218,6 +220,7 @@ describe("extensions/index.ts — tool registration", () => {
       "pva_snapshot",
       "pva_sources",
       "pva_stitch_video_clips",
+      "pva_stock_clips",
       "pva_synthesize_nonverbal_audio",
       "pva_synthesize_sound",
       "pva_synthesize_speech",
