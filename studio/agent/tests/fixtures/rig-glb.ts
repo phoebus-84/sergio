@@ -14,7 +14,7 @@ export interface FixtureRig {
   joints: FixtureJoint[];
   /** The body's box, as the position accessor states it. */
   box: { min: [number, number, number]; max: [number, number, number] };
-  /** One entry per vertex: up to four joints (indices into `joints`) and their weights. */
+  /** One entry per vertex: its joints (indices into `joints`) and their weights. More than four go into a second set. */
   vertices?: { joints: number[]; weights: number[] }[];
   /** Vertices of a second part of the body that has no skin at all. */
   bareVertices?: number;
@@ -81,7 +81,23 @@ export function rigGlb(rig: FixtureRig): Buffer {
     const children = rig.joints.map((other, otherIndex) => (other.parent === index ? otherIndex : -1)).filter((i) => i >= 0);
     return { name: joint.name, translation: [joint.at[0] - parent[0]!, joint.at[1] - parent[1]!, joint.at[2] - parent[2]!], ...(children.length > 0 ? { children } : {}) };
   });
-  const primitives: Record<string, unknown>[] = [{ attributes: rig.unbound ? { POSITION: 0 } : { POSITION: 0, JOINTS_0: 1, WEIGHTS_0: 2 } }];
+  // A vertex with more than four joints needs a second set: JOINTS_1, WEIGHTS_1.
+  const second: Record<string, number> = {};
+  if (vertices.some((vertex) => vertex.joints.length > 4)) {
+    const moreJoints = Buffer.alloc(vertices.length * 4);
+    const moreWeights = Buffer.alloc(vertices.length * 16);
+    vertices.forEach((vertex, i) => {
+      for (let k = 0; k < 4; k++) {
+        moreJoints.writeUInt8(vertex.joints[k + 4] ?? 0, i * 4 + k);
+        moreWeights.writeFloatLE(vertex.weights[k + 4] ?? 0, i * 16 + k * 4);
+      }
+    });
+    accessors.push({ bufferView: view(moreJoints), componentType: 5121, count: vertices.length, type: "VEC4" });
+    second["JOINTS_1"] = accessors.length - 1;
+    accessors.push({ bufferView: view(moreWeights), componentType: 5126, count: vertices.length, type: "VEC4" });
+    second["WEIGHTS_1"] = accessors.length - 1;
+  }
+  const primitives: Record<string, unknown>[] = [{ attributes: rig.unbound ? { POSITION: 0 } : { POSITION: 0, JOINTS_0: 1, WEIGHTS_0: 2, ...second } }];
   if (rig.bareVertices) {
     accessors.push({ componentType: 5126, count: rig.bareVertices, type: "VEC3", min: rig.box.min, max: rig.box.max });
     primitives.push({ attributes: { POSITION: accessors.length - 1 } });

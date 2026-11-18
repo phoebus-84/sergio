@@ -66,10 +66,10 @@ describe("a binary glTF, read", () => {
 describe("the exam a rig sits", () => {
   it("finds nothing wrong with a body every bone fits, and says that is not proof", () => {
     const exam = examineRig(rigGlb(BIPED));
-    expect(exam).toMatchObject({ format: "glb", ok: true, joints: 11, depth: 4, vertices: 11, unweighted: 0, idleJoints: 0, outside: [], grounded: 2, unpaired: [], size: [1.2, 1.8, 0.4], clips: [] });
+    expect(exam).toMatchObject({ format: "glb", ok: true, joints: 11, depth: 4, vertices: 11, unweighted: 0, beyondFour: 0, influences: 1, idleJoints: 0, outside: [], grounded: 2, unpaired: [], size: [1.2, 1.8, 0.4], floor: 0, clips: [] });
     expect(exam.findings).toEqual([]);
     const said = describeRigExam(exam);
-    expect(said[0]).toBe("11 joints, 4 deep; 11 vertices bound; 2 joints near the ground; 1.2 wide × 1.8 tall × 0.4 deep");
+    expect(said[0]).toBe("11 joints, 4 deep; 11 vertices bound; 2 joints near the ground; 1.2 wide × 1.8 tall × 0.4 deep, standing on y 0");
     expect(said.at(-1)).toBe("exam: nothing wrong found at rest. That is not yet a good rig: pose it and look");
   });
 
@@ -94,6 +94,24 @@ describe("the exam a rig sits", () => {
     expect(levels(rigGlb({ ...BIPED, bareVertices: 40 }))).toEqual(["warn: 40 of 51 vertices belong to parts with no skin and under no bone: they will not move with the body"]);
     const vertices = BIPED.joints.map((_, index) => ({ joints: [index, 0], weights: [0.3, 0.3] }));
     expect(levels(rigGlb({ ...BIPED, vertices }))).toEqual(["warn: 11 vertices have weights that do not add to one: they will stretch or shrink"]);
+  });
+
+  it("adds a vertex's weights across every set, and says when more than four bones move it", () => {
+    // Six bones a vertex, a sixth of the weight each: the first set alone adds to two thirds.
+    const vertices = BIPED.joints.map((_, index) => ({ joints: [index, 0, 1, 2, 3, 4], weights: [1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6] }));
+    const exam = examineRig(rigGlb({ ...BIPED, vertices }));
+    expect(exam).toMatchObject({ ok: true, beyondFour: 11, influences: 6, unweighted: 0 });
+    // Read from the first set alone, every vertex would have weights that do not add to one.
+    expect(exam.findings).toEqual([]);
+    expect(describeRigExam(exam)[1]).toBe("11 vertices follow more than four bones (up to 6): Blender reads them all; a renderer that reads four a vertex drops the rest");
+  });
+
+  it("says where a body stands when it is not on the ground", () => {
+    const lifted = { ...withJoints(BIPED.joints.map((joint) => ({ ...joint, at: [joint.at[0], joint.at[1] - 0.9, joint.at[2]] as [number, number, number] }))), box: { min: [-0.6, -0.9, -0.2] as [number, number, number], max: [0.6, 0.9, 0.2] as [number, number, number] } };
+    const exam = examineRig(rigGlb(lifted));
+    expect(exam.floor).toBe(-0.9);
+    expect(exam.findings).toEqual([]);
+    expect(describeRigExam(exam)[0]).toBe("11 joints, 4 deep; 11 vertices bound; 2 joints near the ground; 1.2 wide × 1.8 tall × 0.4 deep, its lowest point at y -0.9: it does not stand on the ground");
   });
 
   it("counts a rigid part hung under a bone as carried by it: a robot's shell needs no skin", () => {
@@ -144,6 +162,10 @@ describe("the exam a rig sits", () => {
     expect(moving.clips).toEqual([{ name: "walk", seconds: 1.2, joints: 5 }, { name: "clip 2", seconds: 0.5, joints: 1 }]);
     expect(moving.ok).toBe(true);
     expect(describeRigExam(moving)[1]).toBe("clips inside: walk (1.2s, 5 joints), clip 2 (0.5s, 1 joints)");
+    // A rest pose saved as a clip one frame long is a pose, and is not listed as a motion.
+    const held = examineRig(rigGlb({ ...BIPED, clips: [{ name: "rest", seconds: 0.03, moves: [0, 1, 2] }, { name: "walk", seconds: 1, moves: [7, 9] }] }));
+    expect(held.clips[0]).toEqual({ name: "rest", seconds: 0.03, joints: 3, still: true });
+    expect(describeRigExam(held).slice(1, 3)).toEqual(["clips inside: walk (1s, 2 joints)", "a pose held, not a motion: rest"]);
     const still = examineRig(rigGlb({ ...BIPED, clips: [{ name: "idle", seconds: 2, moves: [] }] }));
     expect(still.findings).toEqual([{ level: "fail", message: 'the clip "idle" moves none of the skeleton\'s joints' }]);
   });

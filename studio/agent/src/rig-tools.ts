@@ -358,7 +358,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
       writeFileSync(provenancePath, `${JSON.stringify(provenance, null, 2)}\n`);
 
       const clipLines = clips.map((clip) => {
-        const inside = clip.exam.clips[0];
+        const inside = clip.exam.clips.find((one) => !one.still) ?? clip.exam.clips[0];
         const broken = clip.exam.findings.filter((finding) => finding.level === "fail").map((finding) => finding.message);
         return `   clip ${clip.name}: assets/models/${clip.file}` +
           (inside ? ` — ${inside.seconds}s, moves ${inside.joints} joints` : clip.exam.format === "glb" ? " — ⚠️ no animation inside" : "") +

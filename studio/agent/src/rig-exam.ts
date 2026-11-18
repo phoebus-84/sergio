@@ -7,6 +7,7 @@
 // pose and says what a person would otherwise find three steps later:
 //
 // - vertices that follow no bone — they stay behind when the body moves;
+// - vertices that follow more bones than some renderers read;
 // - bones outside the body;
 // - a body that stands on the ground with no bone near it;
 // - a left with no right;
@@ -30,6 +31,8 @@ export interface RigClip {
   seconds: number;
   /** How many of the skeleton's joints the clip moves. */
   joints: number;
+  /** It has one moment only: a pose held, not a motion. Services put the rest pose in a rig this way. */
+  still?: true;
 }
 
 export interface RigExam {
@@ -41,6 +44,10 @@ export interface RigExam {
   vertices: number;
   /** Vertices whose weights add to nothing. */
   unweighted: number;
+  /** Vertices that follow more than four bones: a renderer that reads four a vertex drops the rest. */
+  beyondFour: number;
+  /** The most bones any one vertex follows. */
+  influences: number;
   /** Joints no vertex follows: tips and helpers, usually. */
   idleJoints: number;
   /** Joints that lie outside the body's box. */
@@ -51,6 +58,8 @@ export interface RigExam {
   unpaired: string[];
   /** The body's size in the rig's own units: width, height, depth (y up). */
   size: Vec3 | null;
+  /** The height of the body's lowest point: 0 when it stands on the ground, not when its origin is elsewhere. */
+  floor: number | null;
   clips: RigClip[];
   findings: RigFinding[];
   /** No finding at level fail. */
@@ -58,8 +67,11 @@ export interface RigExam {
 }
 
 const EMPTY: Omit<RigExam, "format" | "findings" | "ok"> = {
-  joints: 0, depth: 0, vertices: 0, unweighted: 0, idleJoints: 0, outside: [], grounded: 0, unpaired: [], size: null, clips: [],
+  joints: 0, depth: 0, vertices: 0, unweighted: 0, beyondFour: 0, influences: 0, idleJoints: 0, outside: [], grounded: 0, unpaired: [], size: null, floor: null, clips: [],
 };
+
+/** A clip shorter than this holds a pose: two frames at 24 a second are 0.042s. */
+const STILL_SECONDS = 0.05;
 
 const some = (names: string[], limit = 4) => (names.length <= limit ? names.join(", ") : `${names.slice(0, limit).join(", ")} and ${names.length - limit} more`);
 
@@ -101,7 +113,7 @@ function examine(glb: NonNullable<ReturnType<typeof readGlb>>): RigExam {
   // The body in its rest pose. A skinned mesh is placed by its joints, not by
   // its own node: joint × inverse bind is where the bind pose puts a vertex.
   const min: Vec3 = [Infinity, Infinity, Infinity], max: Vec3 = [-Infinity, -Infinity, -Infinity];
-  let vertices = 0, unweighted = 0, skinnedPrimitives = 0, carriedParts = 0, bareVertices = 0, loose = 0;
+  let vertices = 0, unweighted = 0, skinnedPrimitives = 0, carriedParts = 0, bareVertices = 0, loose = 0, beyondFour = 0, influences = 0;
   const followed = new Set<number>();
   // A rigid part hung under a joint has no skin and needs none: the bone carries it whole.
   const carriedBy = (index: number): number | null => {
@@ -131,9 +143,17 @@ function examine(glb: NonNullable<ReturnType<typeof readGlb>>): RigExam {
       }
       const count = positions?.count ?? 0;
       vertices += count;
-      const jointsOf = accessorReader(glb, primitive.attributes?.JOINTS_0);
-      const weightsOf = accessorReader(glb, primitive.attributes?.WEIGHTS_0);
-      if (!skin || !jointsOf || !weightsOf || jointsOf.size !== 4 || weightsOf.size !== 4) {
+      // A vertex follows four bones a set, and a file may hold several sets
+      // (JOINTS_0, JOINTS_1, …): weights are read across all of them.
+      const sets: { jointsOf: NonNullable<ReturnType<typeof accessorReader>>; weightsOf: NonNullable<ReturnType<typeof accessorReader>> }[] = [];
+      for (let set = 0; set < 8; set++) {
+        const attributes = (primitive.attributes ?? {}) as Record<string, number | undefined>;
+        const jointsOf = accessorReader(glb, attributes[`JOINTS_${set}`]);
+        const weightsOf = accessorReader(glb, attributes[`WEIGHTS_${set}`]);
+        if (!jointsOf || !weightsOf || jointsOf.size !== 4 || weightsOf.size !== 4) break;
+        sets.push({ jointsOf, weightsOf });
+      }
+      if (!skin || sets.length === 0) {
         const bone = skin ? null : carriedBy(nodeIndex);
         if (bone === null) bareVertices += count;
         else {
@@ -143,19 +163,24 @@ function examine(glb: NonNullable<ReturnType<typeof readGlb>>): RigExam {
         continue;
       }
       skinnedPrimitives++;
-      const n = Math.min(jointsOf.count, weightsOf.count);
+      const n = Math.min(...sets.flatMap((set) => [set.jointsOf.count, set.weightsOf.count]));
       for (let i = 0; i < n; i++) {
-        const w = weightsOf.get(i), j = jointsOf.get(i);
-        let sum = 0;
-        for (let k = 0; k < 4; k++) {
-          const weight = w[k]!;
-          if (!(weight > 0)) continue;
-          sum += weight;
-          const joint = skin.joints[j[k]!];
-          if (joint !== undefined) followed.add(joint);
+        let sum = 0, bones = 0;
+        for (const set of sets) {
+          const w = set.weightsOf.get(i), j = set.jointsOf.get(i);
+          for (let k = 0; k < 4; k++) {
+            const weight = w[k]!;
+            if (!(weight > 0)) continue;
+            sum += weight;
+            bones++;
+            const joint = skin.joints[j[k]!];
+            if (joint !== undefined) followed.add(joint);
+          }
         }
         if (sum < 0.01) unweighted++;
         else if (Math.abs(sum - 1) > 0.05) loose++;
+        if (bones > 4) beyondFour++;
+        if (bones > influences) influences = bones;
       }
     }
   });
@@ -236,15 +261,17 @@ function examine(glb: NonNullable<ReturnType<typeof readGlb>>): RigExam {
       if (typeof end === "number" && end > seconds) seconds = end;
     }
     const moved = new Set((animation.channels ?? []).map((channel) => channel.target?.node).filter((node): node is number => node !== undefined && isJoint.has(node)));
-    return { name: animation.name || `clip ${index + 1}`, seconds: Math.round(seconds * 100) / 100, joints: moved.size };
+    // One moment, or two a frame apart: a pose, however many joints it names.
+    return { name: animation.name || `clip ${index + 1}`, seconds: Math.round(seconds * 100) / 100, joints: moved.size, ...(seconds < STILL_SECONDS ? { still: true as const } : {}) };
   });
   for (const clip of clips) {
     if (clip.joints === 0) findings.push({ level: "fail", message: `the clip "${clip.name}" moves none of the skeleton's joints` });
   }
 
   return {
-    format: "glb", joints: jointList.length, depth, vertices, unweighted, idleJoints, outside, grounded, unpaired,
+    format: "glb", joints: jointList.length, depth, vertices, unweighted, beyondFour, influences, idleJoints, outside, grounded, unpaired,
     size: size ? (size.map((v) => Math.round(v * 1000) / 1000) as Vec3) : null,
+    floor: size ? Math.round(min[1] * 1000) / 1000 + 0 : null,
     clips, findings, ok: !findings.some((finding) => finding.level === "fail"),
   };
 }
@@ -253,11 +280,20 @@ function examine(glb: NonNullable<ReturnType<typeof readGlb>>): RigExam {
 export function describeRigExam(exam: RigExam): string[] {
   if (exam.format === "other") return ["not examined: only a binary glTF can be read here. Open it in Blender and pose it before it is used"];
   if (exam.joints === 0) return exam.findings.map((finding) => `❌ ${finding.message}`);
+  // On the ground within a fiftieth of its height; anything else is an origin somewhere in the body.
+  const stands = exam.size && exam.floor !== null
+    ? (Math.abs(exam.floor) <= exam.size[1] * 0.02 ? ", standing on y 0" : `, its lowest point at y ${Number(exam.floor.toFixed(2))}: it does not stand on the ground`)
+    : "";
   const lines = [
     `${exam.joints} joints, ${exam.depth} deep; ${exam.vertices.toLocaleString("en-US")} vertices bound; ${exam.grounded} joint${exam.grounded === 1 ? "" : "s"} near the ground` +
-      (exam.size ? `; ${Number(exam.size[0].toFixed(2))} wide × ${Number(exam.size[1].toFixed(2))} tall × ${Number(exam.size[2].toFixed(2))} deep` : ""),
+      (exam.size ? `; ${Number(exam.size[0].toFixed(2))} wide × ${Number(exam.size[1].toFixed(2))} tall × ${Number(exam.size[2].toFixed(2))} deep${stands}` : ""),
   ];
-  if (exam.clips.length > 0) lines.push(`clips inside: ${exam.clips.map((clip) => `${clip.name} (${clip.seconds}s, ${clip.joints} joints)`).join(", ")}`);
+  if (exam.beyondFour > 0) {
+    lines.push(`${exam.beyondFour.toLocaleString("en-US")} vertices follow more than four bones (up to ${exam.influences}): Blender reads them all; a renderer that reads four a vertex drops the rest`);
+  }
+  const moving = exam.clips.filter((clip) => !clip.still), held = exam.clips.filter((clip) => clip.still);
+  if (moving.length > 0) lines.push(`clips inside: ${moving.map((clip) => `${clip.name} (${clip.seconds}s, ${clip.joints} joints)`).join(", ")}`);
+  if (held.length > 0) lines.push(`a pose held, not a motion: ${held.map((clip) => clip.name).join(", ")}`);
   for (const finding of exam.findings) lines.push(`${finding.level === "fail" ? "❌" : "⚠️"} ${finding.message}`);
   lines.push(exam.ok
     ? (exam.findings.length === 0 ? "exam: nothing wrong found at rest. That is not yet a good rig: pose it and look" : "exam: usable, with the warnings above. Pose it and look")
