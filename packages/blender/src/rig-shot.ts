@@ -9,9 +9,10 @@
 // No script comes with a request, so nothing here runs code a caller wrote.
 // ---------------------------------------------------------------------------
 
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { joinFrames, nonempty } from "./frames.js";
 import { blenderExecutable, probe } from "./index.js";
 import { runProcess } from "./process.js";
 import { RIG_FACINGS, type RigFacing } from "./rig-sheet.js";
@@ -102,11 +103,6 @@ export function shotSettings(request: RigShotRequest) {
   return settings;
 }
 
-async function nonempty(file: string): Promise<void> {
-  const found = await stat(file).catch(() => null);
-  if (!found?.isFile() || found.size === 0) throw new Error(`Missing or empty output: ${file}`);
-}
-
 /** Film a rigged character. The output directory holds shot.mp4, shot.json and the frames. */
 export async function rigShot(
   request: RigShotRequest,
@@ -139,12 +135,6 @@ export async function rigShot(
     throw error;
   }
   const report = JSON.parse(await readFile(join(outputDir, "shot.json"), "utf8")) as RigShotReport;
-  for (const frame of [1, report.frames]) await nonempty(join(outputDir, "frames", `${String(frame).padStart(6, "0")}.png`));
-  const mediaPath = join(outputDir, "shot.mp4");
-  await runProcess(options.ffmpegPath ?? process.env.FFMPEG_BIN ?? "ffmpeg", [
-    "-hide_banner", "-nostdin", "-n", "-framerate", String(report.fps), "-start_number", "1", "-i", join(outputDir, "frames", "%06d.png"),
-    "-frames:v", String(report.frames), "-an", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", mediaPath,
-  ], { cwd: outputDir, logPath: join(outputDir, "encode.log"), timeoutMs, signal: options.signal });
-  await nonempty(mediaPath);
+  const mediaPath = await joinFrames(outputDir, report, { ffmpegPath: options.ffmpegPath, timeoutMs, signal: options.signal });
   return { outputDir, mediaPath, report };
 }
