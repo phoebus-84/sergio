@@ -44,6 +44,7 @@ Stages request provider-neutral capabilities (`studio/contracts/src/vocabulary.m
 - `video.generate`: fal — MiniMax H3, Wan 2.2 and FLUX 3 Max clips;
 - `model.generate`: fal — a 3D model from one picture, by Tripo H3.1;
 - `rig.create`: fal — a skeleton and weights for a model, by Hyper3D or Meshy, examined when it arrives;
+- `motion.generate`: fal — a person's motion from a sentence, by Hunyuan Motion, carried to the rig that will play it;
 - `speech.synthesize`: the local Qwen3-TTS worker with MLX or PyTorch CPU/CUDA/ROCm (`packages/voice`);
 - `speech.align`: the same worker's MLX-only aligner, or ElevenLabs when asked (`@av/elevenlabs`);
 - `graphics.render`: deterministic SVG, diagram and code-frame renderer;

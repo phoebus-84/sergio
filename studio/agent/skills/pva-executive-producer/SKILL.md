@@ -129,6 +129,12 @@ channel, a series or a film, not to an episode, and is the same next week:
 - `pva_rig_sheet` — a rig posed and looked at (Blender, local, free): seven known poses
   from three sides on one sheet, its clips over six moments, and how far each pulled
   the surface out of shape. Read it before a rig is released.
+- `pva_stock_clips` — the stock clips Hyper3D can add to a rig it makes, listed free:
+  name up to ten by id in `clips` on `pva_rig_model`.
+- `pva_retarget_clip` — a motion carried from another skeleton to a rig's own (Blender,
+  local, free): a clip made for another rig, a motion from a library.
+- `pva_generate_motion` — a person's motion from one sentence (Hunyuan Motion on fal,
+  paid per motion), carried to the rig. Play it on the sheet before it is used.
 
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.

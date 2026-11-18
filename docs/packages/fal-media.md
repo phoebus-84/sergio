@@ -1,6 +1,6 @@
 # fal-media
 
-> Tracked image, video, 3D model and rigging jobs against fal.ai, with provenance and cost. Video is MiniMax H3; 3D models are Tripo H3.1; rigs are Hyper3D and Meshy.
+> Tracked image, video, 3D model, rigging and motion jobs against fal.ai, with provenance and cost. Video is MiniMax H3; 3D models are Tripo H3.1; rigs are Hyper3D and Meshy; motion from words is Hunyuan Motion.
 
 |  |  |
 |---|---|
@@ -8,7 +8,7 @@
 | Package | `@av/fal-media` |
 | Kind | node |
 | Tier | **reusable** — usable outside this project |
-| Capabilities | `image.generate`, `image.edit`, `video.generate`, `model.generate`, `rig.create` |
+| Capabilities | `image.generate`, `image.edit`, `video.generate`, `model.generate`, `rig.create`, `motion.generate` |
 | Requires | `FAL_KEY` in the environment |
 | In profiles | `full`, `studio`, `headless` |
 

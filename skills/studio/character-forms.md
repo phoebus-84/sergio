@@ -160,6 +160,13 @@ never saved over: an episode appends the rig and animates a copy.
      where it was (its origin at its middle). `meshy` answers in fifty with
      24 joints, four bones a vertex, the feet on y 0, an FBX beside the GLB,
      a walk and a run. Every one of those rigs passed the exam.
+   - **Textures come through.** A textured model was rigged by both: the
+     three texture files came back byte for byte, and the material with
+     them. Rig the model you mean to show.
+   - **A call can stall.** One rig did not come back in fifteen minutes and
+     the same request, sent again, took thirty seconds. The ledger keeps the
+     price of a call whose end it did not see; the error names the request,
+     which may still finish.
    - **Leave Hyper3D's skinning at `core`**, which is what the tool asks for.
      The service's own default, `shell`, tore the surface ten times as often
      in the same poses on both figures: a seam under the chin when the head
@@ -202,19 +209,50 @@ never saved over: an episode appends the rig and animates a copy.
      same place, the fault is in the model or the picture: go back a step.
    - A rig is a `rig-3d` form. The clips that came with it are its first
      `can.actions`; a form lists only what it has a clip or a pose for.
-4. **Motion.** In rising order of cost:
-   - a clip from a library, retargeted to the rig by a bone map — rotations
-     copied in world space from the rest pose, never joint by joint between
-     rigs of different proportions;
-   - for a human body, motion generated from text and constraints;
-   - for anything stranger — a creature, a monster, a thing with wings —
-     **film it instead of animating it**: render the model from a known
-     camera on a plain ground, have a video model move *that picture*, and
-     copy the video onto the skeleton frame by frame. Keyframes written by
-     code look artificial; a generated video of the model moves like the
-     animal.
+4. **Motion.** A rig moves as far as its clips go. Each clip is a file
+   beside the rig, `<rig>.clip.<name>.glb`: the rig's own body with one
+   motion in it. In rising order of cost:
+   - **A stock clip, asked for with the rig.** `pva_stock_clips { category,
+     search }` lists what Hyper3D has, free: a hundred and more for a human
+     body (walks, runs, jumps, gestures, sports, reactions) and clips for
+     dogs, birds, fish, hoofed animals, lizards, rodents and turtles, each
+     with how long it lasts and whether it can be repeated. Name up to ten
+     by id in `clips` on `pva_rig_model` (engine `hyper3d`): they arrive
+     with the rig, filed under their names, at no price beyond the rig's.
+     `meshy` adds a walk and a run to every rig and nothing by name.
+   - **A clip carried from another skeleton**: `pva_retarget_clip { rigPath,
+     sourcePath, name }`, local and free. The source is any `.glb` or `.fbx`
+     of the episode that holds a skeleton and a motion: a clip one service
+     made for another rig, a motion from a library. Bones are paired by the
+     part they play, read from their names and from which side of the body
+     they are on, and each turn is copied in the world from the rest pose —
+     never joint by joint — so the two skeletons may name, point and size
+     their bones differently and rest in different poses. Say `sourceFaces`
+     when the source faces another way, `inPlace` for a walk the scene will
+     move itself, `map` for bones the names did not pair.
+   - **A motion from a sentence**: `pva_generate_motion { rigPath, name,
+     prompt, seconds }`, $0.08 a motion on the episode's budget. A person's
+     motion only. Say who does what, in order, in one English sentence:
+     "A person waves hello with the right hand, then bows." What comes back
+     is kept in `assets/motion/` and carried to the rig. It may not be all
+     that was asked: of "waves, then bows" the wave came, and in the six
+     moments of the sheet no bow could be seen. Ask again with another
+     `seed`, or ask for one thing a clip.
+   - **Play every clip before it is used**: `pva_rig_sheet` shows six moments
+     of each from two sides. Feet that slide, a hand through the body, a
+     limb bent the wrong way are seen there and are not measured. A motion
+     made for a person's proportions puts the hand of a character with a
+     large head inside its face.
+   - Only two-legged bodies are carried by name. The fingers and the face
+     are not carried at all.
+   - For anything stranger — a creature, a monster, a thing with wings — and
+     no stock clip that fits, **film it instead of animating it**: render
+     the model from a known camera on a plain ground, have a video model
+     move *that picture*, and copy the video onto the skeleton frame by
+     frame. This is not a tool of the studio; do it with what the machine
+     has, and keep every intermediate file.
 
-   What makes the last one work, learned the hard way:
+   What makes that last one work, learned the hard way:
    - **Know the camera.** The picture given to the video model is your own
      render, so every pixel's place on the body is known.
    - **One view cannot see depth.** A side view hides which leg is nearer; an
@@ -232,9 +270,9 @@ never saved over: an episode appends the rig and animates a copy.
      broken frames. Look at the frames: model under video, one above the
      other.
 
-Motion from text and motion from video are not tools of the studio yet. Do
-those steps with what the machine has, keep every intermediate file, and
-record the result as a release with `madeWith` saying exactly what made it.
+A form lists a clip as an action only when the clip has been played and
+looked at. Record the release with `madeWith` saying exactly what made the
+rig and each clip: every clip has a provenance beside it.
 
 A model is made in an episode, where the budget is, and lands in
 `assets/models/`. To make it the character's, copy the model, its preview and
