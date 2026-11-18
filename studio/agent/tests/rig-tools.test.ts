@@ -50,10 +50,11 @@ describe("what the tool says", () => {
   });
 
   it("maps its parameters onto each endpoint's schema", () => {
-    expect(rigRequestBody({ engine: "hyper3d", modelUrl: "https://f/m.glb" })).toEqual({ model_url: "https://f/m.glb", bone_template: "auto", geometry_file_format: "glb" });
+    expect(rigRequestBody({ engine: "hyper3d", modelUrl: "https://f/m.glb" })).toEqual({ model_url: "https://f/m.glb", bone_template: "auto", skinning_method: "core", geometry_file_format: "glb" });
     expect(rigRequestBody({ engine: "hyper3d", modelUrl: "m", skeleton: "custom", skeletonDescription: "six legs", skinning: "core", imageUrl: "https://f/i.png" })).toEqual({
       model_url: "m", bone_template: "custom", skeleton_description: "six legs", skinning_method: "core", image_url: "https://f/i.png", geometry_file_format: "glb",
     });
+    expect(rigRequestBody({ engine: "hyper3d", modelUrl: "m", skinning: "shell" })).toMatchObject({ skinning_method: "shell" });
     expect(rigRequestBody({ engine: "meshy", modelUrl: "m" })).toEqual({ model_url: "m", enable_safety_checker: true });
     expect(rigRequestBody({ engine: "meshy", modelUrl: "m", skeleton: "mixamo", fingers: true, heightMeters: 0.9 })).toEqual({
       model_url: "m", skeleton_template: "mixamo", include_fingers: true, height_meters: 0.9, enable_safety_checker: true,
@@ -146,7 +147,8 @@ describe("pva_rig_model", () => {
 
   it("sends the model to Hyper3D, keeps the rig with how it was made, and examines it", async () => {
     budget(100_000_000);
-    const result = await rig({ skeleton: "human", skinning: "core" });
+    // No skinning is named: the studio asks for core, and the provenance says so.
+    const result = await rig({ skeleton: "human" });
     expect(uploads.map((u) => `${u.name} ${u.type}`)).toEqual(["model.glb model/gltf-binary"]);
     expect(uploads[0]!.bytes.equals(RIG)).toBe(true);
     expect(submitted).toEqual({

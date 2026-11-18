@@ -81,6 +81,13 @@ export function rigTerms(): string {
 }
 
 const SAFE_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+/**
+ * Hyper3D's skinning when none is asked for. The service's own default is
+ * shell; on the two figures rigged both ways, core tore the surface a tenth
+ * as often in the same poses (pva_rig_sheet), so core is the studio's.
+ */
+export const HYPER3D_SKINNING_DEFAULT = "core";
+
 const HEARTBEAT_MS = 15_000;
 const MAX_WAIT_MS = 900_000;
 const MODEL_TYPES: Readonly<Record<string, string>> = { ".glb": "model/gltf-binary", ".fbx": "application/octet-stream" };
@@ -112,7 +119,7 @@ export function rigRequestBody(r: RigRequest): Record<string, unknown> {
     model_url: r.modelUrl,
     bone_template: r.skeleton ?? "auto",
     ...(r.skeletonDescription ? { skeleton_description: r.skeletonDescription } : {}),
-    ...(r.skinning ? { skinning_method: r.skinning } : {}),
+    skinning_method: r.skinning ?? HYPER3D_SKINNING_DEFAULT,
     ...(r.imageUrl ? { image_url: r.imageUrl } : {}),
     // A binary glTF is what the exam reads.
     geometry_file_format: "glb",
@@ -153,7 +160,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
         description: `The kind of skeleton. hyper3d: ${HYPER3D_RIG.templates.join(", ")} (default auto). meshy: ${MESHY_RIG.templates.join(", ")} (default meshyrig)`,
       })),
       skeletonDescription: Type.Optional(Type.String({ description: "hyper3d with skeleton custom: the body's anatomy and limbs in words" })),
-      skinning: Type.Optional(StringEnum(HYPER3D_RIG.skinning as unknown as [string, ...string[]], { description: "hyper3d: shell (smooth, the default) or core (weights held close to the joints)" })),
+      skinning: Type.Optional(StringEnum(HYPER3D_RIG.skinning as unknown as [string, ...string[]], { description: `hyper3d: core (weights held close to the joints; the default here, it tears less) or shell (the service's own default, smoother and looser)` })),
       imagePath: Type.Optional(Type.String({ description: "hyper3d: a picture of the character, episode-relative, to guide auto and custom skeletons" })),
       fingers: Type.Optional(Type.Boolean({ description: "meshy: rig the fingers" })),
       heightMeters: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 100, description: `meshy: about how tall the character is, in metres (default ${MESHY_RIG.defaultHeightMeters})` })),
@@ -224,7 +231,7 @@ export function registerRigTools(pi: ExtensionAPI): void {
         engine,
         ...(params.skeleton !== undefined ? { skeleton: params.skeleton } : {}),
         ...(params.skeletonDescription !== undefined ? { skeletonDescription: params.skeletonDescription } : {}),
-        ...(params.skinning !== undefined ? { skinning: params.skinning } : {}),
+        ...(engine === "hyper3d" ? { skinning: params.skinning ?? HYPER3D_SKINNING_DEFAULT } : {}),
         ...(params.fingers ? { fingers: true } : {}),
         ...(params.heightMeters !== undefined ? { heightMeters: params.heightMeters } : {}),
         faces,
