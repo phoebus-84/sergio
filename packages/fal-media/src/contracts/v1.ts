@@ -458,7 +458,8 @@ export class RigProfileContract extends ProfileContract {
 
     const outputs: OutputAsset[] = [];
     if (alone) outputs.push(asset(alone, "rig", "model/gltf-binary"));
-    if (whole) outputs.push(asset(whole, alone ? "rig-with-clips" : "rig", "model/gltf-binary"));
+    // With no clips asked for, Hyper3D gives the one file under both names: it is the rig, once.
+    if (whole && whole["url"] !== alone?.["url"]) outputs.push(asset(whole, alone ? "rig-with-clips" : "rig", "model/gltf-binary"));
     if (fbx) outputs.push(asset(fbx, alone || whole ? "rig-fbx" : "rig", "application/octet-stream"));
 
     const clip = (name: string, value: unknown): void => {

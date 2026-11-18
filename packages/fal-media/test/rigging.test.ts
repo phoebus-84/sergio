@@ -80,6 +80,13 @@ describe("rigging a model", () => {
       expect(result).not.toHaveProperty("details");
     });
 
+    it("is the rig once when no clips were asked for and the one file comes under both names", () => {
+      // What the service answered on 2026-11-17: the same URL twice, no FBX, no clips.
+      const file = { url: "https://cdn/source.glb", content_type: "model/gltf-binary", file_name: "source.glb", file_size: 1758968 };
+      const result = hyper({ model_mesh: file, rigged_character_glb: { ...file }, animations: [], fbx_file: null, additional_files: [], textures: [] });
+      expect(roles(result.outputs)).toEqual(["rig https://cdn/source.glb"]);
+    });
+
     it("holds with only the one file, which is then the rig", () => {
       expect(roles(hyper({ model_mesh: { url: "https://cdn/all.fbx", file_name: "all.fbx" } }).outputs)).toEqual(["rig https://cdn/all.fbx"]);
     });
