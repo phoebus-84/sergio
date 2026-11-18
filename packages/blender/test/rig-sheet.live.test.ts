@@ -1,0 +1,65 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { rigSheet } from "../src/rig-sheet.js";
+import { stickFigure } from "./fixtures/stick-figure.js";
+
+const live = { skip: process.env.BLENDER_LIVE !== "1", timeout: 300_000 };
+const size = async (file: string) => {
+  const bytes = await readFile(file);
+  assert.equal(bytes.subarray(1, 4).toString(), "PNG");
+  return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+};
+
+test("LIVE: a two-legged figure is put in seven poses, its walk played, and the surface measured", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "rig-sheet-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const rigPath = join(root, "figure.glb");
+  await writeFile(rigPath, stickFigure());
+  const { report, outputDir } = await rigSheet({ rigPath, outputDir: join(root, "sheet"), actions: ["walk"], tile: 128 });
+
+  assert.equal(report.rig.skeleton, "biped");
+  assert.equal(report.rig.bones, 11);
+  assert.deepEqual(report.rig.roles, {
+    "upperArm.left": "LeftArm", "upperArm.right": "RightArm", "foreArm.left": "LeftForeArm", "foreArm.right": "RightForeArm",
+    "thigh.left": "LeftUpLeg", "thigh.right": "RightUpLeg", "shin.left": "LeftLeg", "shin.right": "RightLeg", head: "Head", spine: "Spine",
+  });
+  assert.deepEqual(report.poses.list.map((pose) => pose.name), ["rest", "arms up", "arms down", "reach", "step", "wide", "head turn", "bow"]);
+  assert.deepEqual(report.views, ["front", "three-quarter", "side"]);
+  assert.deepEqual(await size(join(outputDir, "poses.png")), [8 * 128, 3 * 128]);
+  // The arms are level at rest, so "arms up" is fifty degrees: the left about the front, the right the other way.
+  assert.deepEqual(report.poses.list[1]!.turns, [{ bone: "LeftArm", about: "front", degrees: 50 }, { bone: "RightArm", about: "front", degrees: -50 }]);
+  // Each solid follows one bone whole: nothing is pulled out of shape.
+  for (const pose of report.poses.list) assert.deepEqual([pose.strained, pose.torn], [0, 0], pose.name);
+
+  assert.deepEqual(report.actionsInside, ["walk"]);
+  assert.equal(report.clips.length, 1);
+  assert.deepEqual({ name: report.clips[0]!.name, from: report.clips[0]!.from, seconds: report.clips[0]!.seconds, travel: report.clips[0]!.travel }, { name: "walk", from: "rig", seconds: 1, travel: 0 });
+  assert.deepEqual(await size(join(outputDir, "clip.walk.png")), [6 * 128, 2 * 128]);
+});
+
+test("LIVE: a body whose bones' names say nothing has its limbs swung, and takes poses of its own", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "rig-sheet-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const rigPath = join(root, "thing.glb");
+  let n = 0;
+  const names = new Map<string, string>();
+  await writeFile(rigPath, stickFigure({ walk: false, names: (name) => names.get(name) ?? (names.set(name, `b${n++}`), names.get(name)!) }));
+
+  const swung = await rigSheet({ rigPath, outputDir: join(root, "swung"), tile: 128 });
+  assert.equal(swung.report.rig.skeleton, "unknown");
+  // Where the skeleton branches and goes on: the spine, two arms, two legs.
+  assert.deepEqual(swung.report.poses.list.map((pose) => pose.name), ["rest", "swing b1", "swing b3", "swing b5", "swing b7", "swing b9"]);
+  assert.match(swung.report.notes.join(" "), /not a two-legged body's: each of its 5 largest limbs is swung/);
+
+  const own = await rigSheet({ rigPath, outputDir: join(root, "own"), tile: 128, poses: [{ name: "lean", turns: [{ bone: "b1", about: "side", degrees: 20 }] }] });
+  assert.deepEqual(own.report.poses.list.map((pose) => pose.name), ["rest", "lean"]);
+
+  await assert.rejects(
+    rigSheet({ rigPath, outputDir: join(root, "wrong"), tile: 128, poses: [{ name: "lean", turns: [{ bone: "Spine", about: "side", degrees: 20 }] }] }),
+    /no bone is named Spine: the skeleton's bones are b0, b1/,
+  );
+  await assert.rejects(rigSheet({ rigPath, outputDir: join(root, "clip"), tile: 128, actions: ["walk"] }), /the rig holds no clip named walk: it holds none/);
+});

@@ -127,7 +127,7 @@ narrate episodes is the studio's business, not the tool's.
 | `packages/remotion-composer` | Renders a layered, kit-based edit timeline with Remotion, then normalises loudness |
 | `packages/render-worker` | Renders that timeline on other machines over SSH, or shares it among several |
 | `packages/voice` | Speech synthesis, voice cloning, forced alignment and transcription on MLX |
-| `packages/fal-media` | Tracked image, video and 3D model generation against fal.ai, with provenance and cost |
+| `packages/fal-media` | Tracked image, video and 3D model generation, and rigging, against fal.ai, with provenance and cost |
 | `packages/codex-image` | Image generation and editing through an OpenAI subscription or the Images API |
 | `packages/elevenlabs` | ElevenLabs client: forced alignment, with rate and retry rules |
 | `packages/archive-media` | Free archive and stock media with verifiable licences |

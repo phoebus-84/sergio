@@ -124,6 +124,11 @@ channel, a series or a film, not to an episode, and is the same next week:
 - `pva_generate_model` — a 3D model from one picture (Tripo H3.1 on fal, paid per
   model, on the episode's budget): a character's model or a prop in the round, with no
   skeleton. Approve the picture before paying for the model.
+- `pva_rig_model` — a skeleton and weights for a 3D model (Hyper3D or Meshy on fal,
+  paid per rig), examined before it answers: a rig that fails the exam is not released.
+- `pva_rig_sheet` — a rig posed and looked at (Blender, local, free): seven known poses
+  from three sides on one sheet, its clips over six moments, and how far each pulled
+  the surface out of shape. Read it before a rig is released.
 
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.

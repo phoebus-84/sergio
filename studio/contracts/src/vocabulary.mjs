@@ -27,6 +27,9 @@ export const CAPABILITIES = Object.freeze([
   // A 3D model made from a picture or from words: a mesh with no skeleton.
   // Giving it one, and making it move, are other capabilities (ADR-0052).
   "model.generate",
+  // A skeleton and skin weights for a 3D model, so it can be posed; it may
+  // come with stock clips. Motion made for it is another capability.
+  "rig.create",
   "video.compose",
   "media.probe",
 ]);

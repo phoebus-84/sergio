@@ -1065,8 +1065,10 @@ export const wan22TurboImageToVideo: EndpointProfile = defineProfile({
 // "$0.20 (without textures), $0.30 (with standard textures), or $0.40 (with
 // HD textures), plus an additional $0.20 for detailed geometry and $0.05 for
 // quad mesh". It returns `model_mesh` (GLB; FBX when a quad mesh comes out as
-// one), `rendered_image` and a `task_id` that Tripo's rigging endpoints take
-// in place of the model. A model has no skeleton: rigging is another call.
+// one), `rendered_image` and a `task_id`. Its page says Tripo's rig endpoints
+// take that id in place of the model, but fal lists no such endpoint: a model
+// has no skeleton, and rigging it is another call to another provider (the
+// rigging profiles below).
 
 /** How a Tripo H3.1 model is textured; it sets most of the price. */
 export type TripoTexture = "none" | "standard" | "detailed";
@@ -1142,6 +1144,139 @@ export const tripoH31ImageTo3d: EndpointProfile = defineProfile({
   pricing: { unit: "inference", estimatedUnitCost: TRIPO_H31.pricesUsd.standard, currency: "USD" },
 });
 
+// ─── Rigging: a skeleton for a model ──────────────────────────────────
+// Two endpoints, read from fal's pages (llms.txt and the OpenAPI schema) on
+// 2026-11-17. Tripo's own rig endpoints, which its image-to-3D answer names,
+// are not on fal.
+
+export type Hyper3dRigTemplate = "auto" | "human" | "quadruped" | "bird" | "dragon" | "kaiju" | "custom";
+export type Hyper3dSkinning = "shell" | "core";
+
+/** What the Hyper3D rigging profile knows in numbers and names. */
+export const HYPER3D_RIG: Readonly<{
+  priceUsd: number;
+  templates: readonly Hyper3dRigTemplate[];
+  skinning: readonly Hyper3dSkinning[];
+  formats: readonly string[];
+  maxClips: number;
+}> = Object.freeze({
+  priceUsd: 0.2,
+  templates: Object.freeze(["auto", "human", "quadruped", "bird", "dragon", "kaiju", "custom"] as const),
+  skinning: Object.freeze(["shell", "core"] as const),
+  formats: Object.freeze(["glb", "fbx", "usdz"]),
+  maxClips: 10,
+});
+
+/**
+ * Hyper3D Rigging — a skeleton for a body of any of six kinds, or one
+ * described in words; stock clips come at no further price. It wants the
+ * model +y up and facing +z.
+ */
+export const hyper3dRigging: EndpointProfile = defineProfile({
+  profileId: "hyper3d/rigging@v1",
+  endpointId: "hyper3d/rigging",
+  operation: "model-to-rig",
+  contractVersion: "v1",
+  parameterSchema: [
+    { name: "model_url", type: "string", required: true, description: "The model: OBJ, GLB, STL, FBX or USD with its materials inside, +y up, facing +z." },
+    {
+      name: "bone_template", type: "enum", required: false, defaultValue: "auto", enumValues: [...HYPER3D_RIG.templates],
+      description: "The kind of skeleton. auto chooses among the presets; custom needs skeleton_description.",
+    },
+    { name: "image_url", type: "string", required: false, description: "A picture of the character, to guide auto and a described skeleton." },
+    {
+      name: "skinning_method", type: "enum", required: false, defaultValue: "shell", enumValues: [...HYPER3D_RIG.skinning],
+      description: "shell: smooth weights on the visible mesh. core: influences held close to the joints.",
+    },
+    { name: "skeleton_description", type: "string", required: false, description: "Anatomy and limbs in words. Only with bone_template custom." },
+    {
+      name: "animation_presets", type: "array", required: false, max: HYPER3D_RIG.maxClips,
+      description: "Stock animation ids that fit the skeleton (see hyper3d/rigging/animations). Not with animation_urls.",
+    },
+    {
+      name: "animation_urls", type: "array", required: false, max: HYPER3D_RIG.maxClips,
+      description: "FBX clips made for this rig, one take each. Not with animation_presets.",
+    },
+    { name: "in_place", type: "boolean", required: false, defaultValue: false, description: "Looping stock clips stay where they are." },
+    {
+      name: "geometry_file_format", type: "enum", required: false, defaultValue: "fbx", enumValues: [...HYPER3D_RIG.formats],
+      description: "The format of the rigged model.",
+    },
+  ],
+  capabilities: {
+    supportedAspectRatios: [],
+    supportsSeed: false,
+    supportsReferenceImages: true,
+    maxReferenceImages: 1,
+    supportsNegativePrompt: false,
+    defaultImageSize: "",
+  },
+  pricing: { unit: "inference", estimatedUnitCost: HYPER3D_RIG.priceUsd, currency: "USD" },
+});
+
+export type MeshyRigTemplate =
+  | "meshyrig" | "mixamo" | "ue5_mannequin" | "unity_humanoid" | "maya_human_ik"
+  | "blender_rigify_basic_human" | "max_biped" | "cc5_hd_neutral_base" | "daz_genesis9";
+
+/** What the Meshy rigging profile knows in numbers and names. */
+export const MESHY_RIG: Readonly<{
+  priceUsd: number;
+  animationUsd: number;
+  templates: readonly MeshyRigTemplate[];
+  defaultHeightMeters: number;
+  actionIds: Readonly<{ min: number; max: number }>;
+}> = Object.freeze({
+  priceUsd: 0.2,
+  animationUsd: 0.12,
+  templates: Object.freeze([
+    "meshyrig", "mixamo", "ue5_mannequin", "unity_humanoid", "maya_human_ik",
+    "blender_rigify_basic_human", "max_biped", "cc5_hd_neutral_base", "daz_genesis9",
+  ] as const),
+  defaultHeightMeters: 1.7,
+  actionIds: Object.freeze({ min: 0, max: 696 }),
+});
+
+/** What one Meshy rig costs (USD): the rig, and one preset clip when asked. */
+export function meshyRigPriceUsd(options: { animation?: boolean } = {}): number {
+  return Math.round((MESHY_RIG.priceUsd + (options.animation ? MESHY_RIG.animationUsd : 0)) * 100) / 100;
+}
+
+/**
+ * Meshy Rigging — a humanoid's skeleton on one of the industry's standard
+ * templates, with a walk and a run added. Humanoids with clear limbs only,
+ * and GLB only.
+ */
+export const meshyRigging: EndpointProfile = defineProfile({
+  profileId: "meshy/rigging@v1",
+  endpointId: "meshy/rigging",
+  operation: "model-to-rig",
+  contractVersion: "v1",
+  parameterSchema: [
+    { name: "model_url", type: "string", required: true, description: "The model, as GLB: a humanoid with clearly defined limbs." },
+    { name: "height_meters", type: "number", required: false, defaultValue: MESHY_RIG.defaultHeightMeters, min: 0.01, max: 100, description: "About how tall the character is, in metres." },
+    {
+      name: "skeleton_template", type: "enum", required: false, enumValues: [...MESHY_RIG.templates],
+      description: "The standard the skeleton follows. Omitted: Meshy's own (meshyrig).",
+    },
+    { name: "include_fingers", type: "boolean", required: false, defaultValue: false, description: "Rig the fingers." },
+    { name: "enable_animation", type: "boolean", required: false, defaultValue: false, description: "Apply one preset clip, at a further price." },
+    {
+      name: "animation_action_id", type: "integer", required: false, min: MESHY_RIG.actionIds.min, max: MESHY_RIG.actionIds.max,
+      description: "The preset to apply, from Meshy's animation library. Only with enable_animation.",
+    },
+    { name: "enable_safety_checker", type: "boolean", required: false, defaultValue: true, description: "Input safety check." },
+  ],
+  capabilities: {
+    supportedAspectRatios: [],
+    supportsSeed: false,
+    supportsReferenceImages: false,
+    maxReferenceImages: 0,
+    supportsNegativePrompt: false,
+    defaultImageSize: "",
+  },
+  pricing: { unit: "inference", estimatedUnitCost: MESHY_RIG.priceUsd, currency: "USD" },
+});
+
 // ─── Registry ─────────────────────────────────────────────────────────
 
 const PROFILES: readonly EndpointProfile[] = Object.freeze([
@@ -1157,6 +1292,8 @@ const PROFILES: readonly EndpointProfile[] = Object.freeze([
   minimaxH3MaxLipSync,
   wan22TurboImageToVideo,
   tripoH31ImageTo3d,
+  hyper3dRigging,
+  meshyRigging,
   deprecationExample,
 ]);
 

@@ -148,7 +148,10 @@ export type ProfileOperation =
   | "reference-to-video"
   // A 3D model from a picture: one mesh file, a preview render beside it, and
   // a price per model that depends on what is asked of it.
-  | "image-to-3d";
+  | "image-to-3d"
+  // A skeleton and skin weights for a model that has none: the model goes in
+  // as a file, and comes back rigged, sometimes with clips that move it.
+  | "model-to-rig";
 
 /** A single parameter definition in an endpoint profile. */
 export interface ParameterField {

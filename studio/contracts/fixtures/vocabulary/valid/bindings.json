@@ -56,6 +56,11 @@
       "model": "tripo3d/h3.1"
     },
     {
+      "capability": "rig.create",
+      "provider": "fal-ai",
+      "model": "hyper3d/rigging"
+    },
+    {
       "capability": "video.compose",
       "provider": "ffmpeg-video-composer",
       "model": "v1"

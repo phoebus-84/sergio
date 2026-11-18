@@ -18,6 +18,7 @@
         "terminal.record",
         "video.generate",
         "model.generate",
+        "rig.create",
         "video.compose",
         "media.probe"
       ]

@@ -63,7 +63,7 @@ export { HttpDownloader } from "./downloader.js";
 export type { EndpointContract } from "./contracts/v1.js";
 export { createFalServer } from "./server.js";
 export type { FalServerHandle } from "./server.js";
-export { V1BaseContract, ProfileContract, ModelProfileContract } from "./contracts/v1.js";
+export { V1BaseContract, ProfileContract, ModelProfileContract, RigProfileContract } from "./contracts/v1.js";
 
 // Profiles
 export {
@@ -87,9 +87,14 @@ export {
   TRIPO_H31,
   tripoH31PriceUsd,
   tripoH31ImageTo3d,
+  HYPER3D_RIG,
+  hyper3dRigging,
+  MESHY_RIG,
+  meshyRigPriceUsd,
+  meshyRigging,
 } from "./profiles.js";
 
 // Client
 export { FalClientImpl, createFalClient } from "./client.js";
 export type { FalClient, FalUpload } from "./client.js";
-export type { H3MaxLipSyncResolution, TripoTexture } from "./profiles.js";
+export type { H3MaxLipSyncResolution, TripoTexture, Hyper3dRigTemplate, Hyper3dSkinning, MeshyRigTemplate } from "./profiles.js";

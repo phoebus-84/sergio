@@ -26,6 +26,8 @@ import { registerLongExtendTools } from "../src/long-extend-tools.js";
 import { registerFilmTools } from "../src/film-tools.js";
 import { registerCharacterTools } from "../src/character-tools.js";
 import { registerModelTools } from "../src/model-tools.js";
+import { registerRigTools } from "../src/rig-tools.js";
+import { registerRigSheetTools } from "../src/rig-sheet-tools.js";
 import { registerSkillTools } from "../src/skill-tools.js";
 import { registerSlashCommands } from "../src/slash-commands.js";
 import { registerTuiComponents } from "../src/tui-status.js";
@@ -319,6 +321,8 @@ export default function (pi: ExtensionAPI): void {
   registerFilmTools(pi);
   registerCharacterTools(pi);
   registerModelTools(pi);
+  registerRigTools(pi);
+  registerRigSheetTools(pi);
 
   // --- Register skill and context tools ---------------------------------
 

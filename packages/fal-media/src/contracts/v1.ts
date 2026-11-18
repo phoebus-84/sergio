@@ -419,3 +419,71 @@ export class ModelProfileContract extends ProfileContract {
     return typeof taskId === "string" && taskId ? { taskId } : undefined;
   }
 }
+
+/**
+ * A rigging endpoint's answer: the model with a skeleton, and whatever clips
+ * came with it. Two providers answer in two shapes and this reads both:
+ *
+ * - Hyper3D: `model_mesh` (the rig, with every clip asked for inside it),
+ *   `rigged_character_glb` (the rig alone), `fbx_file`, and `animations`, one
+ *   GLB per clip, named by the preset it plays;
+ * - Meshy: `rigged_character_glb` and `rigged_character_fbx`, the walk and
+ *   the run it always adds (`basic_animations`), and `animation_glb` when one
+ *   preset was asked for.
+ *
+ * The outputs are roles a caller can rely on: `rig` first and exactly once
+ * (the GLB without clips when there is one), then `rig-with-clips`,
+ * `rig-fbx`, and `clip:<name>` for each clip. An answer with no rigged model
+ * in it is refused: a clip is of no use without the skeleton it moves.
+ */
+export class RigProfileContract extends ProfileContract {
+  protected override parseOutputs(result: Record<string, unknown>): OutputAsset[] {
+    const fileAt = (value: unknown): Record<string, unknown> | null =>
+      value && typeof value === "object" && !Array.isArray(value) && typeof (value as Record<string, unknown>)["url"] === "string"
+        ? (value as Record<string, unknown>)
+        : null;
+    const asset = (value: Record<string, unknown>, role: string, otherwise: string): OutputAsset => ({
+      url: value["url"] as string,
+      contentType: typeof value["content_type"] === "string" && value["content_type"] ? (value["content_type"] as string) : otherwise,
+      contentLength: optionalNumber(value["file_size"]),
+      sha256: optionalString(value["sha256"]),
+      role,
+      ...(typeof value["file_name"] === "string" && value["file_name"] ? { fileName: value["file_name"] } : {}),
+    });
+
+    const alone = fileAt(result["rigged_character_glb"]);
+    const whole = fileAt(result["model_mesh"]);
+    const fbx = fileAt(result["rigged_character_fbx"]) ?? fileAt(result["fbx_file"]);
+    if (!alone && !whole && !fbx) throw new FalContractError("rigged_character_glb", "object", typeof result["rigged_character_glb"]);
+
+    const outputs: OutputAsset[] = [];
+    if (alone) outputs.push(asset(alone, "rig", "model/gltf-binary"));
+    // With no clips asked for, Hyper3D gives the one file under both names: it is the rig, once.
+    if (whole && whole["url"] !== alone?.["url"]) outputs.push(asset(whole, alone ? "rig-with-clips" : "rig", "model/gltf-binary"));
+    if (fbx) outputs.push(asset(fbx, alone || whole ? "rig-fbx" : "rig", "application/octet-stream"));
+
+    const clip = (name: string, value: unknown): void => {
+      const file = fileAt(value);
+      if (file && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) outputs.push(asset(file, `clip:${name}`, "model/gltf-binary"));
+    };
+    const basic = result["basic_animations"];
+    if (basic && typeof basic === "object" && !Array.isArray(basic)) {
+      clip("walking", (basic as Record<string, unknown>)["walking_glb"]);
+      clip("running", (basic as Record<string, unknown>)["running_glb"]);
+    }
+    clip("action", result["animation_glb"]);
+    if (Array.isArray(result["animations"])) {
+      for (const entry of result["animations"]) {
+        if (!entry || typeof entry !== "object") continue;
+        const record = entry as Record<string, unknown>;
+        if (typeof record["action_id"] === "string") clip(record["action_id"], record["animation_glb"]);
+      }
+    }
+    return outputs;
+  }
+
+  protected override parseDetails(result: Record<string, unknown>): Record<string, string> | undefined {
+    const taskId = result["rig_task_id"];
+    return typeof taskId === "string" && taskId ? { taskId } : undefined;
+  }
+}
