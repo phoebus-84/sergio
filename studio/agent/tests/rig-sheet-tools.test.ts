@@ -180,4 +180,30 @@ describe("what the sheet says", () => {
     } as unknown as RigSheetReport;
     expect(describeRigSheet(report, { poses: "p.png", clips: {} })[2]).toBe("   bow: 50.0% of the surface strained, 1 edge torn");
   });
+
+  it("says a part that goes into another, marks it from 5% of the body's height, and says when in a clip", () => {
+    const report = {
+      rig: { bones: 52, vertices: 16817, edges: 45904, size: [0.6, 1, 0.4], skeleton: "biped", roles: {}, parts: ["body", "head", "left hand", "right hand"] }, bones: [], views: ["front"],
+      poses: { sheet: "p.png", columns: 3, rows: 1, width: 3, height: 1, list: [
+        { name: "rest", turns: [], strained: 0, torn: 0, through: [] },
+        { name: "reach", turns: [], strained: 0.001, torn: 0, through: [{ parts: ["left hand", "head"], depth: 0.058 }] },
+        { name: "arms down", turns: [], strained: 0, torn: 0, through: [{ parts: ["right hand", "body"], depth: 0.021 }] },
+      ] },
+      clips: [
+        { name: "wave", from: "file", action: "wave", seconds: 3.97, sheet: "clip.wave.png", columns: 6, rows: 2, width: 6, height: 2, strained: 0.003, torn: 0, travel: 0.08,
+          through: [{ parts: ["right hand", "head"], depth: 0.089, from: 0.793, seconds: 2.464, at: 1.127 }, { parts: ["left hand", "body"], depth: 0.023, from: 0, seconds: 0.376, at: 0.084 }] },
+        { name: "walking", from: "file", action: "walking", seconds: 1.04, sheet: "clip.walking.png", columns: 6, rows: 2, width: 6, height: 2, strained: 0.002, torn: 0, travel: 0.05, through: [] },
+      ],
+      actionsInside: [], notes: [],
+    } as unknown as RigSheetReport;
+    const lines = describeRigSheet(report, { poses: "p.png", clips: { wave: "w.png", walking: "k.png" } });
+    expect(lines.slice(2)).toEqual([
+      "   ⚠️ reach: 0.1% of the surface strained, 0 edges torn; its left hand goes into its head (6% of its height)",
+      "   arms down: 0.0% of the surface strained, 0 edges torn; its right hand brushes its body (2% of its height)",
+      "   ⚠️ clip wave: w.png — 3.97s, at its worst 0.3% of the surface strained, 0 edges torn, played on the spot; its right hand goes into its head (9% of its height) from 0.79s for 2.46s; its left hand brushes its body (2% of its height) from 0s for 0.38s",
+      "   clip walking: k.png — 1.04s, at its worst 0.2% of the surface strained, 0 edges torn, played on the spot",
+      "   open the sheet and read it tile by tile: where a limb meets the body, and whatever the character wears. No pose pulled the surface further than a sound rig does; the numbers do not see a face that no longer looks like itself",
+      "   clip wave puts a part of the body into another: a motion made for other proportions does that. Look at the moments said on its sheet before it is filmed; ask for another motion, or film it where that part is out of the picture",
+    ]);
+  });
 });
