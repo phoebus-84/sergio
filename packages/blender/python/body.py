@@ -7,6 +7,8 @@ faces), up, side (towards its left).
 - Roles: which bones are a biped's upper arms, forearms, thighs, shins, head
   and spine, read from their names and from the side of the body they are on.
 - Turns: a bone turned about an axis of the body, through its head.
+- Standing: the arms of an A- or T-pose brought down beside the body, no
+  lower than they go without passing into it.
 - Parts: the skin cut up by the bone that moves each point most, and how far
   one part passes into another that is not joined to it: a hand into the head.
 """
@@ -23,6 +25,10 @@ HELPERS = ("twist", "roll", "helper", "pole", "ctrl", "armature")
 # A part that goes into another by more than this share of the body's height has passed into it.
 # Less is a sleeve brushing a coat, or a mesh's own unevenness. src/rig-sheet.ts says it as RIG_THROUGH_FROM.
 DEEP = 0.02
+# How far below the horizontal a standing body's upper arms hang, the first that keeps clear of the body.
+HANG = (-75, -70, -65, -60, -55)
+# A standing body's forearms, bent forward a little at the elbow.
+BEND = -10
 # Pairs of parts that are not joined, so that one in the other is never right.
 PAIRS = (
     ("left hand", "head"), ("right hand", "head"),
@@ -104,6 +110,78 @@ def elevation(arm, roles, side, name, sign):
     lower = roles.get(f"foreArm.{name}")
     along = (place(arm, lower) - place(arm, upper)) if lower else (arm.matrix_world @ upper.tail - place(arm, upper))
     return math.degrees(math.atan2(along.dot(UP), along.dot(side) * sign))
+
+
+def fcurves(action):
+    """An action's curves, in Blender 4 (on the action) and 5 (in its layers' channel bags)."""
+    if hasattr(action, "layers"):
+        found = [curve for layer in action.layers for strip in layer.strips for bag in strip.channelbags for curve in bag.fcurves]
+        if found or not hasattr(action, "fcurves"):
+            return found
+    return list(action.fcurves)
+
+
+def shortest(action):
+    """Write each bone's turns with w at or above 0: the same turns, now all on one side.
+
+    q and -q are one turn, and a file may hold either. Blender blends two clips, or a clip and a
+    pose, by mixing the four numbers of each: from q to a -q the mix passes near nothing, and the
+    limb spins round on the way. A joint turns less than half a turn from rest, where w stays above
+    0, so a bone whose turns sit mostly below 0 has all of them turned over, keys and handles:
+    nothing it does changes, and every blend between two such takes the short way."""
+    turned = 0
+    by_bone = {}
+    for curve in fcurves(action):
+        if curve.data_path.endswith(".rotation_quaternion"):
+            by_bone.setdefault(curve.data_path, {})[curve.array_index] = curve
+    for curves in by_bone.values():
+        w = curves.get(0)
+        if w is None or len(curves) != 4 or not len(w.keyframe_points):
+            continue
+        if sum(key.co[1] for key in w.keyframe_points) >= 0:
+            continue
+        for curve in curves.values():
+            for key in curve.keyframe_points:
+                key.co[1], key.handle_left[1], key.handle_right[1] = -key.co[1], -key.handle_left[1], -key.handle_right[1]
+            curve.update()
+        turned += 1
+    return turned
+
+
+def rest(arm):
+    for bone in arm.pose.bones:
+        bone.matrix_basis = mathutils.Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+def stand(arm, roles, front, side, parts, tall):
+    """Bring the arms down beside the body, each as low as it goes without its hand passing into
+    the body or a leg. Starts from the rest pose and leaves the body standing. Returns, for each
+    side, how far below the horizontal its upper arm hangs, and the bones it turned."""
+    rest(arm)
+    deep = tall * DEEP
+    before = parts.through() if parts else {}
+    hangs, turned = {}, []
+    for name, sign in SIDES:
+        upper, lower = roles.get(f"upperArm.{name}"), roles.get(f"foreArm.{name}")
+        if upper is None:
+            continue
+        lift = elevation(arm, roles, side, name, sign)
+        touches = [(f"{name} hand", "body"), (f"{name} hand", f"{name} leg")]
+        for height in HANG:
+            for bone in (upper, lower):
+                if bone is not None:
+                    bone.matrix_basis = mathutils.Matrix.Identity(4)
+            bpy.context.view_layer.update()
+            turn(arm, upper, front, sign * (height - lift))
+            if lower is not None:
+                turn(arm, lower, side, BEND)
+            now = parts.through(touches) if parts else {}
+            if all(now.get(pair, 0.0) <= before.get(pair, 0.0) + deep for pair in touches):
+                break
+        hangs[name] = height
+        turned += [bone for bone in (upper, lower) if bone is not None]
+    return hangs, turned
 
 
 def subtree(bone):

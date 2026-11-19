@@ -79,6 +79,35 @@ test("LIVE: two figures share an empty stage, each turned to the other, and one 
   await assert.rejects(stageShot({ outputDir: join(root, "long"), ...small, fps: 60, seconds: 60, players: [{ name: "walker", path }] }), /the shot would be 3600 frames .*: at most 1800/);
 });
 
+test("LIVE: a figure that plays no clip stands with its arms down, no lower than its body lets them", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stage-stand-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const thin = join(root, "thin.glb"), wide = join(root, "wide.glb"), reacher = join(root, "reacher.glb");
+  await writeFile(thin, stickFigure());
+  // Its body is a box 0.71 across: forearms hung at -75° would be in it.
+  await writeFile(wide, stickFigure({ boxes: { Spine: 0.355, LeftForeArm: 0.05, RightForeArm: 0.05 } }));
+  await writeFile(reacher, stickFigure({ boxes: { Head: 0.15 }, walk: false, reach: true }));
+  const { report } = await stageShot({
+    outputDir: join(root, "shot"), ...small, camera: { view: "front", framing: "wide", follow: false },
+    players: [
+      { name: "thin", path: thin, at: [-1.5, 0], does: [{ seconds: 0.5 }, { clip: thin }] },
+      { name: "wide", path: wide, at: [0, 0] },
+      { name: "reacher", path: reacher, at: [1.5, 0], does: [{ clip: reacher }] },
+    ],
+  });
+  const [lean, broad, reaching] = report.players as [typeof report.players[0], typeof report.players[0], typeof report.players[0]];
+  assert.deepEqual([lean.standing, broad.standing, reaching.standing], [{ left: -75, right: -75 }, { left: -60, right: -60 }, { left: -75, right: -75 }]);
+
+  // A skeleton whose names say nothing stands as it is, and that is said.
+  let n = 0;
+  const names = new Map<string, string>();
+  const thing = join(root, "thing.glb");
+  await writeFile(thing, stickFigure({ walk: false, names: (name) => names.get(name) ?? (names.set(name, `b${n++}`), names.get(name)!) }));
+  const odd = await stageShot({ outputDir: join(root, "odd"), ...small, seconds: 0.25, players: [{ name: "thing", path: thing }] });
+  assert.equal(odd.report.players[0]!.standing, null);
+  assert.match(odd.report.notes.join(" "), /thing's bones were not read as a two-legged body's: when it plays no clip it stands in its rest pose/);
+});
+
 test("LIVE: on a set, players stand on its marks and its floors, are filmed by its camera, and one behind a wall is said to be hidden", live, async (t) => {
   const root = await mkdtemp(join(tmpdir(), "stage-set-live-"));
   t.after(() => rm(root, { recursive: true, force: true }));

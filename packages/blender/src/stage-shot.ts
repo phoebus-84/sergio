@@ -11,6 +11,9 @@
 // audience. A set is a .blend; an object in it named `mark.<name>` is a
 // place a player can be sent to by that name.
 //
+// A two-legged body stands with its arms beside it whenever it plays no
+// clip.
+//
 // No script comes with a request, and the set's own Python is not run.
 // python/stage-shot.py does the staging; the frames are joined here.
 // ---------------------------------------------------------------------------
@@ -123,6 +126,13 @@ export interface StagePlayerReport {
   inFrame: number;
   /** The share of the shot something of the set is between its chest and the camera. */
   hidden: number;
+  /**
+   * How far below the horizontal its upper arms hang when it plays no clip — before its first,
+   * between two, after its last — in degrees: -75 unless the hand would pass into the body there,
+   * then as near it as clears. null: its bones were not read as a two-legged body's, and it stands
+   * in its rest pose.
+   */
+  standing: { left?: number; right?: number } | null;
 }
 
 export interface StageShotReport {
