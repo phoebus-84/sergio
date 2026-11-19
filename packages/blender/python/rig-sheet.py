@@ -20,6 +20,9 @@ import bpy
 import mathutils
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import body  # noqa: E402
+
 cfg = json.loads(Path(sys.argv[sys.argv.index("--") + 1]).read_text())
 OUT = Path(cfg["outputDir"])
 TILE = int(cfg["tile"])
@@ -119,11 +122,7 @@ class Rig:
 
     # -- posing ----------------------------------------------------------
     def turn(self, bone, axis, degrees):
-        world = self.arm.matrix_world
-        head = world @ bone.head
-        about = mathutils.Matrix.Translation(head) @ mathutils.Matrix.Rotation(math.radians(degrees), 4, axis) @ mathutils.Matrix.Translation(-head)
-        bone.matrix = world.inverted() @ about @ world @ bone.matrix
-        bpy.context.view_layer.update()
+        body.turn(self.arm, bone, axis, degrees)
 
     def place(self, bone):
         return self.arm.matrix_world @ bone.head
@@ -176,70 +175,16 @@ class Rig:
 
 
 # -- a biped, read from its bones' names -----------------------------------
-HELPERS = ("twist", "roll", "helper", "pole", "ctrl", "armature")
-
-
-def plain(name):
-    return re.sub(r"[^a-z0-9]", "", name.lower())
-
-
-def is_role(name, role):
-    n = plain(name)
-    if any(word in n for word in HELPERS):
-        return False
-    if role == "upperArm":
-        return "arm" in n and not any(word in n for word in ("fore", "lower", "elbow"))
-    if role == "foreArm":
-        return any(word in n for word in ("forearm", "lowerarm", "elbow"))
-    if role == "thigh":
-        return any(word in n for word in ("upleg", "thigh", "upperleg"))
-    if role == "shin":
-        return any(word in n for word in ("shin", "calf", "lowerleg")) or ("leg" in n and not any(word in n for word in ("upleg", "upperleg", "thigh")))
-    if role == "head":
-        return n.endswith("head")
-    if role == "spine":
-        return any(word in n for word in ("spine", "chest", "torso"))
-    return False
-
-
-def ancestors(bone):
-    count = 0
-    while bone.parent:
-        bone, count = bone.parent, count + 1
-    return count
-
-
 def read_roles(rig):
     """The bones a biped's poses turn, by name and by which side of the body they are on."""
-    roles = {}
-    middle = rig.centre.dot(SIDE)
-    edge = rig.size.length * 0.01
-    for role in ("upperArm", "foreArm", "thigh", "shin"):
-        found = [b for b in rig.arm.pose.bones if is_role(b.name, role)]
-        for side, sign in (("left", 1), ("right", -1)):
-            mine = [b for b in found if (rig.place(b).dot(SIDE) - middle) * sign > edge]
-            if mine:
-                roles[f"{role}.{side}"] = min(mine, key=ancestors)
-    for role in ("head", "spine"):
-        found = [b for b in rig.arm.pose.bones if is_role(b.name, role)]
-        if found:
-            roles[role] = min(found, key=lambda b: (ancestors(b), rig.place(b).z))
-    return roles
-
-
-def elevation(rig, roles, side, sign):
-    """How far above the horizontal an upper arm points at rest, in degrees: -90 hangs, 0 is out to the side."""
-    upper = roles[f"upperArm.{side}"]
-    lower = roles.get(f"foreArm.{side}")
-    along = (rig.place(lower) - rig.place(upper)) if lower else (rig.arm.matrix_world @ upper.tail - rig.place(upper))
-    return math.degrees(math.atan2(along.dot(UP), along.dot(SIDE) * sign))
+    return body.read_roles(rig.arm, SIDE, rig.low, rig.high)
 
 
 def biped_poses(rig, roles):
     """Seven poses that show where a rig of a two-legged body fails. Angles are from the rest pose
     except the arms', which are set to a height so an A-pose and a T-pose end in the same place."""
     sides = (("left", 1), ("right", -1))
-    lift = {side: elevation(rig, roles, side, sign) for side, sign in sides}
+    lift = {side: body.elevation(rig.arm, roles, SIDE, side, sign) for side, sign in sides}
 
     def arms(height):
         return [(f"upperArm.{side}", "front", sign * (height - lift[side])) for side, sign in sides]
@@ -372,7 +317,7 @@ def moving(actions):
 def main():
     rig = Rig(cfg["rigPath"])
     roles = read_roles(rig)
-    biped = all(f"{role}.{side}" in roles for role in ("upperArm", "thigh") for side in ("left", "right"))
+    biped = body.is_biped(roles)
     if cfg.get("poses"):
         poses = cfg["poses"]
     elif biped:
