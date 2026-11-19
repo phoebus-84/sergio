@@ -185,8 +185,12 @@ describe("pva_stage_shot", () => {
       players: [
         { name: "host", skeleton: true, at: [-4, 1, 0], turn: 90, tall: 1.7, ends: 4, travel: 4, inFrame: 0.75, hidden: 0.11,
           does: [{ from: 0, seconds: 4, clip: "walking.glb", action: "walking", clipSeconds: 1, to: [0, 1, 0], metres: 4, speed: 1, pace: 0.92 }],
-          standing: { left: -60, right: -65 } },
-        { name: "statue", skeleton: false, at: [0, 1.2, 0], turn: 0, tall: 2, ends: 0, travel: 0, inFrame: 0, hidden: 0, does: [], standing: null },
+          standing: { left: -60, right: -65 },
+          through: [
+            { parts: ["right hand", "head"], depth: 0.107, from: 1.5, seconds: 2.25, at: 2 },
+            { parts: ["left hand", "body"], depth: 0.032, from: 0.5, seconds: 0.29, at: 0.63 },
+          ] },
+        { name: "statue", skeleton: false, at: [0, 1.2, 0], turn: 0, tall: 2, ends: 0, travel: 0, inFrame: 0, hidden: 0, does: [], standing: null, through: [] },
       ],
       tooClose: [{ players: ["host", "statue"], from: 3.5 }],
       notes: ["the set has no light of its own: a sun was added from beside the camera"],

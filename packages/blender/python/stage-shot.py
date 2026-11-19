@@ -15,7 +15,8 @@ A walk takes as long as its clip says: the pace is measured from the foot
 that is on the ground, so that the body is moved as far as its feet step.
 
 A two-legged body stands with its arms beside it when it plays no clip:
-before its first, between two, after its last.
+before its first, between two, after its last. It is watched in every frame
+for a part passing into another it is not joined to: a hand into the head.
 
 No script comes with the request. The set is a .blend whose own Python is
 not run (--disable-autoexec).
@@ -231,21 +232,21 @@ def main():
         if abs(low.z) > max(plan["tall"], 1e-6) * 0.05:
             notes.append(f"{player['name']} does not stand on the ground in its own file (its lowest point is at {low.z:.2f}): it was put on its mark by its lowest point")
 
-        # How it stands when it plays nothing.
-        plan.update({"standing": None, "stance": []})
+        # How it stands when it plays nothing, and what of it is in what already then.
+        plan.update({"standing": None, "stance": [], "parts": None, "before": {}})
         if arm:
             roles = anatomy.read_roles(arm, SIDE, low, high)
             if anatomy.is_biped(roles):
                 parts = anatomy.Parts(arm, body, roles)
                 hangs, turned = anatomy.stand(arm, roles, FRONT, SIDE, parts, plan["tall"])
                 plan.update({
-                    "standing": hangs,
+                    "standing": hangs, "parts": parts, "before": parts.through(),
                     # By name: a bone's handle is not kept across the imports that follow.
                     "stance": [(bone.name, bone.rotation_mode, shortest_of(bone.rotation_quaternion) if bone.rotation_mode == "QUATERNION" else bone.rotation_euler.copy()) for bone in turned],
                 })
                 anatomy.rest(arm)
             else:
-                notes.append(f"{player['name']}'s bones were not read as a two-legged body's: when it plays no clip it stands in its rest pose")
+                notes.append(f"{player['name']}'s bones were not read as a two-legged body's: when it plays no clip it stands in its rest pose, and no part of it is watched for passing into another")
 
     # ── The clips: each read from its file, measured once ───────────────────
     def measure(plan, action):
@@ -569,6 +570,8 @@ def main():
     (OUT / "frames").mkdir()
     seen = {plan["player"]["name"]: {"in": 0, "hidden": 0, "from": None, "far": 0.0} for plan in plans}
     close = {}
+    # What passes through what is measured against how each stands, arms beside it.
+    watching = {plan["player"]["name"]: anatomy.Through(plan["parts"], plan["tall"], plan["before"]) for plan in plans if plan["parts"]}
     for index in range(frames):
         moment = index / fps
         for plan in plans:
@@ -598,6 +601,8 @@ def main():
                 hit, _location, _normal, _face, obj, _matrix = scene.ray_cast(graph, eye, way.normalized(), distance=way.length * 0.98)
                 if hit and obj is not None and obj.original in set_meshes:
                     seen[name]["hidden"] += 1
+        for name, through in watching.items():
+            through.look(moment)
         for i, a in enumerate(plans):
             for b in plans[i + 1:]:
                 apart = flat(spots[a["player"]["name"]] - spots[b["player"]["name"]]).length
@@ -639,6 +644,8 @@ def main():
             "hidden": round(seen[plan["player"]["name"]]["hidden"] / frames, 3),
             # How far below the horizontal its upper arms hang when it plays no clip; null when it stands in its rest pose.
             "standing": plan["standing"],
+            # Parts of it in each other, more than when it stands: how deep at the deepest (metres), from when, for how long.
+            "through": watching[plan["player"]["name"]].told(1.0, 1 / fps) if plan["player"]["name"] in watching else [],
         } for plan in plans],
         "tooClose": [{"players": list(pair), "from": moment} for pair, moment in close.items()],
         "notes": notes,
