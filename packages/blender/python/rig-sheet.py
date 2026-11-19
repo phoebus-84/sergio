@@ -9,6 +9,10 @@ and two rigs of one body can be compared in the same poses.
 Poses are turns about the body's own axes (front, up, side) through a
 bone's head, never about the bone's own axes: two rigs point their bones in
 different ways, and the same numbers would give two different poses.
+
+For a two-legged body it also measures, in each pose and over each clip,
+whether a part passes into another it is not joined to: a hand into the
+head, into the body or into the other hand, a leg through the other.
 """
 import json
 import math
@@ -180,6 +184,15 @@ def read_roles(rig):
     return body.read_roles(rig.arm, SIDE, rig.low, rig.high)
 
 
+def through_of(rig, roles):
+    """What passes through what in this rig, against its rest pose; None when it is not a biped's."""
+    if not body.is_biped(roles):
+        return None
+    rig.rest()
+    parts = body.Parts(rig.arm, rig.body, roles)
+    return parts, parts.through()
+
+
 def biped_poses(rig, roles):
     """Seven poses that show where a rig of a two-legged body fails. Angles are from the rest pose
     except the arms', which are set to a height so an A-pose and a T-pose end in the same place."""
@@ -250,7 +263,20 @@ def slug(name):
     return re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "clip"
 
 
-def pose_sheet(rig, poses):
+def beyond(measured, height):
+    """The pairs of parts in each other now, more than at rest: deepest first, as shares of the body's height."""
+    if measured is None:
+        return []
+    parts, before = measured
+    out = []
+    for pair, depth in parts.through().items():
+        more = depth - before.get(pair, 0.0)
+        if more > height * body.DEEP:
+            out.append({"parts": list(pair), "depth": round(more / height, 3)})
+    return sorted(out, key=lambda item: -item["depth"])
+
+
+def pose_sheet(rig, poses, measured):
     tiles = OUT / "tiles"
     done = []
     rows = [[] for _ in VIEWS]
@@ -265,13 +291,14 @@ def pose_sheet(rig, poses):
             tile = tiles / f"pose-{index:02d}-{view}.png"
             rig.shoot(tile, direction, f"{pose['name']}, {view}")
             row.append(tile)
-        done.append({**pose, **(rig.strain() if index else {"strained": 0.0, "torn": 0})})
+        done.append({**pose, **(rig.strain() if index else {"strained": 0.0, "torn": 0}), "through": beyond(measured, rig.size.z) if index else []})
     rig.rest()
     return done, sheet(OUT / "poses.png", rows)
 
 
-def clip_sheet(rig, action, name, file_name):
-    """Six moments of a clip, from two sides, with the camera following the body."""
+def clip_sheet(rig, action, name, file_name, measured):
+    """Six moments of a clip, from two sides, with the camera following the body. What passes
+    through what is looked for at many more moments than are drawn: it can happen between two."""
     rig.rest()
     rig.arm.animation_data_create()
     rig.arm.animation_data.action = action
@@ -280,6 +307,16 @@ def clip_sheet(rig, action, name, file_name):
         data.action_slot = action.slots[0]
     first, last = action.frame_range
     fps = rig.scene.render.fps / rig.scene.render.fps_base
+    seen = []
+    if measured is not None:
+        parts, before = measured
+        looking = body.Through(parts, rig.size.z, before)
+        moments = max(int(round((last - first) / fps * 24)), SAMPLES)
+        for index in range(moments + 1):
+            at = first + (last - first) * index / moments
+            rig.scene.frame_set(int(math.floor(at)), subframe=at - math.floor(at))
+            looking.look((at - first) / fps)
+        seen = looking.told(rig.size.z, (last - first) / fps / moments)
     views = [VIEWS[1], VIEWS[2]]
     rows = [[] for _ in views]
     worst = {"strained": 0.0, "torn": 0}
@@ -306,6 +343,8 @@ def clip_sheet(rig, action, name, file_name):
         "name": name, "action": action.name, "seconds": round((last - first) / fps, 2), "sheet": file_name, **layout, **worst,
         # How far the body's middle moves over the ground, in heights of the body: 0 is a clip played on the spot.
         "travel": round(travel / max(rig.size.z, 1e-9), 2),
+        # Parts in each other more than at rest: how deep at the deepest (in heights of the body), and when.
+        "through": seen,
     }
 
 
@@ -318,6 +357,7 @@ def main():
     rig = Rig(cfg["rigPath"])
     roles = read_roles(rig)
     biped = body.is_biped(roles)
+    measured = through_of(rig, roles)
     if cfg.get("poses"):
         poses = cfg["poses"]
     elif biped:
@@ -325,7 +365,7 @@ def main():
     else:
         poses = limb_poses(rig)
         notes.append("the bones' names are not a two-legged body's" + (f": each of its {len(poses)} largest limbs is swung instead. " if poses else ": only the rest pose is shown. ") + "Give poses of your own, as turns of named bones, to see more")
-    done, layout = pose_sheet(rig, poses)
+    done, layout = pose_sheet(rig, poses, measured)
     report = {
         "rig": {
             "bones": len(rig.arm.pose.bones), "vertices": int(sum(len(o.data.vertices) for o in rig.body)), "edges": int(len(rig.rest_lengths)),
@@ -333,6 +373,8 @@ def main():
             "size": [round(abs(rig.size.dot(axis)), 3) for axis in (SIDE, UP, FRONT)],
             "skeleton": "biped" if biped else "unknown",
             "roles": {role: bone.name for role, bone in roles.items()},
+            # The parts its skin was cut into, to see what passes through what: none when it is not a biped.
+            "parts": measured[0].names if measured else [],
         },
         "bones": [{"name": b.name, "parent": b.parent.name if b.parent else None, "at": [round(v, 3) for v in rig.place(b)]} for b in rig.arm.pose.bones],
         "views": [name for name, _ in VIEWS],
@@ -343,7 +385,7 @@ def main():
     for name in cfg.get("actions") or []:
         if name not in inside:
             raise RuntimeError(f"the rig holds no clip named {name}: it holds {', '.join(inside) or 'none'}")
-        report["clips"].append({"from": "rig", **clip_sheet(rig, inside[name], name, f"clip.{slug(name)}.png")})
+        report["clips"].append({"from": "rig", **clip_sheet(rig, inside[name], name, f"clip.{slug(name)}.png", measured)})
     report["actionsInside"] = [a.name for a in moving(rig.actions)]
     for clip in cfg.get("clips") or []:
         other = Rig(clip["path"])
@@ -352,7 +394,8 @@ def main():
             notes.append(f"{clip['name']}: the file holds no motion")
             continue
         action = max(found, key=lambda a: a.frame_range[1] - a.frame_range[0])
-        report["clips"].append({"from": "file", **clip_sheet(other, action, clip["name"], f"clip.{slug(clip['name'])}.png")})
+        # The clip's file holds the body again: it is cut into parts of its own.
+        report["clips"].append({"from": "file", **clip_sheet(other, action, clip["name"], f"clip.{slug(clip['name'])}.png", through_of(other, read_roles(other)))})
     report["notes"] = notes
     (OUT / "sheet.json").write_text(json.dumps(report, indent=2) + "\n")
 

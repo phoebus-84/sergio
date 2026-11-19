@@ -34,13 +34,36 @@ test("LIVE: a two-legged figure is put in seven poses, its walk played, and the 
   assert.deepEqual(await size(join(outputDir, "poses.png")), [8 * 128, 3 * 128]);
   // The arms are level at rest, so "arms up" is fifty degrees: the left about the front, the right the other way.
   assert.deepEqual(report.poses.list[1]!.turns, [{ bone: "LeftArm", about: "front", degrees: 50 }, { bone: "RightArm", about: "front", degrees: -50 }]);
-  // Each solid follows one bone whole: nothing is pulled out of shape.
-  for (const pose of report.poses.list) assert.deepEqual([pose.strained, pose.torn], [0, 0], pose.name);
+  // Each solid follows one bone whole: nothing is pulled out of shape, and no part goes into another.
+  for (const pose of report.poses.list) assert.deepEqual([pose.strained, pose.torn, pose.through], [0, 0, []], pose.name);
+  assert.deepEqual(report.rig.parts, ["body", "head", "left hand", "left leg", "left upper arm", "right hand", "right leg", "right upper arm"]);
 
   assert.deepEqual(report.actionsInside, ["walk"]);
   assert.equal(report.clips.length, 1);
   assert.deepEqual({ name: report.clips[0]!.name, from: report.clips[0]!.from, seconds: report.clips[0]!.seconds, travel: report.clips[0]!.travel }, { name: "walk", from: "rig", seconds: 1, travel: 0 });
   assert.deepEqual(await size(join(outputDir, "clip.walk.png")), [6 * 128, 2 * 128]);
+});
+
+test("LIVE: a hand that goes into a big head is found in a pose, and through a clip with when", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "rig-sheet-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const rigPath = join(root, "figure.glb");
+  await writeFile(rigPath, stickFigure({ boxes: { Head: 0.15 }, walk: false, reach: true }));
+  const { report } = await rigSheet({
+    rigPath, outputDir: join(root, "sheet"), tile: 128, actions: ["reach"],
+    poses: [{ name: "hand on head", turns: [{ bone: "LeftArm", about: "front", degrees: 135 }] }, { name: "arm up", turns: [{ bone: "LeftArm", about: "front", degrees: 60 }] }],
+  });
+  // Turned up and over, the left forearm ends in the head: its solid, 0.06 across, is a tenth of a metre inside the
+  // box at its deepest, of a body 1.65 tall. Raised less, it is clear of it.
+  assert.deepEqual(report.poses.list.map((pose) => [pose.name, pose.through]), [["rest", []], ["hand on head", [{ parts: ["left hand", "head"], depth: 0.058 }]], ["arm up", []]]);
+  // The clip turns it there in a second and back in another: it is in the head around the middle, and deepest there.
+  const [through, ...others] = report.clips[0]!.through;
+  assert.deepEqual(others, []);
+  assert.deepEqual(through!.parts, ["left hand", "head"]);
+  assert.ok(Math.abs(through!.depth - 0.058) <= 0.005, `depth ${through!.depth}`);
+  assert.ok(through!.from > 0.5 && through!.from < 1, `from ${through!.from}`);
+  assert.ok(Math.abs(through!.at - 1) <= 0.05, `at ${through!.at}`);
+  assert.ok(through!.seconds > 0.2 && through!.seconds < 1, `seconds ${through!.seconds}`);
 });
 
 test("LIVE: a clip is read as turns from the rest pose, in the world and in glTF's axes", live, async (t) => {
