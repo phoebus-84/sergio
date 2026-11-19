@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { castRole, createCharacter, releaseForm, updateCharacter } from "@studio/cast";
 import { registerRigShotTools } from "../src/rig-shot-tools.js";
 
 const REF = { channel: "sample-channel", series: "sample-series", episode: "ep" };
@@ -131,5 +132,58 @@ describe("pva_rig_shot", () => {
     await expect(film({ shotId: "b" })).rejects.toThrow("the file has no skeleton: there is no character to film");
     expect(existsSync(video("b.mp4"))).toBe(false);
     expect(readdirSync(join(dir, "assets", "video")).sort()).toEqual(["guide-walks.mp4", "guide-walks.provenance.json"]);
+  });
+  describe("a role of the series' cast", () => {
+    const production = { channel: REF.channel, series: REF.series };
+    let released: string;
+
+    // A rig released as pva_release_model leaves one: its entry, its clips, and form.json to say which is which.
+    beforeEach(() => {
+      createCharacter(root, [REF.channel], { id: "guide", name: "The Guide" });
+      released = join(root, REF.channel, "characters", "guide", "forms", "rig", "v1");
+      mkdirSync(join(released, "clips"), { recursive: true });
+      writeFileSync(join(released, "rig.glb"), "the released rig, at rest");
+      writeFileSync(join(released, "clips", "walking.glb"), "clip: a walk on the spot, as released");
+      writeFileSync(join(released, "form.json"), JSON.stringify({ version: 1, entry: "rig.glb", clips: [{ name: "walking", file: "clips/walking.glb" }] }));
+      updateCharacter(root, [REF.channel], "guide", { form: { id: "rig", medium: "rig-3d", can: { actions: ["walking"] } } });
+      releaseForm(root, [REF.channel], "guide", { form: "rig", release: "v1", entry: "rig.glb" });
+      castRole(root, production, { role: "host", character: "guide" });
+    });
+
+    const filmRole = (params: Record<string, unknown> = {}) => tool.execute("call", { ...REF, shotId: "host-walks", role: "host", ...params }, undefined, undefined);
+
+    it("films the release the role pins, and keeps who played it", async () => {
+      const result = await filmRole({ clip: "walking" });
+      expect(result.content[0]!.text.split("\n")).toEqual([
+        "✅ assets/video/host-walks.mp4 — 1s, 1280×720 at 24 fps, 0.0MB, no sound",
+        '   the role host: guide as "rig" v1, as released',
+        "   three-quarter, full; the clip walking (1s) played on the spot",
+        "   look at it before it is used (pva_inspect_media): a body that leaves the frame, a hand through the head, a floor it sinks into are seen, not measured",
+      ]);
+      const provenance = JSON.parse(readFileSync(video("host-walks.provenance.json"), "utf8"));
+      expect(provenance).toMatchObject({
+        cast: { role: "host", character: "guide", form: "rig", release: "v1" },
+        rig: "sample-channel/characters/guide/forms/rig/v1/rig.glb", clip: "walking", clipFile: "sample-channel/characters/guide/forms/rig/v1/clips/walking.glb",
+      });
+      expect(provenance.cast.treeSha256).toMatch(/^[0-9a-f]{64}$/);
+      // At rest when no action is named.
+      expect((await filmRole({ shotId: "host-stands" })).content[0]!.text).toContain("the character at rest");
+    });
+
+    it("refuses a role it cannot film, before Blender is started", async () => {
+      await expect(film({ role: "host" })).rejects.toThrow("say which character is filmed: a rig of the episode (rigPath) or a role of the series' cast (role), one or the other");
+      await expect(tool.execute("call", { ...REF, shotId: "b" }, undefined, undefined)).rejects.toThrow("say which character is filmed");
+      await expect(filmRole({ role: "villain" })).rejects.toThrow('sample-channel/sample-series has no role "villain" in its cast: give the role to a character with pva_cast');
+      await expect(filmRole({ clip: "running" })).rejects.toThrow('the role "host" has no action named running: its form can walking');
+      await expect(filmRole({ faces: "+x" })).rejects.toThrow("a released rig faces +z: leave `faces` out");
+      // A character on paper, and one whose form is not a rig.
+      createCharacter(root, [REF.channel], { id: "narrator", name: "The Narrator" });
+      castRole(root, production, { role: "voice", character: "narrator" });
+      await expect(filmRole({ role: "voice" })).rejects.toThrow('the role "voice" cannot be filmed: The Narrator has no form yet');
+      // What was released was edited afterwards: it is not filmed.
+      writeFileSync(join(released, "clips", "walking.glb"), "clip: another walk");
+      await expect(filmRole({ clip: "walking" })).rejects.toThrow('the files of "rig" v1 are not what was released: the role "host" is not filmed from them');
+      expect(existsSync(join(dir, "assets", "video"))).toBe(false);
+    });
   });
 });

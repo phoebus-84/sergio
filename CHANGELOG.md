@@ -99,6 +99,26 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   scene. With it, a picture becomes a model, a rig, a motion and footage
   without a script written by hand. `@av/blender/rig-shot` is the reusable
   part.
+- **A model or a rig released as a character's form in one step**:
+  `pva_release_model` takes it from the episode that made it and makes it
+  the character's, locally and at no cost.
+  - **The figure is stood once, in its file**: facing +z, its feet on y 0,
+    its middle over the origin, as tall as `height` says in metres. One node
+    above the scene's roots carries the turn, the size and the move, so the
+    body, its textures and its clips are the bytes the services returned,
+    and no scene turns or lifts it again.
+  - It lands in `characters/<id>/forms/<form>/<release>/` with its clips,
+    its pose sheets, the picture it was made from, the provenance of the
+    model, the rig and each clip, and a `form.json` that names every file's
+    source by hash. The form (`rig-3d`, or `model-3d` with no skeleton) is
+    given its actions from the clips, and the release is recorded with what
+    made it.
+  - A rig is refused when its exam fails, and when it was not posed since
+    its file last changed. A clip is released as an action only when it was
+    played on the rig's sheet; the others are left out and named.
+- **`pva_rig_shot` films a role of the cast.** `role` in place of `rigPath`
+  films the release the role pins, after reading its files back against
+  their record; the shot's provenance says who played it.
 - **A fal call that runs out of time names the request it left.** The job
   may still finish and be charged; the message says which one it was.
 

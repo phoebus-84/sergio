@@ -49,14 +49,17 @@ function usableCast(root: string, production: Production): CastManifest {
   return stored.cast ?? { apiVersion: CHARACTER_API_VERSION, kind: "Cast", roles: [] };
 }
 
-interface Found {
+export interface FoundCharacter {
   owner: Owner;
   manifest: CharacterManifest;
   dir: string;
 }
 
-/** The character a role names: in the production's own owners, or where its path says. */
-function find(root: string, production: Production, ref: string): Found | { missing: string } {
+/**
+ * The character a production names: by id alone in the production's own
+ * owners (a series, then its channel; a film), or another owner's as owner/id.
+ */
+export function findCharacter(root: string, production: Production, ref: string): FoundCharacter | { missing: string } {
   const { owner, id } = parseCharacterRef(ref);
   const owners: Owner[] = owner ? [owner as unknown as Owner] : castingOwners(production);
   let broken: string | null = null;
@@ -104,7 +107,7 @@ export interface CastRoleInput {
 export function castRole(root: string, production: Production, input: CastRoleInput): { cast: CastManifest; role: CastRole } {
   assertSlug("the role", input.role);
   const cast = structuredClone(usableCast(root, production));
-  const found = find(root, production, input.character);
+  const found = findCharacter(root, production, input.character);
   if ("missing" in found) throw new CastError(`the role "${input.role}" was not cast: ${found.missing}`, "no-character");
 
   let form: CharacterForm | null;
@@ -191,7 +194,7 @@ export interface ResolveOptions {
 export function resolveCast(root: string, production: Production, options: ResolveOptions = {}): ResolvedRole[] {
   return usableCast(root, production).roles.map((role): ResolvedRole => {
     const none = { owner: null, character: null, dir: null, form: null, release: null, voice: role.voice ?? null };
-    const found = find(root, production, role.character);
+    const found = findCharacter(root, production, role.character);
     if ("missing" in found) return { role, state: "broken", reason: found.missing, ...none };
     const { owner, manifest, dir } = found;
     const base = { role, owner, character: manifest, dir, voice: role.voice ?? manifest.voice?.profile ?? null };

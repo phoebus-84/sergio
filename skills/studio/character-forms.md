@@ -108,7 +108,7 @@ drawn, then cut, pivoted and weighted in Blender by script
 (`pva_blender_create_scene`, the `blender-scene` skill). The master file is
 never saved over: an episode appends the rig and animates a copy.
 
-**A 3D rig.** Five steps, each checked before the next is paid for:
+**A 3D rig.** Six steps, each checked before the next is paid for:
 1. **A picture.** One approved image of the character, plain ground, the view
    the model will be built from. This is where identity is decided.
    - **Draw it to be rigged.** Arms held away from the body with ground
@@ -134,10 +134,10 @@ never saved over: an episode appends the rig and animates a copy.
      rig. For a figure that will be rigged or animated ask for
      `quad: true, faceLimit: 20000`: the same figure at a fiftieth of the
      weight, as an FBX with its textures inside.
-   - **Place it.** It is one unit tall with its origin at its middle, and it
-     faces +x where glTF puts the front at +z: lift it by half its height,
-     turn it a quarter turn, and scale it to the scene, in the release or in
-     every scene that uses it — decide once, and say which in the form's note.
+   - **Do not place it by hand.** It is one unit tall with its origin at its
+     middle, and it faces +x where glTF puts the front at +z. Releasing it
+     (step 5) stands it once, in the file: no scene lifts, turns or sizes it
+     again.
    - `alignToImage` only straightens it by a degree or two; it does not turn
      it to the front.
    Building a creature from primitives by code gives a blocky body and a
@@ -271,14 +271,58 @@ never saved over: an episode appends the rig and animates a copy.
      other.
 
 A form lists a clip as an action only when the clip has been played and
-looked at. Record the release with `madeWith` saying exactly what made the
-rig and each clip: every clip has a provenance beside it.
+looked at.
 
-5. **A shot.** `pva_rig_shot { channel, series, episode, shotId, rigPath,
+5. **A release, in one step.** `pva_release_model { channel, series,
+   episode, modelPath, character, height }` takes the rig — or a model with
+   no skeleton — from the episode that made it and makes it the
+   character's. Local, free, a fraction of a second.
+   - **It stands the figure once, in its file**: facing +z, its feet on
+     y 0, its middle over the origin, as tall as `height` says. One node
+     above the scene's roots carries the turn, the size and the move; the
+     body, its textures and its clips stay the bytes the services returned.
+     A rig from `pva_rig_model` faces +z already. A model with no skeleton
+     must be told which way it `faces`: look at its preview (those from
+     `pva_generate_model` have faced +x).
+   - **Give it its height**, in metres. A generated figure is one unit tall
+     whatever it is: a child is 1.2, a grown person 1.7, a cat 0.3. Two
+     characters in one picture are in proportion only if each was released
+     at its own height.
+   - **What it will not release.** A rig that failed its exam. A rig with no
+     sheet, or one posed before its file last changed: run `pva_rig_sheet`
+     and look at the sheet first. A clip that was not played on that sheet
+     is left out and named; asked for in `clips`, it is refused. So is a
+     clip whose skeleton is not the rig's: carry it with
+     `pva_retarget_clip`.
+   - **What lands** in `characters/<id>/forms/<form>/<release>/`:
+     `rig.glb` (or `model.glb`), `clips/<name>.glb`, the sheets, the picture
+     and the preview it was made from, the provenance of the model, the rig
+     and each clip, and `form.json`, which says what every file was made
+     from, hash by hash, and how the figure was stood.
+   - **What goes on record.** The form is `rig-3d` (`model-3d` with no
+     skeleton); its actions are the released clips by name, its views all
+     four; the release names what made it, read from the provenance. Say
+     the `licence`: whose it is, and whether it may be published.
+   - **A change is another release.** The id is the next of `v1`, `v2`, …
+     Another clip, a better rig: release again. Roles keep the release they
+     pinned until they are cast again.
+   - The character is found as a cast finds one: in the episode's series,
+     then in its channel; another owner's as `owner/id`.
+   - It warns of poses that pulled the surface on the sheet and releases
+     all the same: whether the rig is good enough was decided by whoever
+     looked.
+
+   Then give it a role: `pva_cast { channel, series, role, character }`.
+
+6. **A shot.** `pva_rig_shot { channel, series, episode, shotId, role,
    clip, camera, framing }` films the character playing one of its clips:
    local, free, a couple of dozen seconds for a few seconds of film. It
    lands in `assets/video/<shotId>.mp4` with no sound, as generated clips
    do, and goes on a timeline or in a cut like any other.
+   - **Film a role.** `role` names a role of the series' cast: the release
+     it pins is read back against its record and filmed as it was released,
+     and the shot's provenance says who played it. `rigPath` in its place
+     films a rig still in the episode: a test shot, before a release.
    - **Ask for the shot in a shot's words.** `camera`: front, three-quarter,
      side, back. `framing`: full (the whole body), medium (waist up), close
      (head and shoulders). Give the film's own `width`, `height` and `fps`;
@@ -299,9 +343,8 @@ rig and each clip: every clip has a provenance beside it.
      measured.
 
 A model is made in an episode, where the budget is, and lands in
-`assets/models/`. To make it the character's, copy the model, its preview and
-its provenance into `characters/<id>/forms/<form>/<release>/` and record that
-folder (below).
+`assets/models/`. `pva_release_model` (step 5) makes it the character's: do
+not copy a model's files by hand.
 
 **Reference pictures.** A front, a three-quarter and an expression sheet,
 approved by a person, on a plain ground. Every generated shot is then checked
@@ -324,8 +367,10 @@ a picture of a real person saying words: the permission must cover that use.
 
 ## Release it
 
-Put the files in `characters/<id>/forms/<form>/<release>/` — the entry file,
-what it needs, the sheet and the proofs — then:
+A 3D model or a rig is released by `pva_release_model`, which does all of
+this. For any other medium, put the files in
+`characters/<id>/forms/<form>/<release>/` — the entry file, what it needs,
+the sheet and the proofs — then:
 
 `pva_update_character { owner, id, release: { form, release: "v1", entry,
 madeWith: [{ tool, provider?, model?, note? }], licence: { id,
