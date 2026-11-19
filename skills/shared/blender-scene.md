@@ -41,6 +41,28 @@ description: Create editable Blender scenes and animations using bpy, background
   drivers, add-ons and dependencies are untrusted. Auto-execution is disabled,
   but this is **not a sandbox**; explicit Python has full host privileges.
 
+### A set for characters
+
+`pva_stage_shot` puts rigged characters in a `.blend` and films them
+(`character-forms`, step 7). Build the place and leave the people out:
+
+- **Metres, z up, the front towards -y.** A character is released at its real
+  height, so a door is two metres and a step fifteen centimetres. The
+  audience is at -y: put the set's back wall at +y.
+- **Marks.** An empty named `mark.<name>` is a place a player is sent to by
+  name: its location is where the feet go, and its own -y is the way the
+  player faces there. Put one wherever someone stands, enters or stops, at
+  the height of the floor under it.
+- **A floor under every place.** A place given in metres stands on the
+  highest surface it has room to stand on; with nothing under it, on z 0.
+- **Its own light and world.** They are kept as they are. A set with no
+  light is given a sun, and the shot says so.
+- **Its own camera**, when the shot is one the set decides: `setCamera: true`
+  films with it, animated or not. Otherwise the camera is asked for in
+  words and the set's is ignored.
+- **No Python that must run.** Drivers and handlers are not executed when the
+  set is opened.
+
 ### Animation and Geometry Nodes
 
 Read `packages/blender/examples/orbit.py` as a small runnable starting point:

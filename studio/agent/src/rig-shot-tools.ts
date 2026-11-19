@@ -21,15 +21,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
+import { join } from "node:path";
 import { RIG_SHOT_DEFAULTS, RIG_SHOT_LIMITS, SHOT_CAMERAS, SHOT_FRAMINGS, rigShot, shotSettings, type ShotCamera, type ShotFraming } from "@av/blender/rig-shot";
 import { RIG_FACINGS, type RigFacing } from "@av/blender/rig-sheet";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
-import { resolveCast, verifyRelease } from "@studio/cast";
-import { readReleasedForm } from "./release-tools.js";
-import { guardEpisodePath } from "./trust-guards.js";
+import { CLIP_NAME, resolveRig } from "./rig-source.js";
 
 export const RIG_SHOT_TOOL = "pva_rig_shot";
 
@@ -75,49 +73,13 @@ export function registerRigShotTools(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, signal, onUpdate) {
       if (!SAFE_NAME.test(params.shotId)) throw new Error("shotId must contain only letters, numbers, underscores and hyphens (max 64)");
       const dir = episodePath(LIBRARY_ROOT, params.channel, params.series, params.episode);
-      if ((params.rigPath === undefined) === (params.role === undefined)) throw new Error("say which character is filmed: a rig of the episode (rigPath) or a role of the series' cast (role), one or the other");
-      if (params.clip !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(params.clip)) throw new Error("clip is the name of one of the rig's clips: letters, digits, dots, underscores and hyphens");
-      const guard = await guardEpisodePath(LIBRARY_ROOT, params.channel, params.series, params.episode, params.rigPath ?? "assets");
-      if (!guard.allowed) throw new Error(guard.reason ?? `Rig path rejected: ${params.rigPath}`);
-
-      let rigFull: string;
-      let filmed: string;
-      /** How the rig and the clip are named in what is said and kept. */
-      let rigShown: string;
-      let cast: Record<string, unknown> | null = null;
-      if (params.role !== undefined) {
-        const role = resolveCast(LIBRARY_ROOT, { channel: params.channel, series: params.series }).find((entry) => entry.role.role === params.role);
-        if (!role) throw new Error(`${params.channel}/${params.series} has no role "${params.role}" in its cast: give the role to a character with pva_cast`);
-        if (!role.release || !role.form || !role.dir || (role.state !== "ready" && role.state !== "behind")) throw new Error(`the role "${params.role}" cannot be filmed: ${role.reason}`);
-        if (role.form.medium !== "rig-3d") throw new Error(`the role "${params.role}" wears the form "${role.form.id}", which is ${role.form.medium}: only a rig (rig-3d) is filmed playing a clip`);
-        const checked = verifyRelease(role.dir, role.release);
-        if (checked.state !== "as-released") throw new Error(`the files of "${role.form.id}" ${role.release.id} ${checked.state === "missing" ? "are not there" : "are not what was released"}: the role "${params.role}" is not filmed from them`);
-        const folder = join(role.dir, ...role.release.path.split("/"));
-        const record = readReleasedForm(folder);
-        const entry = record?.entry ?? role.release.entry;
-        if (!entry || !/\.glb$/i.test(entry)) throw new Error(`the release "${role.release.id}" of "${role.form.id}" names no .glb to open: release the rig with pva_release_model`);
-        if (params.faces !== undefined && params.faces !== "+z" && record) throw new Error("a released rig faces +z: leave `faces` out");
-        rigFull = join(folder, ...entry.split("/"));
-        filmed = rigFull;
-        if (params.clip !== undefined) {
-          const has = record?.clips.map((clip) => clip.name) ?? [];
-          filmed = join(folder, ...(record?.clips.find((clip) => clip.name === params.clip)?.file ?? `clips/${params.clip}.glb`).split("/"));
-          if (!existsSync(filmed)) throw new Error(`the role "${params.role}" has no action named ${params.clip}` + (has.length ? `: its form can ${has.join(", ")}` : ": its form has no clip. Release the rig again with the clip played on its sheet"));
-        }
-        rigShown = `${relative(LIBRARY_ROOT, folder)}/${entry}`;
-        cast = { role: params.role, character: role.role.character, form: role.form.id, release: role.release.id, treeSha256: role.release.tree.sha256 };
-      } else {
-        rigFull = join(dir, params.rigPath!);
-        if (!existsSync(rigFull) || !statSync(rigFull).isFile()) throw new Error(`Rig not found: ${params.rigPath}`);
-        if (!/\.glb$/i.test(rigFull)) throw new Error(`Rig must be a binary glTF (.glb): ${params.rigPath}`);
-        filmed = rigFull;
-        if (params.clip !== undefined) {
-          filmed = join(dirname(rigFull), `${basename(rigFull).replace(/\.glb$/i, "")}.clip.${params.clip}.glb`);
-          if (!existsSync(filmed)) throw new Error(`the rig has no clip named ${params.clip}: ${relative(dir, filmed)} is not there`);
-        }
-        rigShown = params.rigPath!;
-      }
-      const filmedShown = cast ? relative(LIBRARY_ROOT, filmed) : relative(dir, filmed);
+      if (params.clip !== undefined && !CLIP_NAME.test(params.clip)) throw new Error("clip is the name of one of the rig's clips: letters, digits, dots, underscores and hyphens");
+      const rig = await resolveRig(LIBRARY_ROOT, params, { role: params.role, rigPath: params.rigPath });
+      if (rig.stood && params.faces !== undefined && params.faces !== "+z") throw new Error("a released rig faces +z: leave `faces` out");
+      const { rigFull, rigShown, cast } = rig;
+      const played = params.clip !== undefined ? rig.clip(params.clip) : null;
+      const filmed = played?.full ?? rigFull;
+      const filmedShown = played?.shown ?? rigShown;
       const videoDir = join(dir, "assets", "video");
       const videoFull = join(videoDir, `${params.shotId}.mp4`);
       if (existsSync(videoFull) && !params.overwrite) throw new Error(`assets/video/${params.shotId}.mp4 already exists: pick another shotId, or pass overwrite: true`);
