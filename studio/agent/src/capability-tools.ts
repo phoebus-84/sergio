@@ -11,7 +11,7 @@ import { Type } from "typebox";
 import { createHash } from "node:crypto";
 import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { remoteRenderer, sharedRenderer, type RemoteRenderResult, type SharedRenderResult } from "@av/render-worker";
+import { engineTarget, hostsConfigOf, probeEngine, remoteRenderer, sharedRenderer, type RemoteRenderResult, type SharedRenderResult } from "@av/render-worker";
 import { LOCAL as LOCAL_MACHINE, place, type Machines } from "@av/machines";
 import { extname, join } from "node:path";
 import { resolveConfig, DEFAULT_TTS_WORKER_URL } from "./config.js";
@@ -1577,13 +1577,21 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       let host = params.host?.trim();
       const hosts = params.hosts?.map((h) => h.trim()).filter(Boolean);
       const routed: string[] = [];
-      const { sshAnswers, studioMachines } = await import("./machines.js");
+      const { machineDeps, studioMachines } = await import("./machines.js");
+      const hostsFile = process.env.AVG_RENDER_HOSTS || join(LIBRARY_ROOT, ".render", "render-hosts.json");
       let machines: Machines;
       try {
         machines = studioMachines(LIBRARY_ROOT);
         // No machine asked for: the machines file's preference decides, here when it says nothing.
         if (!host && !hosts?.length) {
-          const chosen = await place(machines, "remotion", (m) => sshAnswers(m, signal));
+          // A machine is chosen only when its engine answers (`engine.sh version`), as `auto`
+          // asks: one that answers SSH with a broken or missing clone is passed over.
+          const config = hostsConfigOf({ configFile: hostsFile, machines });
+          const chosen = await place(machines, "remotion", async (m) => {
+            const probe = await probeEngine(machineDeps().exec, engineTarget(m.name, { config, peers: [] }));
+            if (probe.ok) return { ok: true };
+            return { ok: false, reason: probe.reachable ? `answers over SSH, but its engine does not: ${probe.reason}` : probe.reason };
+          });
           for (const s of chosen.skipped) routed.push(`${s.name} passed over: ${s.reason}`);
           if (chosen.place.kind === "machine") {
             host = chosen.place.machine.name;
@@ -1600,7 +1608,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       if (host === LOCAL_MACHINE) host = undefined;
       const remote = {
         key: `${params.channel}/${params.series}/${params.episode}`,
-        configFile: process.env.AVG_RENDER_HOSTS || join(LIBRARY_ROOT, ".render", "render-hosts.json"),
+        configFile: hostsFile,
         machines,
         onLog(line: string) {
           onUpdate?.({ content: [{ type: "text" as const, text: line }], details: { engine: line } });

@@ -18,11 +18,11 @@ let calls: { destination: string; command: string }[];
 const saved: Record<string, string | undefined> = {};
 const ENV = ["AVG_LIBRARY_ROOT", "AVG_MACHINES", "AVG_RENDER_HOSTS"];
 
-/** gpu-box answers, with a Blender; spare does not. */
+/** gpu-box answers, with a Blender but no render engine in its clone; spare does not answer at all. */
 const exec: Exec = async (destination, command) => {
   calls.push({ destination, command });
   if (destination === "me@spare.lan") return { code: 255, stdout: "", stderr: "ssh: connect to host spare.lan port 22: No route to host" };
-  if (command === "true") return { code: 0, stdout: "", stderr: "" };
+  if (command.includes("engine.sh")) return { code: 127, stdout: "", stderr: "sh: 1: /home/op/sergio/packages/render-worker/engine.sh: not found" };
   return { code: 0, stdout: "system=Linux x86_64\ncores=32\nblender=Blender 5.2.1 LTS\n", stderr: "" };
 };
 
@@ -140,6 +140,17 @@ describe("the tools", () => {
     const result = await compose();
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe("❌ no-machine: no machine for remotion answered: spare: ssh: connect to host spare.lan port 22: No route to host");
-    expect(calls).toEqual([{ destination: "me@spare.lan", command: "true" }]);
+    expect(calls).toEqual([{ destination: "me@spare.lan", command: "~/sergio/packages/render-worker/engine.sh version" }]);
+  });
+
+  it("pva_compose_video passes over a machine that answers SSH but whose engine does not", async () => {
+    write({ ...FILE, prefer: { remotion: ["gpu-box", "spare"] } });
+    const result = await compose();
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe(
+      "❌ no-machine: no machine for remotion answered: gpu-box: answers over SSH, but its engine does not: " +
+      "sh: 1: /home/op/sergio/packages/render-worker/engine.sh: not found; spare: ssh: connect to host spare.lan port 22: No route to host",
+    );
+    expect(calls.map((c) => c.destination)).toEqual(["gpu-box", "me@spare.lan"]);
   });
 });

@@ -140,15 +140,4 @@ export function machinesCapabilities(r: MachinesReport): Record<string, { availa
   return caps;
 }
 
-/** Whether a machine answers over SSH at all: what a role's preference order is tried with. */
-export async function sshAnswers(machine: Machine, signal?: AbortSignal): Promise<{ ok: true } | { ok: false; reason: string }> {
-  try {
-    const run = await deps.exec(machine.ssh, "true", signal ? { signal } : {});
-    if (run.code === 0) return { ok: true };
-    return { ok: false, reason: run.stderr.split("\n").filter((l) => l.trim() && !l.startsWith("** ")).pop() ?? `exit ${run.code}` };
-  } catch (e) {
-    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
-  }
-}
-
 export { gpuLockOf };
