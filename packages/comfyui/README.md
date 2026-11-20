@@ -25,7 +25,8 @@ are `ComfyUiError` with a `code` to branch on: `not-configured`,
 `no-output`, `server`.
 
 A server that listens only on its own loopback is reached through a tunnel
-the caller opens; the client just sees a URL.
+the caller opens (in the studio, `@av/machines` opens it from the library's
+machines file); the client just sees a URL.
 
 ## Templates
 

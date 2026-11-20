@@ -212,11 +212,16 @@ none of these. Its record is its receipt. Two things are **a later step**:
 
 ### The server
 
-Reached exactly as speech reaches it: `AVG_COMFYUI_URL`, or `url` in the
-library's `.render/comfyui.json` (`AVG_COMFYUI_CONFIG` names another file).
-That file may also set `workflowTimeoutSeconds` (default 1800),
-`workflowOutputPrefix` and `workflowInputSubfolder`. Host and tunnel
-resolution are another change's.
+Reached exactly as speech reaches it, in ADR-0056's order: `AVG_COMFYUI_URL`;
+else a `comfyui` machine of the library's machines file, through a tunnel
+opened on demand; else `url` in the library's `.render/comfyui.json`
+(`AVG_COMFYUI_CONFIG` names another file). That file may also set
+`workflowTimeoutSeconds` (default 1800), `workflowOutputPrefix` and
+`workflowInputSubfolder`. On a machine with a `gpuLock`, a run holds the lock
+from before its upload to its last download, and waits for it as long as a
+run may take (`workflowTimeoutSeconds`), so a run queued behind another does
+not give up first. The receipt names the machine (`machine`), never an
+address.
 
 ## Consequences
 

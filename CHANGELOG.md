@@ -66,7 +66,10 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     unit: files of the workspace uploaded under their hash, what it made
     written by kind with `<file>.comfyui.json` beside it (workflow and graph
     by hash, values, seeds, models, server version, GPU time). $0; the GPU
-    time also goes to an episode's or film unit's journal.
+    time also goes to an episode's or film unit's journal. The server is the
+    one speech finds, a machine of `machines.json` included: the tool opens
+    the tunnel, holds the machine's GPU lock for the whole run (waiting for
+    it as long as a run may take) and names the machine in the receipt.
   - The server is asked first, through `/object_info`, for every node, every
     input its version requires and every model file: what is missing is
     said before anything runs, with the files each loader has.

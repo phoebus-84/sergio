@@ -500,6 +500,11 @@ Free on your GPU, never chosen on its own, never a fallback for a paid call.
   models, the server's version, `runtimeVerified: false`, $0 and the GPU
   time, which also goes to an episode's or film unit's journal (a channel
   source has it in the receipt only).
+- **The server** is found as speech finds it: `AVG_COMFYUI_URL`, else a
+  `comfyui` machine of the machines file (a tunnel opened on demand), else
+  `url` in `.render/comfyui.json`. On a machine with a `gpuLock`, a run holds
+  the lock throughout and waits for it up to `workflowTimeoutSeconds`; the
+  receipt names the machine.
 - **Settings** in `.render/comfyui.json`, all optional:
   `workflowTimeoutSeconds` (default 1800), `workflowOutputPrefix` and
   `workflowInputSubfolder` (default `studio-workflows`).

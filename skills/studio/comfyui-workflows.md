@@ -163,5 +163,8 @@ the missing nodes.
 - Never present a workflow's output as checked when it was not looked at.
 - Never download a model or install a custom node on the operator's server.
 - Never write over a generated file, or edit one in place: run again.
-- Never put the server's address in a file of the library or the code: it
-  is `AVG_COMFYUI_URL` or the library's `.render/comfyui.json`.
+- Never put the server's address in a file of the library or the code, and
+  never open a tunnel to it by hand: the tools find it (`AVG_COMFYUI_URL`,
+  else a `comfyui` machine of the library's machines file, through a tunnel
+  they open and with its GPU lock held, else the library's
+  `.render/comfyui.json`).
