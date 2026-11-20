@@ -22,7 +22,8 @@
       "mcp__pva__pva_sources",
       "mcp__pva__pva_check_provenance",
       "mcp__pva__pva_probe_media",
-      "mcp__pva__pva_voices"
+      "mcp__pva__pva_voices",
+      "mcp__pva__pva_comfyui_workflows"
     ]
   },
   "hooks": {
