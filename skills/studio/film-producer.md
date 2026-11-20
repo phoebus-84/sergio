@@ -34,7 +34,7 @@ library/<film>/                      the film       film.yaml      pipeline film
   bible/ characters/ locations/      what every scene and shot is held to
   references/ voices/ sources/ skills/
   footage/                           what was shot, recorded or bought (catalog.json)
-  music/                             the score and licensed music
+  music/                             the score: composed as code, generated, licensed or supplied
   scenes/<scene>/                    a scene        scene.yaml     pipeline film-scene
     references/ sources/ skills/
     shots/<shot>/                    a shot         shot.yaml      pipeline film-shot

@@ -110,7 +110,9 @@ commands become available through the agent.
   `pva_capability_status` says whether it answers): `voice` is a speaker or
   `saved:<name>`, or `referenceAudioPath` (+ `referenceText`, the exact words)
   clones a recording of the workspace; `cleanReference: true` first cuts it
-  and separates the voice from music and noise. Clone only a voice whose owner
+  and separates the voice from music and noise; `voiceDesign` makes a voice from
+  a description (with `saveVoiceAs`, kept on the server to say every later line as
+  `saved:<name>`, under consent bound to that name). Clone only a voice whose owner
   consented: cloned/saved voices require `voiceConsentPath`, an operator-created
   consent record bound to the reference hash or saved name. Never create or confirm
   that consent on the operator's behalf. Both Qwen paths need `pva_register_take`, then `pva_align_take`
@@ -122,6 +124,14 @@ commands become available through the agent.
 - `pva_clean_voice` — Clean only, on the same ComfyUI server: separate a recording's voice
   from music and noise (optional `start`/`duration` cut) into a new `assets/…wav`, with a
   `.clean.json` record. Nothing is cloned.
+- `pva_comfyui_workflows`, `pva_comfyui_run` — any ComfyUI workflow on the operator's
+  server, free on their GPU: built-in text to image (Z-Image Turbo), image edit
+  (FLUX.2 [klein]), video (Wan 2.2 TI2V 5B) and music (ACE-Step), the operator's own
+  in the library's `.render/comfyui/workflows/`, a channel's or film's in
+  `<channel>/comfyui/workflows/`. The listing says whether the server has each one's
+  nodes and models; a run writes each output with `<file>.comfyui.json` beside it.
+  Use it when the operator asks, or offer it; never as a fallback for a paid call.
+  Load `comfyui-workflows` first.
 
 - `pva_music_check`, `pva_music_render`, `pva_music` — music and designed sound
   written as Strudel code in `music/<name>.strudel`, rendered here at $0: a bed
@@ -129,7 +139,10 @@ commands become available through the agent.
   You write the piece with your file tools and mix it by the numbers the render
   returns; you cannot hear it. Load `strudel-music` before writing one
   (`strudel-sounds` for instruments and effects, `strudel-forms` for structure).
-  For a recording — a real piano, an orchestra, a voice — use `find-archive-media`.
+  Code is the default when nobody asked for anything else, not the only way: for what
+  it does not give — a real piano, an orchestra, a singer — offer a licensed or
+  supplied recording (`find-archive-media`) or music generated with a model
+  (`pva_comfyui_run` with a music workflow), and let the operator choose.
 
 ### Films
 
