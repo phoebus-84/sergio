@@ -23,6 +23,7 @@ import { registerMapillaryTools } from "../src/mapillary-tools.js";
 import { registerSourceTools } from "../src/source-tools.js";
 import { registerAudioTools } from "../src/audio-tools.js";
 import { registerMusicTools } from "../src/music-tools.js";
+import { registerComfyUiWorkflowTools } from "../src/comfyui-workflows.js";
 import { registerLongExtendTools } from "../src/long-extend-tools.js";
 import { registerFilmTools } from "../src/film-tools.js";
 import { registerCharacterTools } from "../src/character-tools.js";
@@ -322,6 +323,7 @@ export default function (pi: ExtensionAPI): void {
   registerSourceTools(pi);
   registerAudioTools(pi);
   registerMusicTools(pi);
+  registerComfyUiWorkflowTools(pi);
   registerLongExtendTools(pi);
 
   // --- Register film tools (ADR-0050) -----------------------------------

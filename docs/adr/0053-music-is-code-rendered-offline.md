@@ -2,7 +2,14 @@
 
 ## Status
 
-Accepted. Implemented:
+Accepted; amended by ADR-0055.
+
+[ADR-0055](0055-comfyui-is-a-generic-local-generation-backend.md) corrects
+this record's framing: Strudel is the default for music composed as code,
+not the only music the studio makes — music generated with a model is a
+source of its own, beside the person's and licensed music.
+
+Implemented:
 - `@av/strudel`: a piece evaluated, described and rendered in a headless
   Chrome; `analyzeAudio`, `levelAudio`; `@av/strudel/session` for a browser;
 - the `MusicRender` record and `@studio/episode`'s `checkMusic`,
@@ -105,7 +112,10 @@ Two languages of the same family were considered:
 - Rendering needs a Chrome. Remotion's is used when it is there, else
   Playwright's or the machine's own; `npm run doctor` says which.
 - The sound is a synthesizer's. A film that needs an orchestra or a singer
-  needs a composer or a licensed recording, and the skills say so.
+  is offered the other sources — the person's, a licensed recording, or
+  music generated with a model — and the skills say so. (Amended by
+  ADR-0055: this said such a film needs a composer or a licensed
+  recording.)
 - Stems are rendered one part at a time. Parts made of noise, a supersaw or
   reverb draw on the seeded randomness in the order events come, so a stem
   sounds like its part in the mix without being the same samples.

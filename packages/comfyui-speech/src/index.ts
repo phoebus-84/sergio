@@ -1,7 +1,7 @@
-export { createComfyUiClient } from "./client.js";
-export type { ComfyUiClient, ComfyUiClientOptions, ComfyUiFile, ComfyUiPrompt, PromptOutputs, WaitOptions } from "./client.js";
-export { ComfyUiError } from "./errors.js";
-export type { ComfyUiErrorCode } from "./errors.js";
+export { createComfyUiClient } from "@av/comfyui";
+export type { ComfyUiClient, ComfyUiClientOptions, ComfyUiFile, ComfyUiPrompt, PromptOutputs, WaitOptions } from "@av/comfyui";
+export { ComfyUiError } from "@av/comfyui";
+export type { ComfyUiErrorCode } from "@av/comfyui";
 export {
   DEFAULT_INPUT_SUBFOLDER,
   DEFAULT_NODE_SETTINGS,
@@ -21,11 +21,13 @@ export {
   cleanVoice,
   DEFAULT_REFERENCE_SECONDS,
   DEFAULT_SAMPLING,
+  MAX_VOICE_DESCRIPTION,
   probeSpeech,
   QWEN_NODE_LANGUAGES,
   QWEN_NODE_SPEAKERS,
   savedVoicesOf,
   speakWithClonedVoice,
+  speakWithDesignedVoice,
   speakWithSavedVoice,
   speakWithSpeaker,
 } from "./speech.js";

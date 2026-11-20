@@ -1,0 +1,41 @@
+{
+  "description": "Text to image with Z-Image Turbo (6B, distilled: a few steps at CFG 1). Core nodes only.",
+  "kind": "image",
+  "inputs": {
+    "prompt": { "type": "text", "description": "What the picture shows; Z-Image follows long, literal descriptions and renders text in quotes" },
+    "width": { "type": "integer", "default": 1024, "min": 256, "max": 2048, "description": "Pixels, a multiple of 16" },
+    "height": { "type": "integer", "default": 1024, "min": 256, "max": 2048, "description": "Pixels, a multiple of 16" },
+    "steps": { "type": "integer", "default": 9, "min": 1, "max": 50 },
+    "seed": { "type": "seed" },
+    "unetModel": { "type": "model", "default": "z_image_turbo_bf16.safetensors", "description": "Z-Image Turbo's diffusion model, as this server names it" },
+    "textEncoder": { "type": "model", "default": "qwen_3_4b.safetensors", "description": "Qwen3 4B text encoder" },
+    "vae": { "type": "model", "default": "z_image_ae.safetensors", "description": "The Flux.1 autoencoder (ae.safetensors in some distributions)" }
+  },
+  "outputs": { "9": "image" },
+  "verifiedOn": "ComfyUI 0.45.0, RX 7900 XTX (ROCm), 2026-11-20",
+  "requires": {
+    "models": [
+      { "node": "16", "input": "unet_name", "folder": "diffusion_models", "source": "Hugging Face Comfy-Org/z_image_turbo" },
+      { "node": "18", "input": "clip_name", "folder": "text_encoders", "source": "Hugging Face Comfy-Org/z_image_turbo" },
+      { "node": "17", "input": "vae_name", "folder": "vae", "source": "Hugging Face Comfy-Org/z_image_turbo" }
+    ]
+  },
+  "prompt": {
+    "16": { "class_type": "UNETLoader", "inputs": { "unet_name": "{{unetModel}}", "weight_dtype": "default" } },
+    "18": { "class_type": "CLIPLoader", "inputs": { "clip_name": "{{textEncoder}}", "type": "lumina2", "device": "default" } },
+    "17": { "class_type": "VAELoader", "inputs": { "vae_name": "{{vae}}" } },
+    "11": { "class_type": "ModelSamplingAuraFlow", "inputs": { "model": ["16", 0], "shift": 3 } },
+    "6": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["18", 0], "text": "{{prompt}}" } },
+    "7": { "class_type": "ConditioningZeroOut", "inputs": { "conditioning": ["6", 0] } },
+    "13": { "class_type": "EmptySD3LatentImage", "inputs": { "width": "{{width}}", "height": "{{height}}", "batch_size": 1 } },
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": ["11", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["13", 0],
+        "seed": "{{seed}}", "steps": "{{steps}}", "cfg": 1, "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1
+      }
+    },
+    "8": { "class_type": "VAEDecode", "inputs": { "samples": ["3", 0], "vae": ["17", 0] } },
+    "9": { "class_type": "SaveImage", "inputs": { "images": ["8", 0], "filename_prefix": "{{outputPrefix}}" } }
+  }
+}

@@ -283,4 +283,6 @@ Say it in the brief rather than fake it:
 - chorus, flanger, a glide between notes, reversed or stretched sound.
 
 For those, a recording: a licensed one (`find-archive-media`), or an audio
-file of the workspace loaded as a sample (`strudel-music`).
+file of the workspace loaded as a sample (`strudel-music`) — or, when the
+operator wants it, music generated with a model on their ComfyUI server
+(`comfyui-workflows`).

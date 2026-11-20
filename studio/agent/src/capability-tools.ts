@@ -42,6 +42,7 @@ import {
 import { paidCall, providerCost, type SpendCall } from "./spend.js";
 import { COMFYUI_PROVIDER, comfyUiSpeechStatus, comfyUiSpeechTerms, comfyUiVoices, synthesizeWithComfyUi } from "./comfyui-speech.js";
 import { ELEVENLABS_PROVIDER, elevenLabsSpeechTerms, synthesizeWithElevenLabs } from "./elevenlabs-speech.js";
+import { comfyUiWorkflowsStatus } from "./comfyui-workflows.js";
 import { SpendRefused, toMicros } from "@studio/contracts/src/budget.mjs";
 import {
   CODEX_PROVIDER,
@@ -1051,7 +1052,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       cleanReference: Type.Optional(Type.Boolean({ description: "comfyui-qwen only: before cloning, cut the reference and separate its voice from music and noise on the server; the cleaned voice is saved beside the WAV as <sceneId>.cleaned-reference.flac" })),
       referenceStart: Type.Optional(Type.Number({ description: "cleanReference only: where the part to learn from starts, in seconds (default 0)" })),
       referenceDuration: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "cleanReference only: how long that part is, in seconds (default 15)" })),
-      saveVoiceAs: Type.Optional(Type.String({ description: "cleanReference only: also save the learned voice on the ComfyUI server under this name, to speak with later as voice saved:<name>" })),
+      voiceDesign: Type.Optional(Type.String({ description: "comfyui-qwen only, instead of voice or referenceAudioPath: a voice made from this description (Qwen3-TTS VoiceDesign) — who speaks, their age, timbre, accent and manner. Listen, then keep the one chosen with saveVoiceAs, or clone its WAV for every later line" })),
+      saveVoiceAs: Type.Optional(Type.String({ description: "cleanReference or voiceDesign only: also save the learned or designed voice on the ComfyUI server under this name, to speak with later as voice saved:<name>; a designed voice saved needs voiceConsentPath with saved_voice \"saved:<name>\"" })),
       seed: Type.Optional(Type.Integer({ minimum: 0, description: "Qwen speech and elevenlabs: a seed, to make the same take again" })),
       temperature: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 2, description: "Sampling temperature (worker default 0.7): higher is more varied, lower more even" })),
       repetitionPenalty: Type.Optional(Type.Number({ minimum: 1, maximum: 3, description: "Repetition penalty (worker default: 1.5 for a clone, 1.05 for a preset). A recited poem read better at 1.1 with a clone, one stanza per call with its verses on their own lines" })),
@@ -1070,7 +1072,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         const dir = where(params).dir;
         const provider = params.provider ?? SPEECH_PROVIDERS[0];
         if (!SPEECH_PROVIDERS.includes(provider)) throw new Error(`unsupported speech provider: ${provider}`);
-        const comfyUiOnly = (["referenceAudioPath", "voiceConsentPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => params[k] !== undefined);
+        const comfyUiOnly = (["referenceAudioPath", "voiceConsentPath", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "saveVoiceAs", "voiceDesign"] as const).filter((k) => params[k] !== undefined);
         if (provider !== COMFYUI_PROVIDER && comfyUiOnly.length > 0) {
           throw new Error(`${comfyUiOnly.join(", ")} ${comfyUiOnly.length > 1 ? "are" : "is"} for provider "${COMFYUI_PROVIDER}", and this call speaks with ${provider}: add provider: "${COMFYUI_PROVIDER}" to use the ComfyUI server, or drop ${comfyUiOnly.length > 1 ? "them" : "it"}`);
         }
@@ -1101,6 +1103,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             sceneId: params.sceneId,
             text: params.text,
             ...(params.voice !== undefined ? { voice: params.voice } : {}),
+            ...(params.voiceDesign !== undefined ? { voiceDesign: params.voiceDesign } : {}),
             ...(reference ? { reference } : {}),
             ...(consent ? { consent } : {}),
             ...(params.referenceText !== undefined ? { referenceText: params.referenceText } : {}),
@@ -1114,7 +1117,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
             ...(params.instruct ? { instruct: params.instruct } : {}),
             ...(signal ? { signal } : {}),
           });
-          const voiceSaid = reference ? `the voice of ${params.referenceAudioPath}${params.cleanReference ? " (cleaned)" : ""}` : `voice ${params.voice}`;
+          const voiceSaid = reference ? `the voice of ${params.referenceAudioPath}${params.cleanReference ? " (cleaned)" : ""}`
+            : params.voiceDesign !== undefined ? `a designed voice${params.saveVoiceAs ? `, saved on the server as saved:${params.saveVoiceAs}` : ""}` : `voice ${params.voice}`;
           return {
             content: [{ type: "text" as const, text: `✅ ${params.sceneId} — ${made.durationSeconds.toFixed(1)}s, ${COMFYUI_PROVIDER} ${voiceSaid}, seed ${String(made.receipt.seed)}, made in ${made.elapsedSeconds.toFixed(1)}s, $0 → ${made.audioPath}; receipt ${made.receiptPath}` +
               `${made.cleanedReferencePath ? `; the cleaned reference to listen to: ${made.cleanedReferencePath}` : ""}; no word timings: pva_register_take, then pva_align_take with an aligner` }],
@@ -2236,6 +2240,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       Object.assign(caps, elevenLabsStatus(Boolean(process.env.ELEVENLABS_API_KEY)));
       // Speech from a ComfyUI server: optional, never a fallback for the worker.
       caps[`text-to-speech-${COMFYUI_PROVIDER}`] = await comfyUiSpeechStatus(LIBRARY_ROOT);
+      // Any other workflow on the same server (pva_comfyui_run): images, video, music.
+      caps["comfyui-workflows"] = await comfyUiWorkflowsStatus(LIBRARY_ROOT);
 
       // FFmpeg
       try {

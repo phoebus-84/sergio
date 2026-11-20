@@ -142,13 +142,15 @@ decide where music is and — more often the better decision — where it is
 not. A cue has a reason: it carries a transition, holds a feeling across a
 cut, or marks a change.
 
-Where the music comes from, in the order to try:
+Where the music comes from. What the person asked for decides; when
+nobody asked for anything, compose it here as code (3), the default. Every
+source is legitimate, and each cue keeps where it came from:
 
 1. **What the person supplied**: a composer's cues or stems, brought in
    with `pva_ingest_footage` or placed under `music/`.
 2. **Licensed music**: the `find-archive-media` skill. The licence and its
    evidence are kept with the file; a cue without terms cannot ship.
-3. **Composed here, as code**: the `strudel-music` skill (with
+3. **Composed here, as code** — the default: the `strudel-music` skill (with
    `strudel-forms` for a cue's shape and `strudel-sounds` for its
    instruments). Each cue is a piece, `music/<cue>.strudel` on the film
    (`series: "_"`, `episode: "_"`), written to the spotting:
@@ -161,13 +163,30 @@ Where the music comes from, in the order to try:
      (`from`, `cycles`), without its melody (`mute`), one instrument
      (`only`) — rather than a new piece for each.
 
-   It is a synthesizer's music. Say plainly when a film needs an orchestra,
-   a singer, or a sound only a recording gives: that is a decision for the
-   person, not something to cover with a pad.
+   Code gives a synthesizer's sound. When a cue wants an orchestra, a
+   singer or a sound only a recording gives, say so and offer the other
+   sources — supplied, licensed, or generated — rather than cover it with a
+   pad: which one is the person's decision.
+4. **Generated with a model**: a music workflow on the operator's ComfyUI
+   server (`ace-step-v1-music`, or one of theirs; the `comfyui-workflows`
+   skill), when the person chooses it, or offered when a cue needs what code
+   does not give and `pva_capability_status` says a music workflow can run.
+   `pva_comfyui_run` on the film with the cue's `tags` (genre, instruments,
+   voice, mood, tempo), its `lyrics` (`[verse]`, `[chorus]`… or `[inst]`),
+   its `seconds` and a `seed`, writes `music/<cue>.flac` and its receipt —
+   workflow, model, seed, tags and lyrics: the same provenance as any
+   generated take.
+   - A generated cue is not cut to the frame as a piece of code is: make it
+     a few seconds longer than its place, and set where it starts, where it
+     ends and its fades in the cut.
+   - Another take is another `seed`; keep the one the person chose.
+   - The model's licence and the operator's terms for what it makes go in
+     the cue's `terms`, as for any music.
 
 `pva_music_render` returns a cue's length, loudness, spectrum and the level
-of each stem; `pva_analyze_audio` measures a file that came from elsewhere.
-Use them to place it.
+of each stem; `pva_analyze_audio` measures a file that came from elsewhere —
+supplied, licensed or generated. Use them to place it. `pva_music` lists the
+pieces, their renders and the generated cues of a unit.
 
 `artifacts/score.json`:
 
@@ -180,7 +199,10 @@ Use them to place it.
       "terms": "CC BY 4.0 — <author>, <url>; credit in the end titles" },
     { "id": "ward", "file": "music/ward.wav", "seconds": 48,
       "over": ["020-ward"], "enters": "020-ward, with the first shot", "leaves": "020-ward, rings out over the cut",
-      "terms": "composed for this film: music/ward.strudel" }
+      "terms": "composed for this film: music/ward.strudel" },
+    { "id": "night", "file": "music/night.flac", "seconds": 75,
+      "over": ["040-harbour"], "enters": "040-harbour, under the boat's horn", "leaves": "040-harbour, fades with the lights",
+      "terms": "generated for this film: ace-step-v1-music, seed 4417 (music/night.flac.comfyui.json); the model's licence, the operator's terms" }
   ],
   "silence": ["030-corridor: no music; the ventilation hum is the scene."],
   "credits": ["Music: “Theme” by <author>, CC BY 4.0"]

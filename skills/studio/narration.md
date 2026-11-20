@@ -44,6 +44,21 @@ voice also requires `voiceConsentPath`: an operator-created, matching consent
 record (see `docs/running.md`, "Speech from a ComfyUI server"). Never create
 or confirm that authorization on the operator's behalf.
 
+**A designed voice.** `voiceDesign` makes a voice from a description — who
+speaks, their age, timbre, accent and manner — for a character that has no
+recording. Design a sample line, listen (the operator does), and keep the
+voice chosen for every later line in one of two ways:
+
+- `saveVoiceAs: "<name>"` on the design call keeps it on the server; every
+  later line is `voice: "saved:<name>"`. Saving needs `voiceConsentPath`
+  with `"source": "synthetic"` and `"saved_voice": "saved:<name>"`.
+- Or clone the chosen sample: `referenceAudioPath` its WAV, `referenceText`
+  its exact text, with a consent record bound to the WAV's
+  `reference_audio_sha256`, `"source": "synthetic"`.
+
+A design is not repeatable line to line on its own: designing every line
+anew gives a slightly different voice each time. Design once, then clone.
+
 Register, align and verify the resulting canonical WAV just like a worker
 take; neither Qwen provider returns word timings. Preserve its synthesis
 receipt, including the explicit limits on remote runtime verification.

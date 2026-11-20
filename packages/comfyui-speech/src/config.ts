@@ -17,7 +17,7 @@
 //   }
 
 import { existsSync, readFileSync } from "node:fs";
-import { ComfyUiError } from "./errors.js";
+import { ComfyUiError } from "@av/comfyui";
 
 export interface NodeSettings {
   model: string;

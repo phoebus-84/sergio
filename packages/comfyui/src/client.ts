@@ -40,6 +40,8 @@ export interface WaitOptions {
 export interface PromptOutputs {
   promptId: string;
   outputs: Record<string, Record<string, unknown>>;
+  /** The history entry's status messages, as the server sent them (execution_start, execution_cached, execution_success…). */
+  messages?: unknown[];
 }
 
 export interface ComfyUiClient {
@@ -52,7 +54,7 @@ export interface ComfyUiClient {
   queuePrompt(prompt: ComfyUiPrompt, signal?: AbortSignal): Promise<string>;
   /** Poll GET /history/<id> until the graph has finished. */
   waitForPrompt(promptId: string, options?: WaitOptions): Promise<PromptOutputs>;
-  /** POST /upload/image: put a file in the server's input folder (it takes audio too); returns the name LoadAudio reads it by. */
+  /** POST /upload/image: put a file in the server's input folder (it takes audio and video too); returns the name a loader node (LoadImage, LoadAudio, LoadVideo) reads it by. */
   uploadInput(file: { bytes: Uint8Array; filename: string; subfolder?: string }, signal?: AbortSignal): Promise<string>;
   /** GET /view: a file's bytes. */
   download(file: ComfyUiFile, signal?: AbortSignal): Promise<Buffer>;
@@ -159,7 +161,7 @@ export function createComfyUiClient(options: ComfyUiClientOptions): ComfyUiClien
         const status = entry?.status;
         if (entry && status && (status.completed === true || status.status_str === "error")) {
           if (status.status_str !== "success") throw new ComfyUiError("failed", `graph ${promptId} failed: ${executionError(status.messages)}`);
-          return { promptId, outputs: entry.outputs ?? {} };
+          return { promptId, outputs: entry.outputs ?? {}, ...(Array.isArray(status.messages) ? { messages: status.messages } : {}) };
         }
         if (Date.now() - started >= timeoutMs) throw new ComfyUiError("timeout", `graph ${promptId} did not finish in ${Math.round(timeoutMs / 1000)} s; it may still be queued or running on the server`);
         await sleep(pollIntervalMs);

@@ -232,6 +232,40 @@ describe(`pva_synthesize_speech with provider ${COMFYUI_PROVIDER}`, () => {
     expect(result.details.cleanedReferencePath).toBe(narration("line-1.cleaned-reference.flac"));
   });
 
+  it("designs a voice from a description, without consent while nothing is saved", async () => {
+    const result = await speak({ voiceDesign: "A retired lighthouse keeper: low, slow, warm, a little hoarse.", seed: 11 });
+    expect(result.isError).toBeFalsy();
+    expect(Object.keys(queued[0]!)).toEqual(["1", "2"]);
+    expect(queued[0]!["1"]).toMatchObject({ class_type: "FB_Qwen3TTSVoiceDesign", inputs: { text: TEXT, instruct: "A retired lighthouse keeper: low, slow, warm, a little hoarse.", model_choice: "1.7B", seed: 11 } });
+    const receipt = JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"));
+    expect(receipt).toMatchObject({ method: "voice-design", workflow: "design", model: "qwen3-tts-1.7B-voicedesign", design: { description: "A retired lighthouse keeper: low, slow, warm, a little hoarse." }, seed: 11, runtimeVerified: false });
+    expect(receipt.consent).toBeUndefined();
+    expect(result.content[0].text).toContain("a designed voice");
+  });
+
+  it("saves a designed voice on the server only with consent bound to the saved name", async () => {
+    const params = { voiceDesign: "A bright young voice.", saveVoiceAs: "Keeper" };
+    expect((await speak(params)).content[0].text).toContain('saved_voice "saved:Keeper"');
+    expect((await speak({ ...params, voiceConsentPath: consentFor("saved:Other") })).content[0].text).toContain("does not match");
+    expect(queued).toHaveLength(0);
+    const result = await speak({ ...params, voiceConsentPath: consentFor("saved:Keeper") });
+    expect(result.isError).toBeFalsy();
+    expect(queued[0]!["4"]).toMatchObject({ class_type: "FB_Qwen3TTSSaveVoice", inputs: { filename: "Keeper" } });
+    const receipt = JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"));
+    expect(receipt.design).toMatchObject({ savedAs: "saved:Keeper", learnedBy: "qwen3-tts-1.7B" });
+    expect(receipt.consent).toMatchObject({ savedVoice: "saved:Keeper", source: "synthetic" });
+    // every later line in that voice: the saved voice, under the same consent
+    expect((await speak({ voice: "saved:Keeper", voiceConsentPath: consentFor("saved:Keeper") })).content[0].text).toContain('no saved voice "Keeper"');
+  });
+
+  it("refuses a design with another voice, a reference or an instruct", async () => {
+    for (const extra of [{ voice: "Ryan" }, { instruct: "angry" }, { referenceText: "x" }]) {
+      expect((await speak({ voiceDesign: "A voice.", ...extra })).content[0].text).toContain("voiceDesign is the voice");
+    }
+    expect((await call("pva_synthesize_speech", { sceneId: "x", text: TEXT, voiceDesign: "A voice." })).content[0].text).toContain(`for provider "${COMFYUI_PROVIDER}"`);
+    expect(paths).toEqual([]);
+  });
+
   it("refuses what does not fit together before the server is asked", async () => {
     const said = async (params: Record<string, unknown>) => {
       const r = await speak(params);
@@ -326,7 +360,7 @@ describe("the ComfyUI server in pva_capability_status and pva_voices", () => {
     missing.add("AudioSeparation");
     const partial = await comfyUiSpeechStatus(root);
     expect(partial.available).toBe(true);
-    expect(partial.detail).toContain("workflows speaker, clone, saved-voice; missing nodes AudioSeparation");
+    expect(partial.detail).toContain("workflows speaker, clone, saved-voice, design; missing nodes AudioSeparation");
     for (const cls of ["FB_Qwen3TTSCustomVoice", "FB_Qwen3TTSVoiceClone"]) missing.add(cls);
     expect((await comfyUiSpeechStatus(root)).available).toBe(false);
   });

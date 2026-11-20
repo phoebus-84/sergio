@@ -5,11 +5,13 @@
 // caller names another provider: the provider is never switched for them.
 // This module is the branch for provider "comfyui-qwen": a ComfyUI server
 // the operator runs (their own GPU, so $0 and no spend ledger), with the
-// ComfyUI-Qwen-TTS nodes. Four ways to speak, one per @av/comfyui-speech
+// ComfyUI-Qwen-TTS nodes. Five ways to speak, one per @av/comfyui-speech
 // workflow:
 //
 //   voice: "<speaker>"                 a CustomVoice preset speaker
 //   voice: "saved:<name>"              a voice saved on the server
+//   voiceDesign: "<description>"       a voice made from a description; with
+//                                      saveVoiceAs, saved on the server too
 //   referenceAudioPath                 the voice of a recording of this workspace
 //   referenceAudioPath + cleanReference  the same, after the server has cut the
 //                                      recording and separated its voice from
@@ -42,6 +44,7 @@ import {
   QWEN_NODE_SPEAKERS,
   resolveComfyUiConfig,
   speakWithClonedVoice,
+  speakWithDesignedVoice,
   speakWithSavedVoice,
   speakWithSpeaker,
   type ComfyUiSpeechConfig,
@@ -64,7 +67,7 @@ export function comfyUiConfig(libraryRoot: string, env: NodeJS.ProcessEnv = proc
   return resolveComfyUiConfig({ url: env[COMFYUI_URL_ENV], file: env[COMFYUI_CONFIG_ENV] || join(libraryRoot, COMFYUI_CONFIG_RELATIVE) });
 }
 
-const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set, the library's ${MACHINES_RELATIVE.replace(/\\/g, "/")} gives no machine the comfyui role, and its ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
+export const COMFYUI_NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set, the library's ${MACHINES_RELATIVE.replace(/\\/g, "/")} gives no machine the comfyui role, and its ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
 
 /** Where the server was found: the variable, a machine of the machines file, or comfyui.json. */
 export interface ComfyUiEndpoint {
@@ -103,7 +106,8 @@ export async function comfyUiEndpoint(libraryRoot: string, env: NodeJS.ProcessEn
   return config.url ? { config, url: config.url, via: "file" } : null;
 }
 
-function describe(endpoint: ComfyUiEndpoint): string {
+/** Where the server is, as a line of a report says it. */
+export function describeEndpoint(endpoint: ComfyUiEndpoint): string {
   if (endpoint.via !== "machine") return endpoint.url;
   const settings = endpoint.machine!.roles.comfyui ?? {};
   return endpoint.tunnel
@@ -111,11 +115,19 @@ function describe(endpoint: ComfyUiEndpoint): string {
     : `${endpoint.machine!.name} (${endpoint.url})`;
 }
 
-/** Runs one call to the server, holding its machine's GPU lock when the machines file names one. */
-async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+/**
+ * Runs one call to the server, holding its machine's GPU lock when the
+ * machines file names one. `lockWaitSeconds` is how long to wait for a job
+ * that holds it: at least as long as such a job may run (DEFAULT_LOCK_WAIT_SECONDS
+ * otherwise, enough for speech).
+ */
+export async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, signal?: AbortSignal, lockWaitSeconds?: number): Promise<T> {
   const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
   try {
-    return await withLock(machineDeps().exec, endpoint.machine?.ssh ?? "", lock, work, signal ? { signal } : {});
+    return await withLock(machineDeps().exec, endpoint.machine?.ssh ?? "", lock, work, {
+      ...(signal ? { signal } : {}),
+      ...(lockWaitSeconds !== undefined ? { waitSeconds: lockWaitSeconds } : {}),
+    });
   } catch (e) {
     if (e instanceof ComfyUiError && e.code === "unreachable") {
       throw new Error(endpoint.via === "machine"
@@ -127,7 +139,7 @@ async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, si
 }
 
 /** What a receipt says about the machine that spoke, when the machines file chose it. */
-function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
+export function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
   if (endpoint.via !== "machine") return {};
   const lock = gpuLockOf(endpoint.machine!, "comfyui");
   return { server: { machine: endpoint.machine!.name, ssh: endpoint.machine!.ssh, via: endpoint.tunnel ? "tunnel" : "url", ...(lock ? { gpuLock: lock } : {}) } };
@@ -137,7 +149,9 @@ function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
 export function comfyUiSpeechTerms(): string {
   return `free, on the operator's own ComfyUI server (${COMFYUI_URL_ENV}); voice is a speaker (${QWEN_NODE_SPEAKERS.join(", ")}) or saved:<name> for a voice saved there; ` +
     "or referenceAudioPath clones the voice of a recording in this workspace (referenceText: exactly what it says — much closer with it), " +
-    `and cleanReference first cuts it (referenceStart, referenceDuration, default the first ${DEFAULT_REFERENCE_SECONDS} s) and separates the voice from music and noise; cloned and saved voices require voiceConsentPath, an operator-created consent record bound to the reference hash or saved name`;
+    `and cleanReference first cuts it (referenceStart, referenceDuration, default the first ${DEFAULT_REFERENCE_SECONDS} s) and separates the voice from music and noise; ` +
+    "or voiceDesign makes a voice from a description (VoiceDesign), and with saveVoiceAs saves it on the server to say every later line as saved:<name>; " +
+    "cloned and saved voices, and a design saved under a name, require voiceConsentPath, an operator-created consent record bound to the reference hash or saved name";
 }
 
 /** Whether the server answers and what it can do, for pva_capability_status. */
@@ -148,7 +162,7 @@ export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.Proce
   } catch (e) {
     return { available: false, detail: e instanceof Error ? e.message : String(e) };
   }
-  if (!endpoint) return { available: false, detail: NOT_CONFIGURED };
+  if (!endpoint) return { available: false, detail: COMFYUI_NOT_CONFIGURED };
   let probe: SpeechProbe;
   try {
     probe = await probeSpeech(createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 5_000 }));
@@ -163,7 +177,7 @@ export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.Proce
   const missing = [...new Set(Object.values(probe.workflows).flatMap((w) => w.missingNodes))];
   const skipped = endpoint.skipped?.length ? `; passed over ${endpoint.skipped.map((k) => `${k.name} (${k.reason})`).join(", ")}` : "";
   const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
-  const what = `ComfyUI ${probe.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describe(endpoint)}${lock ? `, GPU lock ${lock}` : ""}${skipped}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
+  const what = `ComfyUI ${probe.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describeEndpoint(endpoint)}${lock ? `, GPU lock ${lock}` : ""}${skipped}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
   if (!probe.workflows.speaker.available && !probe.workflows.clone.available) {
     return { available: false, detail: `${what} answers but lacks the Qwen3-TTS nodes (${missing.join(", ")})` };
   }
@@ -234,8 +248,10 @@ export interface ComfyUiSpeechRequest {
   libraryRoot: string;
   sceneId: string;
   text: string;
-  /** A speaker, or saved:<name>; absent when a reference is cloned. */
+  /** A speaker, or saved:<name>; absent when a reference is cloned or a voice designed. */
   voice?: string;
+  /** A voice made from this description (VoiceDesign). */
+  voiceDesign?: string;
   /** The recording to clone, already checked to be inside the workspace. */
   reference?: { absolutePath: string; relativePath: string };
   referenceText?: string;
@@ -265,14 +281,23 @@ export interface ComfyUiSpeechResult {
 
 const sha256 = (data: Buffer | string) => createHash("sha256").update(data).digest("hex");
 
-/** A clone cannot bypass consent merely by choosing a different provider. */
+/**
+ * A clone cannot bypass consent merely by choosing a different provider. A
+ * designed voice is nobody's and needs none, until it is saved under a name:
+ * then it is bound to that name, as a saved voice is.
+ */
 function cloneConsent(r: ComfyUiSpeechRequest, referenceBytes?: Buffer): Record<string, unknown> | undefined {
-  const cloning = Boolean(r.reference || r.voice?.startsWith(SAVED_PREFIX));
+  const savedDesign = r.voiceDesign !== undefined && r.saveVoiceAs !== undefined ? `${SAVED_PREFIX}${r.saveVoiceAs}` : undefined;
+  const cloning = Boolean(r.reference || r.voice?.startsWith(SAVED_PREFIX) || savedDesign);
   if (!cloning) {
     if (r.consent) throw new Error("voiceConsentPath is only for a cloned or saved voice");
     return undefined;
   }
-  if (!r.consent) throw new Error("cloning needs voiceConsentPath: an operator-created consent record bound to this reference or saved voice");
+  if (!r.consent) {
+    throw new Error(savedDesign
+      ? `saving a designed voice needs voiceConsentPath: an operator-created consent record with saved_voice "${savedDesign}"`
+      : "cloning needs voiceConsentPath: an operator-created consent record bound to this reference or saved voice");
+  }
   const bytes = readFileSync(r.consent.absolutePath);
   if (bytes.length > 16_384) throw new Error("voice consent record exceeds 16 KiB");
   const value: unknown = JSON.parse(bytes.toString("utf-8"));
@@ -284,7 +309,7 @@ function cloneConsent(r: ComfyUiSpeechRequest, referenceBytes?: Buffer): Record<
       typeof c.recorded_at !== "string" || !Number.isFinite(Date.parse(c.recorded_at))) {
     throw new Error("voice consent needs confirmed:true, source, statement (10–1000 chars), license_or_terms (2–500 chars), and recorded_at");
   }
-  if (referenceBytes ? c.reference_audio_sha256 !== sha256(referenceBytes) : c.saved_voice !== r.voice) {
+  if (referenceBytes ? c.reference_audio_sha256 !== sha256(referenceBytes) : c.saved_voice !== (savedDesign ?? r.voice)) {
     throw new Error("voice consent does not match this reference_audio_sha256 or saved_voice");
   }
   return { path: r.consent.relativePath.replace(/\\/g, "/"), sha256: sha256(bytes), source: c.source, recordedAt: c.recorded_at,
@@ -294,14 +319,19 @@ function cloneConsent(r: ComfyUiSpeechRequest, referenceBytes?: Buffer): Record<
 export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<ComfyUiSpeechResult> {
   // Everything that can be refused is refused before the server is asked.
   const cleaning = (["referenceStart", "referenceDuration", "saveVoiceAs"] as const).filter((k) => r[k] !== undefined);
-  if (r.reference) {
+  if (r.voiceDesign !== undefined) {
+    const other = [...(["voice", "reference", "referenceText", "cleanReference", "referenceStart", "referenceDuration", "instruct"] as const).filter((k) => r[k] !== undefined)]
+      .map((k) => (k === "reference" ? "referenceAudioPath" : k));
+    if (other.length > 0) throw new Error(`voiceDesign is the voice: it takes no ${other.join(", ")} (the description is its instruction); saveVoiceAs keeps it on the server`);
+    if (r.voiceDesign.trim() === "") throw new Error("voiceDesign is empty: describe the voice — who speaks, their age, timbre, accent and manner");
+  } else if (r.reference) {
     if (r.voice !== undefined) throw new Error("give voice or referenceAudioPath, not both: a reference is the voice");
     if (r.instruct) throw new Error("a cloned voice takes no instruct: its manner is the reference's");
     if (!r.cleanReference && cleaning.length > 0) throw new Error(`${cleaning.join(", ")} ${cleaning.length > 1 ? "belong" : "belongs"} to cleanReference: true (cut, separate the voice, then clone)`);
   } else {
     const referenceOnly = [...(["referenceText", "cleanReference"] as const).filter((k) => r[k] !== undefined), ...cleaning];
     if (referenceOnly.length > 0) throw new Error(`${referenceOnly.join(", ")} ${referenceOnly.length > 1 ? "need" : "needs"} referenceAudioPath: the recording to clone`);
-    if (!r.voice) throw new Error(`provider "${COMFYUI_PROVIDER}" needs voice (${QWEN_NODE_SPEAKERS.join(", ")}, or ${SAVED_PREFIX}<name>) or referenceAudioPath`);
+    if (!r.voice) throw new Error(`provider "${COMFYUI_PROVIDER}" needs voice (${QWEN_NODE_SPEAKERS.join(", ")}, or ${SAVED_PREFIX}<name>), referenceAudioPath or voiceDesign`);
     if (r.voice.startsWith("clone:")) throw new Error(`${r.voice} is enrolled in the local voice worker, not on the ComfyUI server: there, use ${SAVED_PREFIX}<name> or referenceAudioPath`);
   }
   const saved = r.voice?.startsWith(SAVED_PREFIX) ? r.voice.slice(SAVED_PREFIX.length) : undefined;
@@ -311,7 +341,7 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
   const consent = cloneConsent(r, referenceBytes);
   r.signal?.throwIfAborted();
   const endpoint = await comfyUiEndpoint(r.libraryRoot);
-  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  if (!endpoint) throw new Error(COMFYUI_NOT_CONFIGURED);
   const config = endpoint.config;
   const client = createComfyUiClient({ baseUrl: endpoint.url });
   const settings = nodeSettingsOf(config);
@@ -351,6 +381,9 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
         method = "voice-clone";
         speech = await speakWithClonedVoice({ ...options, ...reference });
       }
+    } else if (r.voiceDesign !== undefined) {
+      method = "voice-design";
+      speech = await speakWithDesignedVoice({ ...options, voiceDescription: r.voiceDesign, ...(r.saveVoiceAs ? { saveVoiceAs: r.saveVoiceAs } : {}) });
     } else if (saved !== undefined) {
       method = "saved-voice";
       speech = await speakWithSavedVoice({ ...options, voice: saved });
@@ -386,9 +419,15 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     ...serverOf(endpoint),
     runtimeVerified: false, // The server does not report exact checkpoint hashes or resolved runtime versions.
     ...(consent ? { consent } : {}),
-    model: `qwen3-tts-${settings.model}`,
+    model: r.voiceDesign !== undefined ? "qwen3-tts-1.7B-voicedesign" : `qwen3-tts-${settings.model}`,
     precision: settings.precision,
     ...(r.voice !== undefined ? { requestedVoice: r.voice } : {}),
+    ...(r.voiceDesign !== undefined ? {
+      design: {
+        description: r.voiceDesign.trim(),
+        ...(r.saveVoiceAs ? { savedAs: `${SAVED_PREFIX}${r.saveVoiceAs}`, learnedBy: `qwen3-tts-${settings.model}` } : {}),
+      },
+    } : {}),
     ...(r.reference && referenceBytes ? {
       reference: {
         path: r.reference.relativePath.replace(/\\/g, "/"),
@@ -445,7 +484,7 @@ export interface ComfyUiCleanRequest {
 
 export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ recordPath: string; durationSeconds: number; elapsedSeconds: number; record: Record<string, unknown> }> {
   const endpoint = await comfyUiEndpoint(r.libraryRoot);
-  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  if (!endpoint) throw new Error(COMFYUI_NOT_CONFIGURED);
   const config = endpoint.config;
   const inputBytes = readFileSync(r.input.absolutePath);
   const cleaned = await onServer(endpoint, () => cleanVoice({

@@ -22,6 +22,7 @@ import {
   readComfyUiConfig,
   resolveComfyUiConfig,
   speakWithClonedVoice,
+  speakWithDesignedVoice,
   speakWithSavedVoice,
   speakWithSpeaker,
   WORKFLOW_NAMES,
@@ -136,7 +137,7 @@ describe("workflow templates", () => {
           if (Array.isArray(value)) expect(Object.keys(t.prompt)).toContain(value[0]);
         }
       }
-      for (const id of [...Object.values(t.outputs), ...Object.values(t.optionalNodes ?? {})]) expect(t.prompt[id]).toBeDefined();
+      for (const id of [...Object.values(t.outputs), ...Object.values(t.optionalNodes ?? {}).flat()]) expect(t.prompt[id]).toBeDefined();
       for (const id of Object.values(t.outputs)) expect(t.prompt[id]!.class_type).toBe("SaveAudio");
     }
   });
@@ -329,6 +330,36 @@ describe("cleanAndClone", () => {
   });
 });
 
+describe("speakWithDesignedVoice", () => {
+  it("speaks in a voice made from a description, on the 1.7B VoiceDesign model, without learning or saving it", async () => {
+    const result = await speakWithDesignedVoice({ client, text: TEXT, language: "italian", seed: 5, voiceDescription: "  An old fisherman, low and slow, with a Genoese accent. ", requestId: "d", settings: { model: "0.6B" } });
+    const g = f.queued[0]!;
+    expect(Object.keys(g)).toEqual(["1", "2"]);
+    expect(g["1"]).toEqual({
+      class_type: "FB_Qwen3TTSVoiceDesign",
+      inputs: {
+        text: TEXT, instruct: "An old fisherman, low and slow, with a Genoese accent.", model_choice: "1.7B", device: "auto", precision: "bf16", language: "Italian", seed: 5,
+        temperature: 0.9, repetition_penalty: 1.05, attention: "auto", unload_model_after_generate: true,
+      },
+    });
+    expect(g["2"]!.inputs).toEqual({ audio: ["1", 0], filename_prefix: "studio-speech/d" });
+    expect(result).toMatchObject({ workflow: "design", seed: 5, durationSeconds: 3.5 });
+  });
+
+  it("learns the designed voice from the sentence with the Base model and saves it under a name when asked", async () => {
+    await speakWithDesignedVoice({ client, text: TEXT, voiceDescription: "A bright young voice.", saveVoiceAs: "Fisher_1", settings: { model: "0.6B" } });
+    const g = f.queued[0]!;
+    expect(g["3"]).toMatchObject({ class_type: "FB_Qwen3TTSVoiceClonePrompt", inputs: { ref_audio: ["1", 0], ref_text: TEXT, model_choice: "0.6B", x_vector_only: false } });
+    expect(g["4"]).toEqual({ class_type: "FB_Qwen3TTSSaveVoice", inputs: { voice_clone_prompt: ["3", 0], filename: "Fisher_1", audio: ["1", 0], ref_text: TEXT } });
+  });
+
+  it("refuses an empty description or a bad name before anything is queued", async () => {
+    expect((await failure(speakWithDesignedVoice({ client, text: TEXT, voiceDescription: " " }))).message).toMatch(/description is empty/);
+    expect((await failure(speakWithDesignedVoice({ client, text: TEXT, voiceDescription: "x", saveVoiceAs: "a/b" }))).message).toMatch(/not a voice name/);
+    expect(f.calls).toHaveLength(0);
+  });
+});
+
 describe("probeSpeech", () => {
   it("reads the version, the speakers, the saved voices and which workflows the server can run", async () => {
     f.missing.add("AudioSeparation");
@@ -339,6 +370,7 @@ describe("probeSpeech", () => {
     expect(probe.savedVoices).toEqual(["Anna", "Old_Narrator"]);
     expect(probe.workflows.speaker).toEqual({ available: true, missingNodes: [] });
     expect(probe.workflows["clean-clone"]).toEqual({ available: false, missingNodes: ["AudioSeparation"] });
+    expect(probe.workflows.design).toEqual({ available: true, missingNodes: [] });
     expect(f.queued).toHaveLength(0);
   });
 });

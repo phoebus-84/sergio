@@ -1,0 +1,45 @@
+{
+  "description": "One sentence in a voice made from a description (Qwen3-TTS VoiceDesign, 1.7B only). Optionally the designed voice is learned from that sentence by the Base model and saved on the server under a name, so later lines are spoken in it as a saved voice.",
+  "outputs": { "speech": "2" },
+  "verifiedOn": "ComfyUI 0.45.0, RX 7900 XTX (ROCm), 2026-11-20",
+  "optionalNodes": { "saveVoiceAs": ["3", "4"] },
+  "prompt": {
+    "1": {
+      "class_type": "FB_Qwen3TTSVoiceDesign",
+      "inputs": {
+        "text": "{{text}}",
+        "instruct": "{{voiceDescription}}",
+        "model_choice": "1.7B",
+        "device": "{{device}}",
+        "precision": "{{precision}}",
+        "language": "{{language}}",
+        "seed": "{{seed}}",
+        "temperature": "{{temperature}}",
+        "repetition_penalty": "{{repetitionPenalty}}",
+        "attention": "{{attention}}",
+        "unload_model_after_generate": "{{unloadModel}}"
+      }
+    },
+    "2": {
+      "class_type": "SaveAudio",
+      "inputs": { "audio": ["1", 0], "filename_prefix": "{{outputPrefix}}" }
+    },
+    "3": {
+      "class_type": "FB_Qwen3TTSVoiceClonePrompt",
+      "inputs": {
+        "ref_audio": ["1", 0],
+        "ref_text": "{{text}}",
+        "model_choice": "{{model}}",
+        "device": "{{device}}",
+        "precision": "{{precision}}",
+        "attention": "{{attention}}",
+        "x_vector_only": false,
+        "unload_model_after_generate": "{{unloadModel}}"
+      }
+    },
+    "4": {
+      "class_type": "FB_Qwen3TTSSaveVoice",
+      "inputs": { "voice_clone_prompt": ["3", 0], "filename": "{{saveVoiceAs}}", "audio": ["1", 0], "ref_text": "{{text}}" }
+    }
+  }
+}
