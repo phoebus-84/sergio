@@ -10,6 +10,7 @@ import { searchAssets, assetFiles, downloadAsset } from "@av/blender/poly-haven"
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { resolveConfig } from "./config.js";
 import { guardEpisodePath } from "./trust-guards.js";
+import { blenderKey, MACHINE_PARAM, placeBlender, placeLines, runBlenderAt } from "./blender-place.js";
 
 const identity = {
   channel: Type.String(), series: Type.String(), episode: Type.String(),
@@ -119,23 +120,31 @@ export function registerBlenderTools(pi: ExtensionAPI): void {
   });
   pi.registerTool({
     name: "pva_blender_render", label: "Render Blender scene",
-    description: "Render a saved .blend to one PNG preview or PNG sequence + silent H.264 MP4 using Eevee or Cycles. Accepts artist-edited scenes. New attempt, cancellable, no automatic promotion. Composite audio/captions with video composer. Defaults are cheap preview settings; final settings must be explicit.",
+    description: "Render a saved .blend to one PNG preview or PNG sequence + silent H.264 MP4 using Eevee or Cycles. Accepts artist-edited scenes. New attempt, cancellable, no automatic promotion. Composite audio/captions with video composer. Defaults are cheap preview settings; final settings must be explicit. Runs where the library's machines file prefers (prefer.blender), else here; the files the .blend names travel with it when they are in the channel or film, named relative to the .blend.",
     parameters: Type.Object({ ...identity,
       sceneId: Type.String(), blendPath: Type.String({ description: "Saved .blend path relative to episode" }),
       mode: StringEnum(["preview", "animation"] as const), trustedInput: Type.Boolean(),
       settings: Type.Optional(settings),
       timeoutMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 86400000 })),
+      machine: MACHINE_PARAM,
     }),
     async execute(_id, params, signal, onUpdate) {
       await requireComposition("scene.render");
       const { libraryRoot, outputDir } = await attempt(params, params.sceneId);
       const blendPath = await blenderEpisodePath(libraryRoot, params, params.blendPath);
       if (!(await stat(blendPath)).isFile()) throw new Error("Save the .blend before rendering");
-      onUpdate?.({ content: text({ status: "rendering", outputDir }), details: {} });
-      const result = await runBlender({ mode: params.mode, outputDir, blendPath,
-        trustedInput: params.trustedInput, settings: params.settings }, { signal, timeoutMs: params.timeoutMs });
+      const where = await placeBlender(libraryRoot, params.machine, signal);
+      onUpdate?.({ content: text({ status: "rendering", outputDir, machine: where.kind === "machine" ? where.machine.name : "local" }), details: {} });
+      const request = { mode: params.mode, outputDir, blendPath, trustedInput: params.trustedInput, ...(params.settings ? { settings: params.settings } : {}) };
+      const result = await runBlenderAt(where, "render", request, () => runBlender(request, { signal, timeoutMs: params.timeoutMs }), {
+        key: blenderKey(params.channel, params.series, params.episode), allowedRoots: [resolve(libraryRoot, params.channel)],
+        ...(signal ? { signal } : {}), timeoutMs: params.timeoutMs, onLog: (line) => onUpdate?.({ content: text({ status: "rendering", log: line }), details: {} }),
+      });
       const episodeDir = episodePath(libraryRoot, params.channel, params.series, params.episode);
-      return { content: text({ ...result, episodeRelativeMedia: result.mediaPath ? relative(episodeDir, result.mediaPath) : undefined }), details: result };
+      return {
+        content: text({ ...result, episodeRelativeMedia: result.mediaPath ? relative(episodeDir, result.mediaPath) : undefined, ranOn: placeLines(where, result.machine)[0]?.trim() ?? "this machine" }),
+        details: result,
+      };
     },
   });
   pi.registerTool({
