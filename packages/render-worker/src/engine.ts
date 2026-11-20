@@ -23,6 +23,12 @@ import { finished } from "node:stream/promises";
 import type { Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { DrawSegmentsOptions, DrawSegmentsResult, RenderResult, RenderTimelineOptions, SegmentDrawer } from "@av/remotion-composer";
+// blender-engine.js is loaded by the Blender commands only: `version` and
+// `sync` must run on a clone whose dependencies the new commit has not
+// installed yet, so they load nothing a commit may add.
+import type { BlendPathsLister, BlenderRunner } from "./blender-engine.js";
+import type { BlenderJob } from "./blender-job.js";
+import type { Exec } from "./ssh.js";
 import { defaultRenderConcurrency, renderBrowsers } from "./concurrency.js";
 import { sha256File } from "./files.js";
 import {
@@ -49,6 +55,14 @@ export interface EngineContext {
   /** A draw session's drawer (the composer's openSegmentDrawer); without it, `draw` is called per chunk when given. */
   openDrawer?: (options: DrawerOptions) => Promise<SegmentDrawer>;
   concurrency?: () => { concurrency: number; browsers: number };
+  /** A Blender job's function (blender-engine.ts): @av/blender's by default. */
+  blender?: BlenderRunner;
+  /** What a .blend names that is missing: the engine's Blender says, by default. */
+  blendPaths?: BlendPathsLister;
+  /** A Blender's version line. */
+  blenderVersion?: (bin: string) => string;
+  /** Runs the GPU lock's flock command: this machine's shell by default. */
+  blenderLockExec?: Exec;
 }
 
 export type DrawerOptions = Omit<DrawSegmentsOptions, "segments" | "audio" | "onProgress">;
@@ -90,8 +104,27 @@ export async function runEngine(argv: readonly string[], io: EngineIO, ctx: Engi
         return 0;
       case "receive-drawn":
         return answer(io, await receive(jobDir(ctx, args[0]), io.stdin, "drawn"));
+      case "blender-paths": {
+        const { blendPaths } = await import("./blender-engine.js");
+        return answer(io, await blendPaths(jobDir(ctx, args[0]), parseJson(await readAll(io.stdin), "the request"), ctx.blendPaths));
+      }
+      case "blender": {
+        const { runBlenderJob } = await import("./blender-engine.js");
+        return answer(io, await runBlenderJob(jobDir(ctx, args[0]), parseJson<BlenderJob>(await readAll(io.stdin), "the job"), {
+          commit: gitHead(ctx.repo),
+          log: io.stderrLine,
+          ...(ctx.blender ? { run: ctx.blender } : {}),
+          ...(ctx.blenderVersion ? { blenderVersion: ctx.blenderVersion } : {}),
+          ...(ctx.blenderLockExec ? { lockExec: ctx.blenderLockExec } : {}),
+        }));
+      }
+      case "fetch-blender": {
+        const { sendBlenderOutput } = await import("./blender-engine.js");
+        await sendBlenderOutput(jobDir(ctx, args[0]), args[1], io.stdout);
+        return 0;
+      }
       default:
-        throw new RenderWorkerError("bad-request", `unknown command "${command ?? ""}"; commands: version, sync, diff, receive, render, draw, fetch, send-drawn, receive-drawn`);
+        throw new RenderWorkerError("bad-request", `unknown command "${command ?? ""}"; commands: version, sync, diff, receive, render, draw, fetch, send-drawn, receive-drawn, blender-paths, blender, fetch-blender`);
     }
   } catch (e) {
     const error = e as { code?: unknown; message?: unknown; problems?: unknown };

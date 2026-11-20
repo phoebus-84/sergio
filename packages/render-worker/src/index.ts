@@ -17,3 +17,9 @@ export {
   type BundleSink, type DrawAnswer, type EngineVersion, type ManifestEntry, type RenderJob, type RenderWorkerErrorCode,
 } from "./protocol.js";
 export { shellPath, shellQuote, SSH_FAILED, sshArgs, sshExec, type Exec, type ExecInput, type ExecResult } from "./ssh.js";
+export {
+  ATTEMPT, BLENDER_CODE, BLENDER_KINDS, blendSlots, fileSlots, prepareBlenderJob, replacePrefix, unmirrorPath,
+  type BlenderAnswer, type BlenderJob, type BlenderKind, type PreparedBlenderJob,
+} from "./blender-job.js";
+export { blendPaths, defaultBlendPathsLister, defaultBlenderRunner, expandHome, runBlenderJob, type BlendPathsLister, type BlenderRunner } from "./blender-engine.js";
+export { runBlenderRemote, type BlenderMachine, type RemoteBlenderOptions } from "./blender-remote.js";

@@ -42,17 +42,21 @@ export function localGit(repoRoot: string): Git {
   });
 }
 
-/** The commit to render with; refuses when the render code has uncommitted changes. */
-export async function renderCommit(git: Git): Promise<string> {
+/**
+ * The commit to run with; refuses when the code that shapes the job has
+ * uncommitted changes: the render's (RENDER_CODE) by default, a Blender
+ * job's (BLENDER_CODE) for one.
+ */
+export async function renderCommit(git: Git, code: readonly string[] = RENDER_CODE): Promise<string> {
   const head = await git(["rev-parse", "HEAD"]);
   if (head.code !== 0) throw new RenderWorkerError("code-sync-failed", `not a git checkout: ${head.stderr.trim()}`);
-  const status = await git(["status", "--porcelain", "--untracked-files=all", "--", ...RENDER_CODE]);
+  const status = await git(["status", "--porcelain", "--untracked-files=all", "--", ...code]);
   if (status.code !== 0) throw new RenderWorkerError("code-sync-failed", `git status failed: ${status.stderr.trim()}`);
   const dirty = status.stdout.split("\n").map((l) => l.slice(3).trim()).filter(Boolean);
   if (dirty.length > 0) {
     throw new RenderWorkerError(
       "dirty-code",
-      `the engine renders committed code only, and ${dirty.length} file(s) that shape the render are not committed: ${dirty.slice(0, 8).join(", ")}${dirty.length > 8 ? ", …" : ""}. Commit them (a local branch is enough), or render here.`,
+      `the engine runs committed code only, and ${dirty.length} file(s) that shape ${code === RENDER_CODE ? "the render" : "the job"} are not committed: ${dirty.slice(0, 8).join(", ")}${dirty.length > 8 ? ", …" : ""}. Commit them (a local branch is enough), or run here.`,
     );
   }
   return head.stdout.trim();
