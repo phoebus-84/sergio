@@ -45,6 +45,15 @@
       },
       "docs": "docs/packages/fal-media.md"
     },
+    "comfyui": {
+      "path": "packages/comfyui",
+      "kind": "node",
+      "standalone": true,
+      "summary": "A ComfyUI server's HTTP API (queue, wait, upload, download) and workflows kept as API-format templates with named placeholders. Optional at run time: without a server address nothing uses it.",
+      "capabilities": [],
+      "requires": {},
+      "docs": "docs/packages/comfyui.md"
+    },
     "comfyui-speech": {
       "path": "packages/comfyui-speech",
       "kind": "node",
@@ -300,6 +309,7 @@
         "remotion-composer",
         "machines",
         "render-worker",
+        "comfyui",
         "comfyui-speech",
         "strudel",
         "contracts",
@@ -339,6 +349,7 @@
         "remotion-composer",
         "machines",
         "render-worker",
+        "comfyui",
         "comfyui-speech",
         "strudel",
         "contracts",
@@ -375,6 +386,7 @@
         "remotion-composer",
         "machines",
         "render-worker",
+        "comfyui",
         "comfyui-speech",
         "strudel",
         "contracts",

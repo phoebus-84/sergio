@@ -2,8 +2,9 @@
 
 Speech from the Qwen3-TTS nodes of a ComfyUI server
 ([ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS), node
-classes `FB_Qwen3TTS*`), one sentence per graph. A small ComfyUI client and
-five operations, each using a JSON template under `workflows/`:
+classes `FB_Qwen3TTS*`), one sentence per graph. Five operations, each using
+a JSON template under `workflows/`, run through the client and template
+machinery of [`@av/comfyui`](../comfyui/README.md) (re-exported here):
 
 | Operation | Workflow | What it does |
 |---|---|---|
@@ -36,7 +37,7 @@ const cloned = await cleanAndClone({
 
 ## The client
 
-`queuePrompt` (`POST /prompt`), `waitForPrompt` (polls `GET /history/<id>`),
+From `@av/comfyui`: `queuePrompt` (`POST /prompt`), `waitForPrompt` (polls `GET /history/<id>`),
 `uploadInput` (`POST /upload/image`, which takes audio too), `download`
 (`GET /view`), `nodeInfo`, `systemStats`. A graph given up on (timeout, abort)
 is taken out of the queue if it has not started; a running one is left to
@@ -47,9 +48,9 @@ reaches the server and the same recording is one file there.
 
 ## Templates
 
-API-format graphs with named placeholders: a string value that is exactly
-`"{{name}}"` is replaced by the value of that name, keeping its type. A
-missing value and a value no placeholder asks for are both errors.
+`@av/comfyui`'s: API-format graphs with named placeholders, a string value
+that is exactly `"{{name}}"` replaced by the value of that name, keeping its
+type. A missing value and a value no placeholder asks for are both errors.
 `optionalNodes` names nodes left out when their value is absent.
 
 ## Configuration

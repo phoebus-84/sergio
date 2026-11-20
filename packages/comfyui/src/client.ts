@@ -52,7 +52,7 @@ export interface ComfyUiClient {
   queuePrompt(prompt: ComfyUiPrompt, signal?: AbortSignal): Promise<string>;
   /** Poll GET /history/<id> until the graph has finished. */
   waitForPrompt(promptId: string, options?: WaitOptions): Promise<PromptOutputs>;
-  /** POST /upload/image: put a file in the server's input folder (it takes audio too); returns the name LoadAudio reads it by. */
+  /** POST /upload/image: put a file in the server's input folder (it takes audio and video too); returns the name a loader node (LoadImage, LoadAudio, LoadVideo) reads it by. */
   uploadInput(file: { bytes: Uint8Array; filename: string; subfolder?: string }, signal?: AbortSignal): Promise<string>;
   /** GET /view: a file's bytes. */
   download(file: ComfyUiFile, signal?: AbortSignal): Promise<Buffer>;

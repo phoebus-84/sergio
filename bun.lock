@@ -51,9 +51,21 @@
         "typescript": "^5.7.0",
       },
     },
+    "packages/comfyui": {
+      "name": "@av/comfyui",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^20.11.0",
+        "typescript": "^5.3.3",
+        "vitest": "^1.2.0",
+      },
+    },
     "packages/comfyui-speech": {
       "name": "@av/comfyui-speech",
       "version": "0.1.0",
+      "dependencies": {
+        "@av/comfyui": "workspace:*",
+      },
       "devDependencies": {
         "@types/node": "^20.11.0",
         "typescript": "^5.3.3",
@@ -498,6 +510,8 @@
     "@av/blender": ["@av/blender@workspace:packages/blender"],
 
     "@av/codex-image": ["@av/codex-image@workspace:packages/codex-image"],
+
+    "@av/comfyui": ["@av/comfyui@workspace:packages/comfyui"],
 
     "@av/comfyui-speech": ["@av/comfyui-speech@workspace:packages/comfyui-speech"],
 

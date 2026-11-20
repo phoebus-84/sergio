@@ -13,9 +13,9 @@
 // operation to another, and none to another server.
 
 import { createHash, randomUUID } from "node:crypto";
-import type { ComfyUiClient, ComfyUiFile, ComfyUiPrompt } from "./client.js";
+import type { ComfyUiClient, ComfyUiFile, ComfyUiPrompt } from "@av/comfyui";
 import { DEFAULT_INPUT_SUBFOLDER, DEFAULT_NODE_SETTINGS, DEFAULT_OUTPUT_PREFIX, DEFAULT_TIMEOUT_SECONDS, type NodeSettings } from "./config.js";
-import { ComfyUiError } from "./errors.js";
+import { ComfyUiError } from "@av/comfyui";
 import { flacInfo } from "./flac.js";
 import { fillWorkflow, loadWorkflow, nodeClassesOf, WORKFLOW_NAMES, type WorkflowName, type WorkflowValue } from "./workflows.js";
 
