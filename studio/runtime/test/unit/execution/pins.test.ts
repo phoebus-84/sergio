@@ -255,3 +255,30 @@ describe("renewing a pin", () => {
     expect(existsSync(join(dir, "source", "pins"))).toBe(false);
   });
 });
+
+describe("the style a unit reads (ADR-0054)", () => {
+  it("is pinned like a source: a changed palette makes its readers and their downstream stale until renewed", async () => {
+    const { root, svc } = await setup();
+    const style = join(root, REF.channel, "series", REF.series, "style");
+    await mkdir(join(style, "params"), { recursive: true });
+    await writeFile(join(style, "STYLE.md"), "Print in {{palette}}.\n");
+    await writeFile(join(style, "params", "palette.json"), '{"kind":"palette","title":"P","colors":[{"id":"ink","name":"Ink","value":"#000000"}]}');
+    const added = await svc.addPin(REF, "review-chain", { id: "style", source: { kind: "style", series: REF.series }, usedBy: ["upstream"] });
+    expect(added.ok && added.value.ok).toBe(true);
+    await runChain(svc);
+    expect((await states(svc)).downstream!.state).toBe("completed");
+
+    await writeFile(join(style, "params", "palette.json"), '{"kind":"palette","title":"P","colors":[{"id":"ink","name":"Ink","value":"#112233"}]}');
+    const s = await states(svc);
+    expect(s.upstream!.reason).toBe(
+      `"upstream" is stale: the style of "${REF.series}" changed since it was pinned: params/palette.json (modified) — renew the pin to accept the new version`,
+    );
+    expect(s.downstream!.state).toBe("stale");
+
+    const renewed = await svc.renewPin(REF, "review-chain", "style", "human");
+    const affected = renewed.ok && renewed.value.ok ? renewed.value.affected : [];
+    expect(affected).toEqual(expect.arrayContaining(["upstream", "gated", "downstream"]));
+    await runChain(svc);
+    expect((await states(svc)).downstream!.state).toBe("completed");
+  });
+});

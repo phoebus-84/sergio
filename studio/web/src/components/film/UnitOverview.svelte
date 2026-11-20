@@ -19,6 +19,7 @@
   import StateChip from "./StateChip.svelte";
   import ManifestForm from "./ManifestForm.svelte";
   import ControlPanel from "./ControlPanel.svelte";
+  import StylePanel from "../style/StylePanel.svelte";
 
   interface Props {
     unit: Unit;
@@ -256,6 +257,9 @@
           <h3 id="uo-plan-title">{level === "scene" ? "The scene" : "The shot"}</h3>
           <ManifestForm {unit} {level} manifest={node.manifest as Record<string, unknown> | null} problems={node.manifestProblems} />
         </section>
+        {#if level === "scene"}
+          <StylePanel project={unit.film} series={unit.scene} context={{ title: node.title, idea: scene?.manifest?.summary }} />
+        {/if}
         <ControlPanel {unit} {level} />
       </div>
     </div>

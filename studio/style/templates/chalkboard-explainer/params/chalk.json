@@ -1,0 +1,39 @@
+{
+  "kind": "values",
+  "title": "Chalk",
+  "fields": [
+    {
+      "id": "width",
+      "label": "Stroke width",
+      "type": "number",
+      "value": 6,
+      "min": 2,
+      "max": 16,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "id": "dust",
+      "label": "Chalk dust and smudges",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "id": "eraser",
+      "label": "Eraser wipes between ideas",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "id": "draw",
+      "label": "Lines draw",
+      "type": "enum",
+      "value": "as the narration says them",
+      "options": [
+        "as the narration says them",
+        "before the line is said",
+        "all at once"
+      ]
+    }
+  ]
+}

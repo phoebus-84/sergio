@@ -1,0 +1,68 @@
+{
+  "templates": [
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "StyleTemplate",
+      "id": "print-demo",
+      "version": "1.0.0",
+      "title": "Print demo",
+      "summary": "A flat print with three plates.",
+      "tags": ["2d", "print"],
+      "levels": ["film", "scene"],
+      "parameters": ["palette", "print"],
+      "scaffold": { "filmFormat": "hd-30", "shotSource": "graphics", "skills": ["remotion-best-practices"], "durationSeconds": { "min": 5, "max": 10 } },
+      "credits": "Written for the fixtures."
+    },
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "StyleTemplate",
+      "id": "bare",
+      "version": "0.1.0",
+      "title": "Bare",
+      "summary": "A style with no parameters at all.",
+      "parameters": []
+    }
+  ],
+  "params": [
+    {
+      "kind": "palette",
+      "title": "Palette",
+      "min": 2,
+      "max": 6,
+      "colors": [
+        { "id": "ink", "name": "Indigo", "value": "#2b2f6b", "role": "key line" },
+        { "id": "paper", "name": "Cream", "value": "#f3ead7" },
+        { "id": "accent", "name": "Red", "value": "#C8322B", "role": "the one accent" }
+      ]
+    },
+    {
+      "kind": "values",
+      "title": "Print",
+      "description": "How the plates are printed.",
+      "fields": [
+        { "id": "misregistration", "label": "Misregistration", "type": "number", "value": 2, "min": 0, "max": 8, "step": 0.5, "unit": "px" },
+        { "id": "timing", "label": "Animate on", "type": "enum", "value": "twos", "options": ["ones", "twos", "threes"] },
+        { "id": "text", "label": "Text on screen", "type": "boolean", "value": false },
+        { "id": "glow", "label": "Glow", "type": "color", "value": "#ffcc00" },
+        { "id": "title-font", "label": "Title font", "type": "font", "value": "Poppins", "options": ["Poppins", "Inter"] },
+        { "id": "music", "label": "Music", "type": "text", "value": "Wooden percussion, sparse.", "multiline": true }
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "StyleBinding",
+      "template": { "id": "print-demo", "version": "1.0.0", "origin": "builtin", "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      "appliedAt": "2026-11-20T10:00:00Z"
+    },
+    {
+      "apiVersion": "studio.video/v1alpha1",
+      "kind": "StyleBinding",
+      "template": { "id": "print-demo", "version": "1.0.0", "origin": "library", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      "appliedAt": "2026-11-20T10:00:00Z",
+      "copiedFrom": "tide/_",
+      "note": "The night scenes' palette."
+    }
+  ]
+}

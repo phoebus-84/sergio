@@ -1,0 +1,25 @@
+{
+  "kind": "values",
+  "title": "Narration",
+  "fields": [
+    {
+      "id": "length",
+      "label": "Length",
+      "type": "text",
+      "value": "40 to 55 words"
+    },
+    {
+      "id": "voice",
+      "label": "Voice",
+      "type": "text",
+      "value": "Warm, curious, a little amused; a teacher who loves the fact.",
+      "multiline": true
+    },
+    {
+      "id": "verified",
+      "label": "Facts checked against a source before writing",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

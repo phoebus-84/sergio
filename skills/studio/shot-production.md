@@ -39,7 +39,9 @@ The shot's cut and render come after, with the `film-editing` skill.
 
 ## Plan
 
-Read `shot.yaml`; the scene's `scene.yaml` and
+Read `shot.yaml`; the style the shot reads, if any (`pva_style { channel:
+film, series: scene, episode: shot }` — its brief, written for this shot, and
+where shots in it come from); the scene's `scene.yaml` and
 `artifacts/scene-direction.md`; the film's `artifacts/bible.md` with the
 `characters/` and `locations/` entries this shot names; and the shots on
 either side of it (`pva_film { film, scene }`) — a shot is judged by how it

@@ -12,12 +12,18 @@
   import { filmApi, FilmApiError } from "$lib/film-api";
   import { slugify } from "$lib/film-format";
   import { DEFAULT_FILM_FORMAT, FILM_FORMATS } from "@studio/contracts/src/film.mjs";
+  import { styleApi, type StyleSummary } from "$lib/style-edit";
+  import StylePicker from "../style/StylePicker.svelte";
 
   let open = $state(false);
   let title = $state("");
   let slug = $state("");
   let slugTouched = $state(false);
   let format = $state(DEFAULT_FILM_FORMAT);
+  let formatTouched = $state(false);
+  /** Optional: a ready-made look. Choosing one suggests its format, unless one was chosen. */
+  let style = $state("");
+  let styles = $state<StyleSummary[]>([]);
   let minutes = $state<number | null>(null);
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -26,11 +32,23 @@
     if (!slugTouched) slug = slugify(title);
   });
 
+  $effect(() => {
+    if (open && styles.length === 0) void styleApi.list().then((list) => (styles = list)).catch(() => (styles = []));
+  });
+
+  function chooseStyle(id: string) {
+    const suggested = styles.find((s) => s.id === id)?.scaffold.filmFormat;
+    if (!formatTouched) format = suggested && FILM_FORMATS.some((f) => f.id === suggested) ? suggested : DEFAULT_FILM_FORMAT;
+  }
+
   function cancel() {
     open = false;
     title = "";
     slug = "";
     slugTouched = false;
+    formatTouched = false;
+    format = DEFAULT_FILM_FORMAT;
+    style = "";
     minutes = null;
     error = null;
   }
@@ -43,7 +61,11 @@
     try {
       await filmApi("/api/films", {
         method: "POST",
-        body: { slug, title: title.trim(), format, ...(minutes && minutes > 0 ? { runtimeTargetSeconds: Math.round(minutes * 60) } : {}) },
+        body: {
+          slug, title: title.trim(), format,
+          ...(style ? { style } : {}),
+          ...(minutes && minutes > 0 ? { runtimeTargetSeconds: Math.round(minutes * 60) } : {}),
+        },
       });
       const made = slug;
       await library.reload();
@@ -62,7 +84,10 @@
     <!-- svelte-ignore a11y_autofocus -->
     <input bind:value={title} placeholder="The film's title" aria-label="Title" required maxlength="160" autofocus />
     <input class="nf-mono" bind:value={slug} oninput={() => (slugTouched = true)} placeholder="its-folder-name" aria-label="Folder name" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxlength="64" />
-    <select bind:value={format} aria-label="Delivery format">
+    {#if styles.length > 0}
+      <StylePicker {styles} bind:value={style} level="film" onchange={chooseStyle} />
+    {/if}
+    <select bind:value={format} aria-label="Delivery format" onchange={() => (formatTouched = true)}>
       {#each FILM_FORMATS as option (option.id)}
         <option value={option.id}>{option.title ?? option.id}</option>
       {/each}

@@ -20,6 +20,8 @@ commands are its prompts (`/mcp__pva__video`, `/mcp__pva__render`, …).
 - A library holds channels (series of episodes) and films. A film is
   produced at three levels — film, scene, shot — each with its own cut and
   renders (ADR-0050): load `film-producer` first.
+- A person may ask for a ready-made style ("in the risograph style", "using
+  'Tide riso'"): load `style-templates`. A style is never required.
 - Paid generation is budgeted per episode: `pva_budget_status` before spending.
 - Only the operator approves a stage. Ask with `pva_request_approval`; never
   approve on their behalf.

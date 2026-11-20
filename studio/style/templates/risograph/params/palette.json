@@ -1,0 +1,39 @@
+{
+  "kind": "palette",
+  "title": "Inks",
+  "description": "Each ink is its own plate; overlaps make the other colours.",
+  "min": 2,
+  "max": 6,
+  "colors": [
+    {
+      "id": "pink",
+      "name": "Fluorescent pink",
+      "value": "#ff48b0",
+      "role": "warmth, people, the reveal"
+    },
+    {
+      "id": "blue",
+      "name": "Medium blue",
+      "value": "#0078bf",
+      "role": "night, water, distance"
+    },
+    {
+      "id": "yellow",
+      "name": "Yellow",
+      "value": "#ffe800",
+      "role": "light: a beam, a window, a sun"
+    },
+    {
+      "id": "black",
+      "name": "Black",
+      "value": "#1a1a1a",
+      "role": "key lines and the darkest shadow"
+    },
+    {
+      "id": "paper",
+      "name": "Cream paper",
+      "value": "#f4eedf",
+      "role": "the stock, with tooth"
+    }
+  ]
+}

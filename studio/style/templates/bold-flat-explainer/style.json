@@ -1,0 +1,34 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "bold-flat-explainer",
+  "version": "1.0.0",
+  "title": "Bold flat explainer",
+  "summary": "Flat vector motion graphics on black with one accent colour, a heavy sans-serif, simple block-figure characters and every move keyed to the words of the narration.",
+  "tags": [
+    "2d",
+    "explainer",
+    "motion-graphics",
+    "narrated",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "type",
+    "motion",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 20,
+      "max": 90
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

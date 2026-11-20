@@ -1,0 +1,33 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "flat-minimal",
+  "version": "1.0.0",
+  "title": "Flat minimalist illustration",
+  "summary": "A huge calm colour field, a strict four-colour palette, one small subject off centre: a moving illustration of great restraint, with a Japanese print feeling.",
+  "tags": [
+    "2d",
+    "illustration",
+    "calm",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "look",
+    "motion",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 6,
+      "max": 12
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

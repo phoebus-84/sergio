@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://video.studio/schemas/v1alpha1/source-pin.schema.json",
   "title": "Sergio source pin schema",
-  "description": "An episode's read-only pin on shared material: a channel source (library/<channel>/sources/<name>) or another episode of the same channel, with an inventory of its files. Status re-checks the inventory; a changed source makes the stages that read it stale (ADR-0035). Checked and verified by src/source-pins.mjs.",
+  "description": "An episode's read-only pin on shared material: a channel source (library/<channel>/sources/<name>), another episode of the same channel, or the style it reads (style/ of its project, series or scene), with an inventory of its files. Status re-checks the inventory; a changed source makes the stages that read it stale (ADR-0035). Checked and verified by src/source-pins.mjs.",
   "$defs": {
     "ContentHash": {
       "type": "string",
@@ -31,8 +31,18 @@
         "episode": { "$ref": "#/$defs/LocalId" }
       }
     },
+    "StyleSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "The style a unit reads (ADR-0054): the style/ folder of the project (a channel or a film), or with series, of one of its series or scenes.",
+      "properties": {
+        "kind": { "const": "style" },
+        "series": { "$ref": "#/$defs/LocalId" }
+      }
+    },
     "SourceRef": {
-      "oneOf": [{ "$ref": "#/$defs/ChannelSource" }, { "$ref": "#/$defs/EpisodeSource" }]
+      "oneOf": [{ "$ref": "#/$defs/ChannelSource" }, { "$ref": "#/$defs/EpisodeSource" }, { "$ref": "#/$defs/StyleSource" }]
     },
     "RelativePath": {
       "type": "string",

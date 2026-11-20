@@ -1,0 +1,24 @@
+{
+  "kind": "values",
+  "title": "Camera",
+  "fields": [
+    {
+      "id": "move",
+      "label": "The one designed move",
+      "type": "text",
+      "value": "from an intimate street-level detail up a tower face to a wide reveal of the whole city",
+      "multiline": true
+    },
+    {
+      "id": "rain",
+      "label": "Rain",
+      "type": "enum",
+      "value": "heavy",
+      "options": [
+        "none",
+        "drizzle",
+        "heavy"
+      ]
+    }
+  ]
+}

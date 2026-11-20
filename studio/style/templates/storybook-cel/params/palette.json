@@ -1,0 +1,51 @@
+{
+  "kind": "palette",
+  "title": "Palette",
+  "description": "A warm storybook palette; the backgrounds are painted from it, the cels filled with it.",
+  "min": 4,
+  "max": 12,
+  "colors": [
+    {
+      "id": "sky",
+      "name": "Moonlit blue",
+      "value": "#2c4a72",
+      "role": "night sky"
+    },
+    {
+      "id": "mist",
+      "name": "Misty green",
+      "value": "#6f8f7a",
+      "role": "far trees"
+    },
+    {
+      "id": "grass",
+      "name": "Meadow green",
+      "value": "#5f8a3e",
+      "role": "the ground"
+    },
+    {
+      "id": "character",
+      "name": "Russet",
+      "value": "#c2652d",
+      "role": "the main character"
+    },
+    {
+      "id": "cream",
+      "name": "Cream",
+      "value": "#f4e3c1",
+      "role": "bibs, highlights, moonlight"
+    },
+    {
+      "id": "glow",
+      "name": "Firefly gold",
+      "value": "#ffd76a",
+      "role": "glows and sparkles"
+    },
+    {
+      "id": "ink",
+      "name": "Sepia ink",
+      "value": "#3a2618",
+      "role": "the line"
+    }
+  ]
+}

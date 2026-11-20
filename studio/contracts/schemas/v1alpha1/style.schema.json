@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.studio.video/v1alpha1/style.schema.json",
+  "title": "Style templates",
+  "description": "A style template — a ready-made look and way of making — and the parameter files it reads its values from (ADR-0054). A template is a folder: style.json, STYLE.md (the brief, with {{placeholders}}) and params/<id>.json. Applied to a channel, a series, a film or a scene it is copied into that level's style/ folder with a style.yaml (StyleBinding) beside it. Checked by src/style.mjs.",
+  "$defs": {
+    "ResourceVersion": {
+      "const": "studio.video/v1alpha1"
+    },
+    "Slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "ParamId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "description": "A parameter file's id: params/<id>.json, and the first part of a placeholder ({{palette.ink}})."
+    },
+    "EntryId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "description": "A colour's or a field's id inside its parameter file."
+    },
+    "Version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "Text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "HexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "description": "A colour as #rrggbb: what a colour picker reads and writes."
+    },
+    "Level": {
+      "enum": ["channel", "series", "film", "scene"]
+    },
+    "StyleScaffold": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The easier road the template suggests: what a new film or series made with it starts from. Every key is a suggestion the person or the agent may override.",
+      "properties": {
+        "filmFormat": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "A film format id (hd-24, vertical-30, …) a new film takes when none is asked for."
+        },
+        "shotSource": {
+          "enum": ["footage", "stock", "generated", "animation", "graphics", "screen", "mixed"],
+          "description": "Where a shot's picture usually comes from in this style."
+        },
+        "skills": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/Slug" },
+          "description": "Skills worth loading before making anything in this style."
+        },
+        "durationSeconds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "description": "How long a piece in this style usually runs."
+        }
+      }
+    },
+    "StyleTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "id", "version", "title", "summary", "parameters"],
+      "properties": {
+        "apiVersion": { "$ref": "#/$defs/ResourceVersion" },
+        "kind": { "const": "StyleTemplate" },
+        "id": { "$ref": "#/$defs/Slug" },
+        "version": { "$ref": "#/$defs/Version" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "summary": { "$ref": "#/$defs/Text" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/Slug" }
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Level" },
+          "description": "The levels it may be applied to. Omitted: all four."
+        },
+        "parameters": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/ParamId" },
+          "description": "Its parameter files, in the order a person reads them: params/<id>.json each."
+        },
+        "scaffold": { "$ref": "#/$defs/StyleScaffold" },
+        "credits": { "type": "string", "maxLength": 600 }
+      }
+    },
+    "PaletteColor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "value"],
+      "properties": {
+        "id": { "$ref": "#/$defs/EntryId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "value": { "$ref": "#/$defs/HexColor" },
+        "role": { "type": "string", "maxLength": 160, "description": "What the colour is for: ground, key line, the one accent." }
+      }
+    },
+    "PaletteParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "colors"],
+      "properties": {
+        "kind": { "const": "palette" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 600 },
+        "min": { "type": "integer", "minimum": 1, "maximum": 64, "description": "The fewest colours the style holds to." },
+        "max": { "type": "integer", "minimum": 1, "maximum": 64, "description": "The most colours the style allows." },
+        "colors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/PaletteColor" }
+        }
+      }
+    },
+    "ParamField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type", "value"],
+      "properties": {
+        "id": { "$ref": "#/$defs/EntryId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 400 },
+        "type": {
+          "enum": ["text", "number", "enum", "boolean", "color", "font"],
+          "description": "What the value is, and so which control edits it: a text box, a slider, a menu, a switch, a colour picker, a font menu."
+        },
+        "value": {
+          "anyOf": [{ "type": "string", "maxLength": 4000 }, { "type": "number" }, { "type": "boolean" }]
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 40,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": "For enum: the values it may take. For font: the families offered (others may still be typed)."
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "step": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": { "type": "string", "maxLength": 16 },
+        "multiline": { "type": "boolean", "description": "For text: a paragraph rather than a line." }
+      }
+    },
+    "ValuesParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "fields"],
+      "properties": {
+        "kind": { "const": "values" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 600 },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 40,
+          "items": { "$ref": "#/$defs/ParamField" }
+        }
+      }
+    },
+    "StyleParams": {
+      "oneOf": [{ "$ref": "#/$defs/PaletteParams" }, { "$ref": "#/$defs/ValuesParams" }]
+    },
+    "TemplatePin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "origin", "hash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Slug" },
+        "version": { "$ref": "#/$defs/Version" },
+        "origin": {
+          "enum": ["builtin", "library", "project"],
+          "description": "Where the template was found: shipped with the studio, the library's _styles/, or the channel's or film's own styles/."
+        },
+        "hash": { "$ref": "#/$defs/Sha256", "description": "The template's files as they were when it was applied." }
+      }
+    },
+    "StyleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersion", "kind", "template", "appliedAt"],
+      "properties": {
+        "apiVersion": { "$ref": "#/$defs/ResourceVersion" },
+        "kind": { "const": "StyleBinding" },
+        "template": { "$ref": "#/$defs/TemplatePin" },
+        "appliedAt": { "type": "string", "format": "date-time" },
+        "copiedFrom": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "When the style was copied from the level above rather than from a template: that level, as <project>/<series>."
+        },
+        "note": { "type": "string", "maxLength": 600 }
+      }
+    }
+  }
+}

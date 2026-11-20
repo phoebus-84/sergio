@@ -76,6 +76,7 @@
     "@studio/episode": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@studio/cast": "workspace:*",
-    "@studio/film": "workspace:*"
+    "@studio/film": "workspace:*",
+    "@studio/style": "workspace:*"
   }
 }

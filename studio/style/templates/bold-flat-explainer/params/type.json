@@ -1,0 +1,38 @@
+{
+  "kind": "values",
+  "title": "Type",
+  "fields": [
+    {
+      "id": "font",
+      "label": "Typeface",
+      "type": "font",
+      "value": "Poppins",
+      "options": [
+        "Poppins",
+        "Inter",
+        "Montserrat"
+      ]
+    },
+    {
+      "id": "weight",
+      "label": "Weight",
+      "type": "enum",
+      "value": "bold",
+      "options": [
+        "semibold",
+        "bold",
+        "black"
+      ]
+    },
+    {
+      "id": "size",
+      "label": "Word size",
+      "type": "number",
+      "value": 96,
+      "min": 48,
+      "max": 180,
+      "step": 4,
+      "unit": "px"
+    }
+  ]
+}

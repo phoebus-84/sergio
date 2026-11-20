@@ -1,0 +1,20 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "Warm lo-fi beat.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Soft mechanical print sounds under the events.",
+      "multiline": true
+    }
+  ]
+}

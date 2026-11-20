@@ -1,0 +1,38 @@
+{
+  "kind": "palette",
+  "title": "Board and chalk",
+  "min": 2,
+  "max": 6,
+  "colors": [
+    {
+      "id": "board",
+      "name": "Blackboard",
+      "value": "#1f2a24",
+      "role": "the board"
+    },
+    {
+      "id": "chalk",
+      "name": "White chalk",
+      "value": "#efeee8",
+      "role": "lines and words"
+    },
+    {
+      "id": "yellow",
+      "name": "Yellow chalk",
+      "value": "#f2d25c",
+      "role": "the one thing to look at"
+    },
+    {
+      "id": "pink",
+      "name": "Pink chalk",
+      "value": "#ee9bb0",
+      "role": "a second highlight"
+    },
+    {
+      "id": "blue",
+      "name": "Blue chalk",
+      "value": "#8cc4e8",
+      "role": "diagrams, water, sky"
+    }
+  ]
+}

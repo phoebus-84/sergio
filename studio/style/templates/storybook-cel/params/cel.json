@@ -1,0 +1,49 @@
+{
+  "kind": "values",
+  "title": "Cels",
+  "fields": [
+    {
+      "id": "line",
+      "label": "Ink line colour",
+      "type": "color",
+      "value": "#3a2618"
+    },
+    {
+      "id": "taper",
+      "label": "Ink line",
+      "type": "enum",
+      "value": "tapering",
+      "options": [
+        "even",
+        "tapering",
+        "rough"
+      ]
+    },
+    {
+      "id": "fast",
+      "label": "Fast action on",
+      "type": "enum",
+      "value": "ones",
+      "options": [
+        "ones",
+        "twos"
+      ]
+    },
+    {
+      "id": "rest",
+      "label": "Everything else on",
+      "type": "enum",
+      "value": "twos",
+      "options": [
+        "twos",
+        "threes"
+      ]
+    },
+    {
+      "id": "self-line",
+      "label": "Self-colour lines",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

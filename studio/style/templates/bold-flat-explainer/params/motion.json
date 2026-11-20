@@ -1,0 +1,34 @@
+{
+  "kind": "values",
+  "title": "Motion",
+  "fields": [
+    {
+      "id": "figures",
+      "label": "Characters",
+      "type": "enum",
+      "value": "block figures",
+      "options": [
+        "block figures",
+        "icons",
+        "none"
+      ]
+    },
+    {
+      "id": "transitions",
+      "label": "Between ideas",
+      "type": "enum",
+      "value": "hard cuts on the beat",
+      "options": [
+        "hard cuts on the beat",
+        "push transitions",
+        "morphs"
+      ]
+    },
+    {
+      "id": "keyed",
+      "label": "Every move keyed to the narration's word timings",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

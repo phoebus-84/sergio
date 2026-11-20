@@ -1,0 +1,32 @@
+{
+  "kind": "palette",
+  "title": "Palette",
+  "min": 3,
+  "max": 5,
+  "colors": [
+    {
+      "id": "ground",
+      "name": "Black",
+      "value": "#000000",
+      "role": "the ground of every frame"
+    },
+    {
+      "id": "ink",
+      "name": "White",
+      "value": "#ffffff",
+      "role": "figures, lines, words"
+    },
+    {
+      "id": "accent",
+      "name": "Signal yellow",
+      "value": "#e3e302",
+      "role": "the one accent: the number, the key word, the thing that matters"
+    },
+    {
+      "id": "dim",
+      "name": "Grey",
+      "value": "#5a5a5a",
+      "role": "what is in the past or does not matter"
+    }
+  ]
+}

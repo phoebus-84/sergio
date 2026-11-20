@@ -1,0 +1,32 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "woodblock-print",
+  "version": "1.0.0",
+  "title": "Animated woodblock print",
+  "summary": "A Japanese woodblock print that comes to life: flat plates printed with misregistration, wood grain and paper fibre, never pretending to be 3D.",
+  "tags": [
+    "2d",
+    "print",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "print",
+    "motion",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 5,
+      "max": 12
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

@@ -125,6 +125,28 @@ A form made before this layout may stay where it is: its release records the
 folder it is in. A character's files are media, and follow the channel's Git
 and media store like any other ([Git and storage](#git-and-storage)).
 
+### Styles
+
+A channel, a series, a film or a scene may have a style (ADR-0054); none
+needs one. Its own copy of a template lives in its `style/`, and every unit
+under it reads the nearest style above it.
+
+```text
+_styles/                                # the library's own templates (never a channel)
+└── template-id/
+    ├── style.json                      # identity, its parameter files, what it suggests
+    ├── STYLE.md                        # the brief: values as {{placeholders}}, never inline
+    └── params/
+        ├── palette.json                # colours by id: #rrggbb, name, role
+        └── print.json                  # named values: number, enum, boolean, color, font, text
+channel-or-film/
+├── styles/template-id/                 # templates this project carries
+├── style/                              # the style it has: the template's files, its own copy
+│   └── style.yaml                      # which template, version, origin and hash it came from
+└── series/series-id/style/             # (or scenes/scene-id/style/) a style of its own, winning
+unit/source/pins/style.json             # what a unit read: a change makes its readers stale
+```
+
 ## Migrating
 
 ```bash

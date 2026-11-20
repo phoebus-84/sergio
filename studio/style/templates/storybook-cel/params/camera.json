@@ -1,0 +1,38 @@
+{
+  "kind": "values",
+  "title": "Camera",
+  "fields": [
+    {
+      "id": "layers",
+      "label": "Painted background layers",
+      "type": "number",
+      "value": 5,
+      "min": 3,
+      "max": 7,
+      "step": 1
+    },
+    {
+      "id": "move",
+      "label": "Multiplane move",
+      "type": "enum",
+      "value": "push-in",
+      "options": [
+        "push-in",
+        "pan",
+        "pull-back",
+        "push-in then pull-back"
+      ]
+    },
+    {
+      "id": "finish",
+      "label": "Print finish",
+      "type": "enum",
+      "value": "warm",
+      "options": [
+        "warm",
+        "neutral",
+        "cool"
+      ]
+    }
+  ]
+}

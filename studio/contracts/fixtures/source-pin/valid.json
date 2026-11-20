@@ -38,5 +38,39 @@
       "artifacts/narration",
       "assets/takes"
     ]
+  },
+  {
+    "apiVersion": "studio.video/v1alpha1",
+    "kind": "SourcePin",
+    "id": "style",
+    "source": {
+      "kind": "style"
+    },
+    "usedBy": [
+      "bible"
+    ],
+    "pinnedAt": "2026-11-20T10:00:00Z",
+    "files": {
+      "params/palette.json": {
+        "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "size": 120,
+        "mtimeMs": 1763632800000
+      }
+    }
+  },
+  {
+    "apiVersion": "studio.video/v1alpha1",
+    "kind": "SourcePin",
+    "id": "style",
+    "source": {
+      "kind": "style",
+      "series": "020-night"
+    },
+    "usedBy": [
+      "plan",
+      "media"
+    ],
+    "pinnedAt": "2026-11-20T10:00:00Z",
+    "files": {}
   }
 ]

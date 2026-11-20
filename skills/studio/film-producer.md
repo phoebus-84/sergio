@@ -86,7 +86,10 @@ of date — but it cannot make a shot's media or a scene's sound for you.
 1. `pva_create_film` with a slug, a title and a **delivery format**. The
    format (frame size and rate) is the one decision that is expensive to
    change later: every cut of the film is made in it. Ask if it was not said;
-   default to `hd-24`.
+   default to `hd-24`. If the person named a **style** ("in the risograph
+   style", "using 'Tide riso'"), pass it as `style`: the film gets its own
+   copy and, unless a format was asked for, the style's format. A style is
+   optional — load `style-templates` when one comes up.
 2. Put what the person gave you where it belongs before writing anything:
    a script or notes under `sources/`, reference pictures under `references/`,
    footage through `pva_ingest_footage` (the `footage-ingest` skill).

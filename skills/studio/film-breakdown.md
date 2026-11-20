@@ -47,6 +47,13 @@ points at filed where the tools look for them:
 | Locations | Each place: what it is, its light at each time of day, what is always in frame. | `locations/<name>.md` and reference images |
 | Sound | The sound world: how dialogue sits, what the ambience of each location is, what the music is and is not, the delivery loudness. | — |
 
+**When the film has a style** (`pva_style { film }` says so), the *Look*
+section starts from its brief, written for the film, and adds only what the
+film decides beyond it; values (colours, timing, grain) are cited from the
+brief, never re-invented. Load the skills the style names. A scene that needs
+a different look gets its own style (`pva_apply_style { channel: film, series:
+scene, fromParent: true }`, then `pva_set_style`) rather than a note in prose.
+
 Write it to be *used*: a shot's prompt is assembled from its plan, its
 characters' entries and its location's entry. Vague entries produce a film
 whose protagonist changes face.

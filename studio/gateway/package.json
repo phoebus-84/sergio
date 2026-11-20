@@ -28,6 +28,7 @@
     "@studio/film": "workspace:*",
     "@studio/pipelines": "workspace:*",
     "@studio/runtime": "workspace:*",
+    "@studio/style": "workspace:*",
     "fastify": "^4.28.0",
     "ignore": "^7.0.5",
     "pino": "^9.3.0",

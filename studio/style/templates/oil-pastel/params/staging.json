@@ -1,0 +1,21 @@
+{
+  "kind": "values",
+  "title": "Staging",
+  "fields": [
+    {
+      "id": "layers",
+      "label": "Multiplane layers",
+      "type": "number",
+      "value": 3,
+      "min": 2,
+      "max": 6,
+      "step": 1
+    },
+    {
+      "id": "camera",
+      "label": "The one camera move",
+      "type": "text",
+      "value": "tracks sideways with the character, then tilts up and pulls back"
+    }
+  ]
+}

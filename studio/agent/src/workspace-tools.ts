@@ -16,6 +16,7 @@ import {
   createEpisodeWorkspace,
   createSeriesWorkspace,
 } from "../src/workspace-authoring.js";
+import { styleAfterCreate } from "../src/style-tools.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,14 +73,17 @@ export function registerWorkspaceTools(pi: ExtensionAPI): void {
       title: Type.String({ description: "Human-readable channel title" }),
       description: Type.String({ description: "Channel purpose and audience" }),
       pipelineYaml: Type.Optional(Type.String({ description: "Optional channel pipeline profile as YAML" })),
+      style: Type.Optional(Type.String({ description: "Optional: a style template every series of the channel reads unless it has its own (pva_styles)" })),
     }),
     async execute(_toolCallId, params) {
       const config = await resolveConfig();
       const mutationPath = join(channelPath(config.libraryRoot, params.slug), "channel.json");
       return withFileMutationQueue(mutationPath, async () => {
-        const result = await createChannelWorkspace(params);
+        const { style, ...input } = params;
+        const result = await createChannelWorkspace(input);
+        const styled = style && result.createdFiles.length > 0 ? await styleAfterCreate(config.libraryRoot, { target: { project: params.slug }, style }) : [];
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text", text: [JSON.stringify(result, null, 2), ...styled].join("\n") }],
           details: { workspace: result },
         };
       });
@@ -98,14 +102,21 @@ export function registerWorkspaceTools(pi: ExtensionAPI): void {
       title: Type.String({ description: "Human-readable series title" }),
       description: Type.String({ description: "Series promise and format" }),
       pipelineYaml: Type.Optional(Type.String({ description: "Optional series pipeline selector/profile as YAML" })),
+      style: Type.Optional(Type.String({
+        description: "Optional: a style template the person asked for, by id or title (pva_styles). Copied into the series' style/; every episode reads it",
+      })),
     }),
     async execute(_toolCallId, params) {
       const config = await resolveConfig();
       const mutationPath = join(seriesPath(config.libraryRoot, params.channel, params.slug), "series.json");
       return withFileMutationQueue(mutationPath, async () => {
-        const result = await createSeriesWorkspace(params);
+        const { style, ...input } = params;
+        const result = await createSeriesWorkspace(input);
+        const styled = style && result.createdFiles.length > 0
+          ? await styleAfterCreate(config.libraryRoot, { target: { project: params.channel, series: params.slug }, style })
+          : [];
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text", text: [JSON.stringify(result, null, 2), ...styled].join("\n") }],
           details: { workspace: result },
         };
       });
@@ -135,8 +146,9 @@ export function registerWorkspaceTools(pi: ExtensionAPI): void {
       );
       return withFileMutationQueue(mutationPath, async () => {
         const result = await createEpisodeWorkspace(params);
+        const styled = await styleAfterCreate(config.libraryRoot, { unit: { channel: params.channel, series: params.series, episode: params.slug } });
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text", text: [JSON.stringify(result, null, 2), ...styled].join("\n") }],
           details: { workspace: result },
         };
       });

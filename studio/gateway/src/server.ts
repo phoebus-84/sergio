@@ -16,6 +16,7 @@ import { registerWorkspaceFileRoutes } from "./routes/workspace-files.js";
 import { registerAssetRoutes } from "./routes/assets.js";
 import { registerBudgetRoutes } from "./routes/budget.js";
 import { registerFilmRoutes } from "./routes/films.js";
+import { registerStyleRoutes } from "./routes/styles.js";
 import { registerMusicRoutes } from "./routes/music.js";
 import * as path from "node:path";
 import { realpathSync } from "node:fs";
@@ -260,6 +261,8 @@ export async function createGateway(
 
   // Films: the tree, the footage, the cuts and their renders (ADR-0050).
   registerFilmRoutes(app, { root: libraryRoot, bus: events.bus });
+  // Style templates, a level's style and its parameters (ADR-0054).
+  registerStyleRoutes(app, { root: libraryRoot, operatorKey, bus: events.bus });
 
   // Choosing which attempt fulfils a production role, persisted.
   registerAssetRoutes(app, libraryRoot);

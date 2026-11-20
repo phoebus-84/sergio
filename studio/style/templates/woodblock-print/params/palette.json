@@ -1,0 +1,45 @@
+{
+  "kind": "palette",
+  "title": "Palette",
+  "description": "Every shape is printed from these inks; the accent is used once.",
+  "min": 3,
+  "max": 8,
+  "colors": [
+    {
+      "id": "deep",
+      "name": "Prussian blue",
+      "value": "#1d3b5a",
+      "role": "the deep block: sea, shadow, night"
+    },
+    {
+      "id": "mid",
+      "name": "Indigo",
+      "value": "#2e3a6e",
+      "role": "the middle block: waves, mountains"
+    },
+    {
+      "id": "light",
+      "name": "Pale blue-grey",
+      "value": "#a9b8c2",
+      "role": "the light block: sky, foam, mist"
+    },
+    {
+      "id": "paper",
+      "name": "Cream",
+      "value": "#efe4cc",
+      "role": "the paper itself, left showing"
+    },
+    {
+      "id": "accent",
+      "name": "Vermilion",
+      "value": "#c8322b",
+      "role": "the one red: a sun, a seal, a lantern"
+    },
+    {
+      "id": "key",
+      "name": "Sumi black",
+      "value": "#1a1714",
+      "role": "the key-line block"
+    }
+  ]
+}

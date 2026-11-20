@@ -1,0 +1,20 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "Very sparse: air, and one or two distant koto-like plucks.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Soft foley on the visible actions.",
+      "multiline": true
+    }
+  ]
+}

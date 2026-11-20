@@ -22,7 +22,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schema from "../schemas/v1alpha1/source-pin.schema.json" with { type: "json" };
 import { jsonPath } from "./edit-timeline.mjs";
-import { episodePath, sourcePath } from "./layout.mjs";
+import { channelPath, episodePath, seriesPath, sourcePath } from "./layout.mjs";
 
 /** Where an episode keeps its pins, relative to the episode directory. */
 export const PINS_DIR = "source/pins";
@@ -54,9 +54,10 @@ export function validateSourcePin(doc) {
 
 /** The directory a pin's source lives in. */
 export function sourceDir(root, channel, source) {
-  return source.kind === "channel-source"
-    ? sourcePath(root, channel, source.name)
-    : episodePath(root, channel, source.series, source.episode);
+  if (source.kind === "channel-source") return sourcePath(root, channel, source.name);
+  // A style a unit reads (ADR-0054): the project's style/, or a series' or a scene's.
+  if (source.kind === "style") return join(source.series ? seriesPath(root, channel, source.series) : channelPath(root, channel), "style");
+  return episodePath(root, channel, source.series, source.episode);
 }
 
 /** sha256 of a file, as a ContentHash. */

@@ -390,6 +390,10 @@ function parseSourceFlag(value: string | undefined): SourceRef | null {
   if (channel) return { kind: "channel-source", name: channel[1]! };
   const episode = /^episode:([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/.exec(value);
   if (episode) return { kind: "episode", series: episode[1]!, episode: episode[2]! };
+  // The style a unit reads (ADR-0054): `style` for the project's, `style:<series>` for a series' or a scene's.
+  if (value === "style") return { kind: "style" };
+  const style = /^style:([A-Za-z0-9][A-Za-z0-9._-]*)$/.exec(value);
+  if (style) return { kind: "style", series: style[1]! };
   return null;
 }
 
@@ -408,7 +412,7 @@ function flagValues(args: string[], name: string): string[] {
  */
 async function cmdPin(ctx: CliContext, args: string[]): Promise<number> {
   const usage =
-    "Usage: vpr pin add <channel>/<series>/<episode> <id> --source channel:<name>|episode:<series>/<episode> " +
+    "Usage: vpr pin add <channel>/<series>/<episode> <id> --source channel:<name>|episode:<series>/<episode>|style[:<series>] " +
     "--used-by <stage>[,<stage>...] [--path <p>]... | vpr pin verify <channel>/<series>/<episode> | " +
     "vpr pin renew <channel>/<series>/<episode> <id> [--pipeline <name>]";
   const { pipeline: pipelineName, remaining } = extractPipeline(args);

@@ -1,0 +1,30 @@
+{
+  "kind": "values",
+  "title": "Motion",
+  "fields": [
+    {
+      "id": "timing",
+      "label": "Animate on",
+      "type": "enum",
+      "value": "twos",
+      "options": [
+        "ones",
+        "twos",
+        "threes"
+      ]
+    },
+    {
+      "id": "elements",
+      "label": "What moves as bold shapes",
+      "type": "text",
+      "value": "water, cloud and wind as curling shapes with fingers of foam",
+      "multiline": true
+    },
+    {
+      "id": "text",
+      "label": "Text on screen",
+      "type": "boolean",
+      "value": false
+    }
+  ]
+}

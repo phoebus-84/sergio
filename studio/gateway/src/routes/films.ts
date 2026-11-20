@@ -28,6 +28,7 @@ import {
   type CutOp, type FilmTree, type SceneNode, type ShotNode, type UnitNode, type UnitRef, type UnitRender,
 } from "@studio/film";
 import { EventBus, createEvent } from "../events/bus.js";
+import { StyleError, applyStyle, findStyle, syncStylePin } from "@studio/style";
 
 interface FilmRouteOptions {
   root: string;
@@ -50,6 +51,9 @@ const STATUS_OF: Record<string, number> = {
 };
 
 function sendError(reply: FastifyReply, error: unknown): FastifyReply {
+  if (error instanceof StyleError) {
+    return reply.status(error.code === "no-style" ? 404 : error.code === "ambiguous-style" ? 409 : 422).send({ error: error.code, message: error.message, problems: error.problems });
+  }
   if (error instanceof FilmError) {
     return reply.status(STATUS_OF[error.code] ?? 500).send({ error: error.code, message: error.message, problems: error.problems });
   }
@@ -113,7 +117,12 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
 
   app.post("/api/films", { schema: { description: "Create a film. Never overwrites.", tags: ["films"] } as any }, async (request, reply) => {
     try {
-      return reply.status(201).send(createFilm(root, request.body as Parameters<typeof createFilm>[1]));
+      // A style is optional (ADR-0054): when one is asked for, the film takes its format unless it names one, and its own copy of the style.
+      const { style, ...input } = request.body as Parameters<typeof createFilm>[1] & { style?: string };
+      const chosen = style ? findStyle(root, style, { project: input.slug }) : null;
+      const created = createFilm(root, { ...input, format: input.format ?? chosen?.scaffold.filmFormat });
+      const applied = chosen && created.createdFiles.length > 0 ? await applyStyle(root, { project: input.slug }, { style: chosen.id }) : null;
+      return reply.status(201).send({ ...created, style: applied ? { id: applied.template.id, title: applied.template.title, scaffold: applied.scaffold } : null });
     } catch (error) {
       return sendError(reply, error);
     }
@@ -122,7 +131,9 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
   app.post("/api/films/:film/scenes", { schema: { description: "Create a scene of a film.", tags: ["films"] } as any }, async (request, reply) => {
     try {
       const { film } = request.params as { film: string };
-      return reply.status(201).send(createScene(root, { ...(request.body as Omit<Parameters<typeof createScene>[1], "film">), film }));
+      const created = createScene(root, { ...(request.body as Omit<Parameters<typeof createScene>[1], "film">), film });
+      await syncStylePin(root, created.ref);
+      return reply.status(201).send(created);
     } catch (error) {
       return sendError(reply, error);
     }
@@ -131,7 +142,10 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
   app.post("/api/films/:film/scenes/:scene/shots", { schema: { description: "Create a shot of a scene.", tags: ["films"] } as any }, async (request, reply) => {
     try {
       const { film, scene } = request.params as { film: string; scene: string };
-      return reply.status(201).send(createShot(root, { ...(request.body as Omit<Parameters<typeof createShot>[1], "film" | "scene">), film, scene }));
+      const created = createShot(root, { ...(request.body as Omit<Parameters<typeof createShot>[1], "film" | "scene">), film, scene });
+      // A unit made under a style reads it from the start (ADR-0054).
+      await syncStylePin(root, created.ref);
+      return reply.status(201).send(created);
     } catch (error) {
       return sendError(reply, error);
     }

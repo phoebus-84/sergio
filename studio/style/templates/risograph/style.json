@@ -1,0 +1,31 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "risograph",
+  "version": "1.0.0",
+  "title": "Risograph print",
+  "summary": "Flat artwork printed as four overlapping riso inks: halftone screens, overprint colours, misregistration and roller banding, held on twos and threes.",
+  "tags": [
+    "2d",
+    "print",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "print",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 5,
+      "max": 10
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

@@ -148,6 +148,14 @@ channel, a series or a film, not to an episode, and is the same next week:
   set is a `.blend` with marks; the camera is the set's or asked for in words. It says
   who was out of the picture, hidden by the set, in another's place, or sliding.
 
+A **style template** — a ready-made look and way of making it — can be given to a
+channel, a series, a film or a scene when the person asks for one; nothing needs one.
+`pva_styles` lists them and finds one by the name a person uses; the creation tools take
+`style`; `pva_apply_style` gives one to a level that exists; `pva_style` is the brief a
+unit reads, with every value filled in from its parameter files; `pva_set_style` changes a
+colour or a value (everything that read the style becomes stale); `pva_save_style` keeps
+an edited style as a template of its own. Load `style-templates` when a style comes up.
+
 Read the cast before writing a script. Load `character-development` to define a
 character and `character-forms` to give it a body.
 

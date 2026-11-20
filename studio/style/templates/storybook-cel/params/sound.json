@@ -1,0 +1,20 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "An orchestral storybook score.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Cartoon sound effects timed to the action.",
+      "multiline": true
+    }
+  ]
+}
