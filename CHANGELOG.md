@@ -29,7 +29,7 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   `blender`, `comfyui`, `heavy-cpu`, `heavy-gpu`) and in which order to use
   them, `"local"` included. The tools route by it, so you no longer tell the
   agent "use that machine, connect with ssh …", and the skills tell it never
-  to ssh there by hand (ADR-0055). Nothing changes until you write the file.
+  to ssh there by hand (ADR-0056). Nothing changes until you write the file.
   - **ComfyUI speech** reaches a server that listens only on its machine's
     loopback through a tunnel the tool opens on a free port when it is
     needed. The tool checks the tunnel, reuses it and closes it when the

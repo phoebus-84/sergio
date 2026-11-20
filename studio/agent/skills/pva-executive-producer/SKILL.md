@@ -29,7 +29,7 @@ are its prompts (`/mcp__pva__video`, `/mcp__pva__render`, …).
 
 The operator's other machines — a GPU box, a render engine, a ComfyUI server — are
 declared once, in the library's machines file (`library/.render/machines.json`,
-ADR-0055): how SSH reaches each, what each is for, and in which order to use them.
+ADR-0056): how SSH reaches each, what each is for, and in which order to use them.
 **The tools route by that file. You do not.**
 
 - At the start of a session, read `pva_capability_status`: a `machine-<name>` line per

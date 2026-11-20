@@ -16,7 +16,7 @@
 //                                      music and noise
 //
 // The server is configuration, never code: AVG_COMFYUI_URL; else the
-// machines file's comfyui machines (ADR-0055), reached by their `url` or
+// machines file's comfyui machines (ADR-0056), reached by their `url` or
 // through a tunnel @av/machines opens on demand, with the machine's GPU lock
 // held around each call; else `url` in the library's .render/comfyui.json
 // (AVG_COMFYUI_CONFIG names another file), which also holds the nodes'
@@ -85,7 +85,7 @@ export async function comfyUiAnswers(url: string): Promise<boolean> {
 }
 
 /**
- * The server to speak through, in ADR-0055's order: AVG_COMFYUI_URL, else
+ * The server to speak through, in ADR-0056's order: AVG_COMFYUI_URL, else
  * the machines file's comfyui machines (the first that answers, a tunnel
  * opened when it listens only on its loopback), else comfyui.json's url.
  * Null when none names one. Machines that are declared but do not answer

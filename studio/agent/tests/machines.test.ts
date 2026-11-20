@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The operator's machines in the agent's tools (ADR-0055)
+// The operator's machines in the agent's tools (ADR-0056)
 // ---------------------------------------------------------------------------
 // pva_capability_status, pva_config and pva_compose_video against a fake SSH:
 // nothing leaves the machine. Machine names here are made up.

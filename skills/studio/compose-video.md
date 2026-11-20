@@ -117,7 +117,7 @@ recompiled and why) and lists every finding, writing nothing.
 ## Where it renders
 
 Without `host`, `pva_compose_video` renders where the library's machines file
-(`library/.render/machines.json`, ADR-0055) says: its `prefer.remotion` order,
+(`library/.render/machines.json`, ADR-0056) says: its `prefer.remotion` order,
 the first machine that answers, or this machine when it says nothing. The
 tool's answer says where it went and which machines it passed over. Do not
 pass `host` unless the operator asks for a machine

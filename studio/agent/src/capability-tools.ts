@@ -2252,7 +2252,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
         };
       }
 
-      // The operator's machines (ADR-0055): each asked whether it answers, and where each role goes.
+      // The operator's machines (ADR-0056): each asked whether it answers, and where each role goes.
       const { machinesCapabilities, machinesReport } = await import("./machines.js");
       Object.assign(caps, machinesCapabilities(await machinesReport(LIBRARY_ROOT)));
 

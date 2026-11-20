@@ -1,5 +1,5 @@
 // The machines file: which machines exist, how SSH reaches each, what each is
-// for, and in which order to use them (ADR-0055). The caller names the file;
+// for, and in which order to use them (ADR-0056). The caller names the file;
 // this package reads no environment for it.
 //
 //   {

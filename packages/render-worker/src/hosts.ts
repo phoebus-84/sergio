@@ -1,5 +1,5 @@
 // Which machine renders. Nothing about the machines is written in code: they
-// are the machines file's `remotion` machines (@av/machines, ADR-0055), the
+// are the machines file's `remotion` machines (@av/machines, ADR-0056), the
 // hosts of a render-hosts.json, and the tailnet's online Linux peers
 // (`tailscale status --json`), that answer `engine.sh version` over SSH. The
 // SSH destination, the clone's path and the cache's path come from that

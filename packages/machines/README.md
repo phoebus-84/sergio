@@ -1,6 +1,6 @@
 # machines
 
-The operator's machines, declared once (ADR-0055). The package says which
+The operator's machines, declared once (ADR-0056). The package says which
 machines exist, how SSH reaches each, what each is for, and in which order to
 use them. It answers two questions:
 

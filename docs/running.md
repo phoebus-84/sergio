@@ -152,7 +152,7 @@ ComfyUI server on its own loopback, or a newer Blender in your home folder. Set
 `AVG_MACHINES` to use another file, which must then exist. The tools read the
 file, so you no longer tell the agent which machine to use or how to reach it,
 and the agent does not ssh there by hand
-([ADR-0055](adr/0055-machines-are-declared-once.md)).
+([ADR-0056](adr/0056-machines-are-declared-once.md)).
 
 ```json
 {

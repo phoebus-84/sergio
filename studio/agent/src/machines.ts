@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The operator's machines, for the studio's tools (ADR-0055)
+// The operator's machines, for the studio's tools (ADR-0056)
 // ---------------------------------------------------------------------------
 // One library file, library/.render/machines.json (AVG_MACHINES names
 // another), says which machines exist, how SSH reaches them, what each is
