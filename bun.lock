@@ -225,6 +225,7 @@
         "@av/comfyui-speech": "workspace:*",
         "@av/elevenlabs": "workspace:*",
         "@av/fal-media": "workspace:*",
+        "@av/machines": "workspace:*",
         "@av/remotion-composer": "workspace:*",
         "@av/render-worker": "workspace:*",
         "@av/strudel": "workspace:*",

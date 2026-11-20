@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { remoteRenderer, sharedRenderer, type RemoteRenderResult, type SharedRenderResult } from "@av/render-worker";
+import { LOCAL as LOCAL_MACHINE, place, type Machines } from "@av/machines";
 import { extname, join } from "node:path";
 import { resolveConfig, DEFAULT_TTS_WORKER_URL } from "./config.js";
 import { guardEpisodePath } from "./trust-guards.js";
@@ -1567,17 +1568,40 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       episode: Type.String({ description: "Episode slug" }),
       profile: profileParam,
       label: Type.Optional(Type.String({ default: "render", description: "Lowercase kebab-case render label" })),
-      host: Type.Optional(Type.String({ description: "Render on another machine over SSH (packages/render-worker): a tailnet peer name or a render-hosts.json host, or \"auto\" for the first engine that answers; omitted, renders here. A named machine draws only the seconds this machine's render cache lacks, and this machine joins them and adds the sound. Needs the render code committed." })),
+      host: Type.Optional(Type.String({ description: "Render on another machine over SSH (packages/render-worker): a machine of the library's machines file, a tailnet peer name or a render-hosts.json host, or \"auto\" for the first engine that answers; \"local\" renders here. Omitted, the machines file's prefer.remotion decides (here when it says nothing). A named machine draws only the seconds this machine's render cache lacks, and this machine joins them and adds the sound. Needs the render code committed." })),
       hosts: Type.Optional(Type.Array(Type.String(), { description: "A shared render, only when the operator asks for one: the video's one-second segments split among these machines in order, the faster ones (as measured by earlier shared renders) drawing more (\"local\" is this one, the others as for host), then joined on one machine. Instead of host." })),
       assembleOn: Type.Optional(Type.String({ description: "With hosts: the machine that joins the segments, adds the audio and writes the mp4; \"local\" by default, and it need not draw a share." })),
     }),
     async execute(_toolCallId, params, signal, onUpdate) {
       const dir = episodeDir(params.channel, params.series, params.episode);
-      const host = params.host?.trim();
+      let host = params.host?.trim();
       const hosts = params.hosts?.map((h) => h.trim()).filter(Boolean);
+      const routed: string[] = [];
+      const { sshAnswers, studioMachines } = await import("./machines.js");
+      let machines: Machines;
+      try {
+        machines = studioMachines(LIBRARY_ROOT);
+        // No machine asked for: the machines file's preference decides, here when it says nothing.
+        if (!host && !hosts?.length) {
+          const chosen = await place(machines, "remotion", (m) => sshAnswers(m, signal));
+          for (const s of chosen.skipped) routed.push(`${s.name} passed over: ${s.reason}`);
+          if (chosen.place.kind === "machine") {
+            host = chosen.place.machine.name;
+            routed.push(`${host} chosen by the machines file's prefer.remotion`);
+          }
+        }
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `❌ ${(err as { code?: string }).code ? `${(err as { code?: string }).code}: ` : ""}${err instanceof Error ? err.message : String(err)}` }],
+          details: { code: (err as { code?: string }).code ?? null } as Record<string, unknown>,
+          isError: true as unknown as boolean,
+        };
+      }
+      if (host === LOCAL_MACHINE) host = undefined;
       const remote = {
         key: `${params.channel}/${params.series}/${params.episode}`,
         configFile: process.env.AVG_RENDER_HOSTS || join(LIBRARY_ROOT, ".render", "render-hosts.json"),
+        machines,
         onLog(line: string) {
           onUpdate?.({ content: [{ type: "text" as const, text: line }], details: { engine: line } });
         },
@@ -1619,6 +1643,7 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
               : `${render.concurrency} Chrome tab(s)`;
           const lines = [
             `✅ output/${render.renderId}.mp4 — ${render.result.durationSeconds.toFixed(1)}s, ${mb}MB, ${render.result.profile}, ${where}`,
+            ...routed,
             ...(engine?.warnings ?? []).map((warning) => `⚠️ shared render: ${warning}`),
             ...(render.rebuilt ? [`timeline rebuilt: ${render.rebuilt}`] : [`rendered ${EDIT_TIMELINE_PATH} as it stands`]),
             ...(render.compiledBy
@@ -2226,6 +2251,10 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
           detail: err instanceof Error ? err.message : String(err),
         };
       }
+
+      // The operator's machines (ADR-0055): each asked whether it answers, and where each role goes.
+      const { machinesCapabilities, machinesReport } = await import("./machines.js");
+      Object.assign(caps, machinesCapabilities(await machinesReport(LIBRARY_ROOT)));
 
       // Editable 3D scenes: use the same composition-aware status as the adapter.
       const { blenderCapabilityStatus } = await import("./blender-tools.js");

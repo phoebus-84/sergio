@@ -15,10 +15,12 @@
 //                                      recording and separated its voice from
 //                                      music and noise
 //
-// The server is configuration, never code: AVG_COMFYUI_URL, or `url` in the
-// library's .render/comfyui.json (AVG_COMFYUI_CONFIG names another file).
-// A server that listens only on its own loopback is reached through a tunnel
-// the operator opens; this module sees only the URL.
+// The server is configuration, never code: AVG_COMFYUI_URL; else the
+// machines file's comfyui machines (ADR-0055), reached by their `url` or
+// through a tunnel @av/machines opens on demand, with the machine's GPU lock
+// held around each call; else `url` in the library's .render/comfyui.json
+// (AVG_COMFYUI_CONFIG names another file), which also holds the nodes'
+// settings.
 //
 // ComfyUI saves FLAC; the take is a WAV, so FFmpeg converts it here. Qwen
 // times no words: the take is aligned afterwards like any other.
@@ -47,6 +49,8 @@ import {
   type SpeechProbe,
   type SpeechResult,
 } from "@av/comfyui-speech";
+import { machinesWith, reachService, withLock, type Machine } from "@av/machines";
+import { gpuLockOf, machineDeps, MACHINES_RELATIVE, studioMachines } from "./machines.js";
 
 export const COMFYUI_PROVIDER = "comfyui-qwen";
 export const COMFYUI_URL_ENV = "AVG_COMFYUI_URL";
@@ -60,7 +64,74 @@ export function comfyUiConfig(libraryRoot: string, env: NodeJS.ProcessEnv = proc
   return resolveComfyUiConfig({ url: env[COMFYUI_URL_ENV], file: env[COMFYUI_CONFIG_ENV] || join(libraryRoot, COMFYUI_CONFIG_RELATIVE) });
 }
 
-const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set and the library's ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
+const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set, the library's ${MACHINES_RELATIVE.replace(/\\/g, "/")} gives no machine the comfyui role, and its ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
+
+/** Where the server was found: the variable, a machine of the machines file, or comfyui.json. */
+export interface ComfyUiEndpoint {
+  config: ComfyUiSpeechConfig;
+  url: string;
+  via: "env" | "machine" | "file";
+  machine?: Machine;
+  tunnel?: boolean;
+  /** The machines passed over first, and why. */
+  skipped?: { name: string; reason: string }[];
+}
+
+/** Whether ComfyUI answers at this base URL. */
+export async function comfyUiAnswers(url: string): Promise<boolean> {
+  const res = await fetch(`${url}/system_stats`, { signal: AbortSignal.timeout(3_000) });
+  await res.body?.cancel();
+  return res.ok;
+}
+
+/**
+ * The server to speak through, in ADR-0055's order: AVG_COMFYUI_URL, else
+ * the machines file's comfyui machines (the first that answers, a tunnel
+ * opened when it listens only on its loopback), else comfyui.json's url.
+ * Null when none names one. Machines that are declared but do not answer
+ * are an error, not a reason to use comfyui.json.
+ */
+export async function comfyUiEndpoint(libraryRoot: string, env: NodeJS.ProcessEnv = process.env): Promise<ComfyUiEndpoint | null> {
+  const config = comfyUiConfig(libraryRoot, env);
+  if (env[COMFYUI_URL_ENV]) return { config, url: env[COMFYUI_URL_ENV]!, via: "env" };
+  const machines = studioMachines(libraryRoot, env);
+  if (machinesWith(machines, "comfyui").length > 0) {
+    const { pool, spawn } = machineDeps();
+    const reached = await reachService(machines, "comfyui", { healthy: comfyUiAnswers, pool, ...(spawn ? { spawn } : {}) });
+    return { config: { ...config, url: reached.url }, url: reached.url, via: "machine", machine: reached.machine, tunnel: reached.via === "tunnel", skipped: reached.skipped };
+  }
+  return config.url ? { config, url: config.url, via: "file" } : null;
+}
+
+function describe(endpoint: ComfyUiEndpoint): string {
+  if (endpoint.via !== "machine") return endpoint.url;
+  const settings = endpoint.machine!.roles.comfyui ?? {};
+  return endpoint.tunnel
+    ? `${endpoint.machine!.name} (through a tunnel to ${settings.host ?? "127.0.0.1"}:${settings.port ?? 8188}, here ${endpoint.url})`
+    : `${endpoint.machine!.name} (${endpoint.url})`;
+}
+
+/** Runs one call to the server, holding its machine's GPU lock when the machines file names one. */
+async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
+  try {
+    return await withLock(machineDeps().exec, endpoint.machine?.ssh ?? "", lock, work, signal ? { signal } : {});
+  } catch (e) {
+    if (e instanceof ComfyUiError && e.code === "unreachable") {
+      throw new Error(endpoint.via === "machine"
+        ? `${e.message}: is ComfyUI running on ${endpoint.machine!.name}?`
+        : `${e.message}: is the server running${endpoint.via === "env" ? ", and the tunnel to it open" : ""}?`);
+    }
+    throw e;
+  }
+}
+
+/** What a receipt says about the machine that spoke, when the machines file chose it. */
+function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
+  if (endpoint.via !== "machine") return {};
+  const lock = gpuLockOf(endpoint.machine!, "comfyui");
+  return { server: { machine: endpoint.machine!.name, ssh: endpoint.machine!.ssh, via: endpoint.tunnel ? "tunnel" : "url", ...(lock ? { gpuLock: lock } : {}) } };
+}
 
 /** What the tool says about this provider, in its description. */
 export function comfyUiSpeechTerms(): string {
@@ -71,22 +142,28 @@ export function comfyUiSpeechTerms(): string {
 
 /** Whether the server answers and what it can do, for pva_capability_status. */
 export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.ProcessEnv = process.env): Promise<{ available: boolean; detail: string }> {
-  let config: ComfyUiSpeechConfig;
+  let endpoint: ComfyUiEndpoint | null;
   try {
-    config = comfyUiConfig(libraryRoot, env);
+    endpoint = await comfyUiEndpoint(libraryRoot, env);
   } catch (e) {
     return { available: false, detail: e instanceof Error ? e.message : String(e) };
   }
-  if (!config.url) return { available: false, detail: NOT_CONFIGURED };
+  if (!endpoint) return { available: false, detail: NOT_CONFIGURED };
   let probe: SpeechProbe;
   try {
-    probe = await probeSpeech(createComfyUiClient({ baseUrl: config.url, requestTimeoutMs: 5_000 }));
+    probe = await probeSpeech(createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 5_000 }));
   } catch (e) {
-    return { available: false, detail: `${e instanceof Error ? e.message : String(e)}; a server that listens on its own loopback needs the operator's tunnel open` };
+    return {
+      available: false,
+      detail: `${e instanceof Error ? e.message : String(e)}` +
+        (endpoint.via === "machine" ? "" : `; a server that listens on another machine's loopback is reached by giving that machine the comfyui role in ${MACHINES_RELATIVE.replace(/\\/g, "/")}`),
+    };
   }
   const ready = Object.entries(probe.workflows).filter(([, w]) => w.available).map(([name]) => name);
   const missing = [...new Set(Object.values(probe.workflows).flatMap((w) => w.missingNodes))];
-  const what = `ComfyUI ${probe.version ?? "?"} at ${config.url}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
+  const skipped = endpoint.skipped?.length ? `; passed over ${endpoint.skipped.map((k) => `${k.name} (${k.reason})`).join(", ")}` : "";
+  const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
+  const what = `ComfyUI ${probe.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describe(endpoint)}${lock ? `, GPU lock ${lock}` : ""}${skipped}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
   if (!probe.workflows.speaker.available && !probe.workflows.clone.available) {
     return { available: false, detail: `${what} answers but lacks the Qwen3-TTS nodes (${missing.join(", ")})` };
   }
@@ -100,9 +177,9 @@ export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.Proce
 
 /** The voices the server offers, for pva_voices; null when no server is configured. */
 export async function comfyUiVoices(libraryRoot: string): Promise<{ speakers: string[]; savedVoices: string[] } | null> {
-  const config = comfyUiConfig(libraryRoot);
-  if (!config.url) return null;
-  const probe = await probeSpeech(createComfyUiClient({ baseUrl: config.url, requestTimeoutMs: 5_000 }));
+  const endpoint = await comfyUiEndpoint(libraryRoot);
+  if (!endpoint) return null;
+  const probe = await probeSpeech(createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 5_000 }));
   return { speakers: probe.speakers, savedVoices: probe.savedVoices };
 }
 
@@ -233,9 +310,10 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
   const referenceBytes = r.reference ? readFileSync(r.reference.absolutePath) : undefined;
   const consent = cloneConsent(r, referenceBytes);
   r.signal?.throwIfAborted();
-  const config = comfyUiConfig(r.libraryRoot);
-  if (!config.url) throw new Error(NOT_CONFIGURED);
-  const client = createComfyUiClient({ baseUrl: config.url });
+  const endpoint = await comfyUiEndpoint(r.libraryRoot);
+  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  const config = endpoint.config;
+  const client = createComfyUiClient({ baseUrl: endpoint.url });
   const settings = nodeSettingsOf(config);
   const options: SpeechOptions = {
     client,
@@ -250,9 +328,9 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     ...(r.signal ? { signal: r.signal } : {}),
   };
 
-  let speech: SpeechResult;
-  let method: string;
-  try {
+  let speech!: SpeechResult;
+  let method!: string;
+  await onServer(endpoint, async () => {
     if (r.reference) {
       const reference = {
         // Only the extension leaves this machine: the package names the upload by its content's hash.
@@ -280,10 +358,7 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
       method = "preset-speaker";
       speech = await speakWithSpeaker({ ...options, speaker: r.voice!, ...(r.instruct ? { instruct: r.instruct } : {}) });
     }
-  } catch (e) {
-    if (e instanceof ComfyUiError && e.code === "unreachable") throw new Error(`${e.message}: is the server running, and the operator's tunnel to it open?`);
-    throw e;
-  }
+  }, r.signal);
 
   const wav = await flacToWav(speech.audio, true, r.signal);
   const durationSeconds = Math.round(wavSeconds(wav, true) * 1000) / 1000;
@@ -308,6 +383,7 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
     promptId: speech.promptId,
     workflowSha256: sha256(JSON.stringify(speech.prompt)),
     requestedRuntime: settings,
+    ...serverOf(endpoint),
     runtimeVerified: false, // The server does not report exact checkpoint hashes or resolved runtime versions.
     ...(consent ? { consent } : {}),
     model: `qwen3-tts-${settings.model}`,
@@ -368,13 +444,12 @@ export interface ComfyUiCleanRequest {
 }
 
 export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ recordPath: string; durationSeconds: number; elapsedSeconds: number; record: Record<string, unknown> }> {
-  const config = comfyUiConfig(r.libraryRoot);
-  if (!config.url) throw new Error(NOT_CONFIGURED);
+  const endpoint = await comfyUiEndpoint(r.libraryRoot);
+  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  const config = endpoint.config;
   const inputBytes = readFileSync(r.input.absolutePath);
-  let cleaned: Awaited<ReturnType<typeof cleanVoice>>;
-  try {
-    cleaned = await cleanVoice({
-      client: createComfyUiClient({ baseUrl: config.url }),
+  const cleaned = await onServer(endpoint, () => cleanVoice({
+      client: createComfyUiClient({ baseUrl: endpoint.url }),
       // Only the extension leaves this machine: the package names the upload by its content's hash.
       input: { bytes: inputBytes, filename: basename(r.input.absolutePath) },
       ...(r.start !== undefined ? { start: r.start } : {}),
@@ -383,11 +458,7 @@ export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ r
       ...(config.inputSubfolder ? { inputSubfolder: config.inputSubfolder } : {}),
       ...(config.timeoutSeconds ? { timeoutMs: config.timeoutSeconds * 1000 } : {}),
       ...(r.signal ? { signal: r.signal } : {}),
-    });
-  } catch (e) {
-    if (e instanceof ComfyUiError && e.code === "unreachable") throw new Error(`${e.message}: is the server running, and the operator's tunnel to it open?`);
-    throw e;
-  }
+    }), r.signal);
   const wav = await flacToWav(cleaned.audio, false, r.signal);
   r.signal?.throwIfAborted();
   mkdirSync(dirname(r.output.absolutePath), { recursive: true });
@@ -400,6 +471,7 @@ export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ r
     workflow: cleaned.workflow,
     promptId: cleaned.promptId,
     separation: "AudioSeparation (Hybrid Demucs), Vocals",
+    ...serverOf(endpoint),
     input: { path: r.input.relativePath.replace(/\\/g, "/"), sha256: sha256(inputBytes) },
     ...(r.start !== undefined || r.duration !== undefined ? { cut: { startSeconds: r.start ?? 0, ...(r.duration !== undefined ? { durationSeconds: r.duration } : {}) } } : {}),
     output: { path: r.output.relativePath.replace(/\\/g, "/"), sha256: sha256(wav), durationSeconds },

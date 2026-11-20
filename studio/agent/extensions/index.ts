@@ -10,6 +10,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { resolveConfig, checkServiceHealth } from "../src/config.js";
+import { machinesReport } from "../src/machines.js";
 import { registerWorkspaceTools } from "../src/workspace-tools.js";
 import { registerPipelineTools } from "../src/pipeline-tools.js";
 import { registerCapabilityTools } from "../src/capability-tools.js";
@@ -244,10 +245,11 @@ export default function (pi: ExtensionAPI): void {
     name: "pva_config",
     label: "PVA Configuration",
     description:
-      "Resolve Sergio's configuration including library root, gateway URL, and service endpoints. Never logs secret values.",
+      "Resolve Sergio's configuration including library root, gateway URL, service endpoints, and the operator's machines (the library's machines file: each machine asked over SSH whether it answers, and where each role runs). Never logs secret values.",
     parameters: Type.Object({}),
-    async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, _params, signal, _onUpdate, _ctx) {
       const config = await resolveConfig();
+      const machines = await machinesReport(config.libraryRoot, process.env, signal ? { signal } : {});
 
       // Strip secrets from output
       const safe = {
@@ -260,6 +262,7 @@ export default function (pi: ExtensionAPI): void {
         ffmpegComposerPath: config.ffmpegComposerPath,
         resolved: config.resolved,
         diagnostics: config.diagnostics,
+        machines,
       };
 
       return {
