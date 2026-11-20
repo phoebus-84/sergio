@@ -202,6 +202,15 @@
       "requires": {},
       "docs": "docs/studio/cast.md"
     },
+    "style": {
+      "path": "studio/style",
+      "kind": "node",
+      "standalone": false,
+      "summary": "Style templates: optional, parametric roads to a look, applied to a channel, series, film or scene and pinned by what reads them.",
+      "capabilities": [],
+      "requires": {},
+      "docs": "docs/studio/style.md"
+    },
     "runtime": {
       "path": "studio/runtime",
       "kind": "node",
@@ -288,6 +297,7 @@
         "episode",
         "film",
         "cast",
+        "style",
         "runtime",
         "pipelines",
         "agent",
@@ -325,6 +335,7 @@
         "episode",
         "film",
         "cast",
+        "style",
         "runtime",
         "pipelines",
         "agent",
@@ -359,6 +370,7 @@
         "episode",
         "film",
         "cast",
+        "style",
         "runtime",
         "pipelines",
         "agent"
@@ -375,7 +387,7 @@
     },
     "blender": {
       "summary": "Local 3D production with the agent and browser; no cloud image or MLX voice requirement.",
-      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "strudel", "contracts", "series", "episode", "film", "cast", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
+      "components": ["blender", "video-composer", "remotion-composer", "render-worker", "strudel", "contracts", "series", "episode", "film", "cast", "style", "runtime", "pipelines", "agent", "adapters", "gateway", "web"],
       "skills": ["shared", "studio"],
       "defaultProviders": {
         "video.compose": "remotion-composer"

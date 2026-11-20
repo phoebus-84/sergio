@@ -1,0 +1,30 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "bpm",
+      "label": "Music tempo",
+      "type": "number",
+      "value": 116,
+      "min": 70,
+      "max": 160,
+      "step": 1,
+      "unit": "bpm"
+    },
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "A synth arpeggio, ducked under the voice.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Clicks and whooshes on every move.",
+      "multiline": true
+    }
+  ]
+}

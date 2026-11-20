@@ -1,0 +1,20 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "A simple hand-played waltz on toy piano.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Footsteps and small sounds on the visible events.",
+      "multiline": true
+    }
+  ]
+}

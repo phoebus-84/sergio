@@ -17,6 +17,7 @@
   import { SHOT_SOURCES, SHOT_SOURCE_DESCRIPTIONS, type ShotSource } from "@studio/contracts/src/film.mjs";
   import StateChip from "./StateChip.svelte";
   import ControlPanel from "./ControlPanel.svelte";
+  import StylePanel from "../style/StylePanel.svelte";
 
   const tree = $derived(film.tree);
 
@@ -296,6 +297,7 @@
     </section>
 
     {#if filmUnit}
+      <StylePanel project={filmUnit.film} context={{ title: tree.title, idea: tree.manifest?.logline ?? tree.manifest?.synopsis }} />
       <ControlPanel unit={filmUnit} level="film" />
     {/if}
   </div>

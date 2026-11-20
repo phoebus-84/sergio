@@ -1,0 +1,33 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "storybook-cel",
+  "version": "1.0.0",
+  "title": "Storybook cel animation",
+  "summary": "Classic hand-drawn cel animation of the mid-century feature tradition, with original characters: watercolour multiplane backgrounds, inked and painted cels, the classic principles.",
+  "tags": [
+    "2d",
+    "cel",
+    "character",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "cel",
+    "camera",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 6,
+      "max": 15
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

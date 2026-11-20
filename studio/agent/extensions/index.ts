@@ -25,6 +25,7 @@ import { registerMusicTools } from "../src/music-tools.js";
 import { registerLongExtendTools } from "../src/long-extend-tools.js";
 import { registerFilmTools } from "../src/film-tools.js";
 import { registerCharacterTools } from "../src/character-tools.js";
+import { registerStyleTools } from "../src/style-tools.js";
 import { registerModelTools } from "../src/model-tools.js";
 import { registerRigTools } from "../src/rig-tools.js";
 import { registerRigSheetTools } from "../src/rig-sheet-tools.js";
@@ -324,6 +325,7 @@ export default function (pi: ExtensionAPI): void {
 
   registerFilmTools(pi);
   registerCharacterTools(pi);
+  registerStyleTools(pi);
   registerModelTools(pi);
   registerRigTools(pi);
   registerRigSheetTools(pi);

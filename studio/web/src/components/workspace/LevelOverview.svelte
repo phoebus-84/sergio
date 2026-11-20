@@ -15,6 +15,7 @@
   import { studio } from "$lib/studio-store.svelte.ts";
   import { displayStatus, STATUS_LABELS } from "$lib/library-types";
   import type { LevelRef } from "$lib/files-store.svelte.ts";
+  import StylePanel from "../style/StylePanel.svelte";
 
   interface Props {
     ref: LevelRef;
@@ -136,6 +137,10 @@
       </div>
     {/if}
   </section>
+
+  {#if library.live}
+    <StylePanel project={ref.channel} series={ref.level === "series" ? ref.series : null} context={{ title }} />
+  {/if}
 
   <section>
     <h3>{childLabel}</h3>

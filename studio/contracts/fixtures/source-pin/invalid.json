@@ -182,5 +182,19 @@
       }
     },
     "extra": true
+  },
+  {
+    "apiVersion": "studio.video/v1alpha1",
+    "kind": "SourcePin",
+    "id": "style",
+    "source": {
+      "kind": "style",
+      "name": "x"
+    },
+    "usedBy": [
+      "bible"
+    ],
+    "pinnedAt": "2026-11-20T10:00:00Z",
+    "files": {}
   }
 ]

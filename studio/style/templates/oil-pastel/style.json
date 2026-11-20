@@ -1,0 +1,33 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "oil-pastel",
+  "version": "1.0.0",
+  "title": "Oil pastel and gouache picture book",
+  "summary": "A naive, bold mid-century picture book drawn in waxy oil pastel and matte gouache on dark coloured paper; the strokes boil gently as it moves.",
+  "tags": [
+    "2d",
+    "illustration",
+    "picture-book",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "strokes",
+    "staging",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 6,
+      "max": 12
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

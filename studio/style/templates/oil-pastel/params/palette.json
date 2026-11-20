@@ -1,0 +1,51 @@
+{
+  "kind": "palette",
+  "title": "Palette",
+  "description": "Paper plus five or six colours: the picture-book limit.",
+  "min": 5,
+  "max": 8,
+  "colors": [
+    {
+      "id": "paper",
+      "name": "Deep teal paper",
+      "value": "#1f5c63",
+      "role": "the ground, showing through every stroke"
+    },
+    {
+      "id": "cream",
+      "name": "Cream",
+      "value": "#f3e7c9",
+      "role": "light, faces, stars"
+    },
+    {
+      "id": "vermilion",
+      "name": "Vermilion",
+      "value": "#e0442e",
+      "role": "the main character's colour"
+    },
+    {
+      "id": "yellow",
+      "name": "Warm yellow",
+      "value": "#f2b53a",
+      "role": "lamps and glow"
+    },
+    {
+      "id": "pink",
+      "name": "Pink",
+      "value": "#ec8fa3",
+      "role": "small warm accents"
+    },
+    {
+      "id": "indigo",
+      "name": "Indigo",
+      "value": "#2c2d5c",
+      "role": "night and shadow"
+    },
+    {
+      "id": "aqua",
+      "name": "Aqua",
+      "value": "#6cc5c0",
+      "role": "cool accents"
+    }
+  ]
+}

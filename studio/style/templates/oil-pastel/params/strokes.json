@@ -1,0 +1,41 @@
+{
+  "kind": "values",
+  "title": "Strokes",
+  "description": "How the stroke engine fills every shape.",
+  "fields": [
+    {
+      "id": "boil",
+      "label": "Re-draw the strokes every",
+      "type": "enum",
+      "value": "two frames",
+      "options": [
+        "two frames",
+        "three frames"
+      ]
+    },
+    {
+      "id": "light",
+      "label": "Paper lit from",
+      "type": "enum",
+      "value": "the upper left",
+      "options": [
+        "the upper left",
+        "the upper right",
+        "the left",
+        "above"
+      ]
+    },
+    {
+      "id": "sgraffito",
+      "label": "Scraped sgraffito highlights",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "id": "smears",
+      "label": "Moving things leave pigment smears",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

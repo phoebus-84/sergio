@@ -19,7 +19,12 @@ export interface EpisodeSource {
   episode: LocalId;
 }
 
-export type SourceRef = ChannelSource | EpisodeSource;
+export interface StyleSource {
+  kind: "style";
+  series?: LocalId;
+}
+
+export type SourceRef = ChannelSource | EpisodeSource | StyleSource;
 
 export type RelativePath = string;
 

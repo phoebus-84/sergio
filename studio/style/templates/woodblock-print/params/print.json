@@ -1,0 +1,46 @@
+{
+  "kind": "values",
+  "title": "Print",
+  "description": "How the plates are inked and printed.",
+  "fields": [
+    {
+      "id": "plates",
+      "label": "Printing plates",
+      "type": "number",
+      "value": 3,
+      "min": 2,
+      "max": 6,
+      "description": "Light block, deep block, key-line block, and any more.",
+      "step": 1
+    },
+    {
+      "id": "misregistration",
+      "label": "Misregistration",
+      "type": "number",
+      "value": 2,
+      "min": 0,
+      "max": 8,
+      "description": "How far the plates slip from each other.",
+      "step": 0.5,
+      "unit": "px"
+    },
+    {
+      "id": "grain",
+      "label": "Wood grain in the flat colours",
+      "type": "enum",
+      "value": "visible",
+      "options": [
+        "none",
+        "faint",
+        "visible",
+        "strong"
+      ]
+    },
+    {
+      "id": "border",
+      "label": "Deckled sheet with a border",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

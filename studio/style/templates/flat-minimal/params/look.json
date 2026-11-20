@@ -1,0 +1,45 @@
+{
+  "kind": "values",
+  "title": "Look",
+  "fields": [
+    {
+      "id": "horizon",
+      "label": "A horizon line",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "id": "outlines",
+      "label": "Outlines",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "id": "tones",
+      "label": "Flat shading tones",
+      "type": "number",
+      "value": 1,
+      "min": 0,
+      "max": 2,
+      "step": 1
+    },
+    {
+      "id": "grain",
+      "label": "Print grain",
+      "type": "enum",
+      "value": "fine",
+      "options": [
+        "none",
+        "fine",
+        "coarse"
+      ]
+    },
+    {
+      "id": "subject",
+      "label": "The subject",
+      "type": "text",
+      "value": "one small figure placed off centre, with a cluster of accent shapes in one foreground corner",
+      "multiline": true
+    }
+  ]
+}

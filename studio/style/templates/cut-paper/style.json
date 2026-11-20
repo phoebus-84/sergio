@@ -1,0 +1,33 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "cut-paper",
+  "version": "1.0.0",
+  "title": "Stop-motion cut paper",
+  "summary": "Every element is a piece of paper \u2014 sugar paper, kraft, newsprint, tissue \u2014 cut or torn, pinned and taped on a backing board, animated on twos under a rostrum camera.",
+  "tags": [
+    "2d",
+    "collage",
+    "stop-motion",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "paper",
+    "camera",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 6,
+      "max": 12
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

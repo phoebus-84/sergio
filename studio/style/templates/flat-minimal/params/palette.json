@@ -1,0 +1,39 @@
+{
+  "kind": "palette",
+  "title": "Palette",
+  "description": "The field grades from the first colour to the second; nothing else is used.",
+  "min": 4,
+  "max": 6,
+  "colors": [
+    {
+      "id": "haze",
+      "name": "Sage haze",
+      "value": "#b7c9b0",
+      "role": "the top of the field"
+    },
+    {
+      "id": "field",
+      "name": "Deep teal",
+      "value": "#1f5a5a",
+      "role": "the bottom of the field: water, ground"
+    },
+    {
+      "id": "accent",
+      "name": "Coral vermilion",
+      "value": "#e8543c",
+      "role": "the one saturated accent"
+    },
+    {
+      "id": "cream",
+      "name": "Warm cream",
+      "value": "#f2e6cf",
+      "role": "highlights, small marks"
+    },
+    {
+      "id": "ink",
+      "name": "Near black",
+      "value": "#1b1d1e",
+      "role": "hair, shadow, the darkest point"
+    }
+  ]
+}

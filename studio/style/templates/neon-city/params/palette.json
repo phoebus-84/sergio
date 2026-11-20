@@ -1,0 +1,38 @@
+{
+  "kind": "palette",
+  "title": "Grade and neon",
+  "min": 3,
+  "max": 8,
+  "colors": [
+    {
+      "id": "shadow",
+      "name": "Teal shadow",
+      "value": "#0d3b45",
+      "role": "the grade's shadows"
+    },
+    {
+      "id": "sign-a",
+      "name": "Magenta neon",
+      "value": "#ff2e88",
+      "role": "the dominant sign colour"
+    },
+    {
+      "id": "sign-b",
+      "name": "Cyan neon",
+      "value": "#2ee6ff",
+      "role": "the second sign colour"
+    },
+    {
+      "id": "warm",
+      "name": "Sodium amber",
+      "value": "#ffb347",
+      "role": "street lamps, the food cart"
+    },
+    {
+      "id": "night",
+      "name": "Night sky",
+      "value": "#090b14",
+      "role": "sky and the deepest black"
+    }
+  ]
+}

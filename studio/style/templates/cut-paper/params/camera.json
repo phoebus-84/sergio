@@ -1,0 +1,32 @@
+{
+  "kind": "values",
+  "title": "Camera",
+  "fields": [
+    {
+      "id": "timing",
+      "label": "Animate on",
+      "type": "enum",
+      "value": "twos",
+      "options": [
+        "ones",
+        "twos",
+        "threes"
+      ]
+    },
+    {
+      "id": "layers",
+      "label": "Multiplane layers",
+      "type": "number",
+      "value": 3,
+      "min": 2,
+      "max": 5,
+      "step": 1
+    },
+    {
+      "id": "ending",
+      "label": "End on the whole collage flat on the board",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

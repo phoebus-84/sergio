@@ -1,0 +1,20 @@
+{
+  "kind": "values",
+  "title": "Sound",
+  "fields": [
+    {
+      "id": "music",
+      "label": "Music",
+      "type": "text",
+      "value": "A small music-box tune.",
+      "multiline": true
+    },
+    {
+      "id": "effects",
+      "label": "Effects",
+      "type": "text",
+      "value": "Paper foley: slides, flaps, rustles on the visible events.",
+      "multiline": true
+    }
+  ]
+}

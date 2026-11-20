@@ -23,6 +23,28 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 
 ### Added
 
+- **Style templates: a ready-made look, never required.** A channel, a
+  series, a film or a scene may take a style — "make it in the risograph
+  style", "prepare this scene using 'Tide riso'" — and nothing has to
+  (ADR-0054).
+  - A template is a brief (`STYLE.md`) whose values all come from parameter
+    files: a palette of named colours, and values with the control each asks
+    for. Nine ship with the studio (woodblock print, risograph, flat
+    minimal, oil pastel, cut paper, storybook cel, neon city, chalkboard
+    explainer, bold flat explainer); a library keeps its own in `_styles/`,
+    a channel or film in `styles/`.
+  - `pva_styles`, `pva_apply_style`, `pva_style` (the brief a unit reads,
+    every value filled in), `pva_set_style`, `pva_save_style`; the creation
+    tools take `style`, and a new film takes its style's format.
+  - Changing a style makes what read it stale, in chain: each unit keeps a
+    pin on the style it read (`source/pins/style.json`), and a changed
+    colour makes a film's bible, its scenes' direction, its shots' plans and
+    takes and the renders above them stale until redone.
+  - In the web studio: a style picker when a film is made, and a Style panel
+    on a channel's, series', film's and scene's overview — colour pickers,
+    a control for every value, the brief as it will read, and what saving
+    makes stale.
+
 - **Music written as code.** A piece is a file of [Strudel](https://strudel.cc)
   code, `music/<name>.strudel`, in an episode, a channel source or a film
   unit; the studio renders it locally at $0 (ADR-0053).

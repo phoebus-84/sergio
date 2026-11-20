@@ -1,0 +1,44 @@
+{
+  "kind": "values",
+  "title": "Captions",
+  "fields": [
+    {
+      "id": "font",
+      "label": "Caption font",
+      "type": "font",
+      "value": "Inter",
+      "options": [
+        "Inter",
+        "Poppins",
+        "Roboto"
+      ]
+    },
+    {
+      "id": "size",
+      "label": "Caption size",
+      "type": "number",
+      "value": 64,
+      "min": 32,
+      "max": 120,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "id": "position",
+      "label": "Position",
+      "type": "enum",
+      "value": "lower third",
+      "options": [
+        "lower third",
+        "top third",
+        "centre"
+      ]
+    },
+    {
+      "id": "highlight",
+      "label": "Highlighted word",
+      "type": "color",
+      "value": "#f2d25c"
+    }
+  ]
+}

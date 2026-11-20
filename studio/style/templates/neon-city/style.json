@@ -1,0 +1,33 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "neon-city",
+  "version": "1.0.0",
+  "title": "Rain-soaked neon city",
+  "summary": "A neon megacity at night in three.js: instanced towers with lit rooms, invented-glyph signs, wet reflective streets, rain and steam, filmed through an HDR lens pipeline.",
+  "tags": [
+    "3d",
+    "night",
+    "city",
+    "code"
+  ],
+  "parameters": [
+    "palette",
+    "lens",
+    "camera",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "hd-30",
+    "durationSeconds": {
+      "min": 5,
+      "max": 10
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

@@ -1,0 +1,40 @@
+{
+  "kind": "values",
+  "title": "Paper",
+  "fields": [
+    {
+      "id": "stocks",
+      "label": "Stocks",
+      "type": "text",
+      "value": "coloured sugar paper, kraft, newsprint with unreadable type, graph paper, marbled paper, tissue, torn magazine halftone, patterned origami paper",
+      "multiline": true
+    },
+    {
+      "id": "cut",
+      "label": "Cut",
+      "type": "enum",
+      "value": "both",
+      "options": [
+        "scissor-cut",
+        "hand-torn",
+        "both"
+      ]
+    },
+    {
+      "id": "fixings",
+      "label": "Masking tape, pins and brass fasteners visible",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "id": "jitter",
+      "label": "Frame-to-frame jitter",
+      "type": "number",
+      "value": 1.5,
+      "min": 0,
+      "max": 5,
+      "step": 0.5,
+      "unit": "px"
+    }
+  ]
+}

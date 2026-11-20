@@ -49,7 +49,9 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const slugOf = (ref: EpisodeRef) => `${ref.channel}/${ref.series}/${ref.episode}`;
 
 export function sourceLabel(source: SourceRef): string {
-  return source.kind === "channel-source" ? `source "${source.name}"` : `episode "${source.series}/${source.episode}"`;
+  if (source.kind === "channel-source") return `source "${source.name}"`;
+  if (source.kind === "style") return source.series ? `the style of "${source.series}"` : "the project's style";
+  return `episode "${source.series}/${source.episode}"`;
 }
 
 /** The stages a set of readers makes stale: the readers themselves and everything downstream. */

@@ -1,0 +1,41 @@
+{
+  "apiVersion": "studio.video/v1alpha1",
+  "kind": "StyleTemplate",
+  "id": "chalkboard-explainer",
+  "version": "1.0.0",
+  "title": "Chalkboard explainer",
+  "summary": "A narrated vertical short drawn as chalk lines on a blackboard: strokes that write themselves, eraser wipes between ideas, captions in the lower third.",
+  "tags": [
+    "2d",
+    "explainer",
+    "vertical",
+    "narrated",
+    "code"
+  ],
+  "levels": [
+    "channel",
+    "series",
+    "film",
+    "scene"
+  ],
+  "parameters": [
+    "palette",
+    "chalk",
+    "captions",
+    "narration",
+    "sound"
+  ],
+  "scaffold": {
+    "shotSource": "graphics",
+    "skills": [
+      "remotion-best-practices",
+      "strudel-music"
+    ],
+    "filmFormat": "vertical-30",
+    "durationSeconds": {
+      "min": 15,
+      "max": 40
+    }
+  },
+  "credits": "Written for Sergio from the styles of a public prompt library of films made in code; values made parametric."
+}

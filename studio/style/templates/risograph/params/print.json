@@ -1,0 +1,51 @@
+{
+  "kind": "values",
+  "title": "Print",
+  "fields": [
+    {
+      "id": "screen",
+      "label": "Halftone screen",
+      "type": "enum",
+      "value": "dots",
+      "options": [
+        "dots",
+        "lines",
+        "grain",
+        "mixed"
+      ]
+    },
+    {
+      "id": "misregistration",
+      "label": "Misregistration",
+      "type": "number",
+      "value": 3,
+      "min": 0,
+      "max": 10,
+      "description": "Different on every print.",
+      "step": 0.5,
+      "unit": "px"
+    },
+    {
+      "id": "hold",
+      "label": "Hold each print for",
+      "type": "number",
+      "value": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "unit": "frames"
+    },
+    {
+      "id": "banding",
+      "label": "Roller banding and patchy solids",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "id": "pinholes",
+      "label": "Pinholes",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

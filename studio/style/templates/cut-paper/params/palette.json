@@ -1,0 +1,51 @@
+{
+  "kind": "palette",
+  "title": "Papers",
+  "description": "The colours of the paper stocks.",
+  "min": 4,
+  "max": 12,
+  "colors": [
+    {
+      "id": "board",
+      "name": "Grey backing board",
+      "value": "#8f8d88",
+      "role": "the board everything lies on"
+    },
+    {
+      "id": "kraft",
+      "name": "Kraft",
+      "value": "#b98a5a",
+      "role": "bridges, boxes, earth"
+    },
+    {
+      "id": "sky",
+      "name": "Indigo sugar paper",
+      "value": "#2f3a73",
+      "role": "night sky bands"
+    },
+    {
+      "id": "dawn",
+      "name": "Orange sugar paper",
+      "value": "#f08a3c",
+      "role": "dawn and the sun"
+    },
+    {
+      "id": "tram",
+      "name": "Yellow sugar paper",
+      "value": "#f5c84b",
+      "role": "the vehicle, lit windows"
+    },
+    {
+      "id": "newsprint",
+      "name": "Newsprint",
+      "value": "#e9e4d6",
+      "role": "birds, small pieces"
+    },
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "value": "#3a3634",
+      "role": "cats, roofs, shadows"
+    }
+  ]
+}

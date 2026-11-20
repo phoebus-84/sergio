@@ -27,6 +27,7 @@ import {
   type CutOp, type CutStatus, type FilmTree, type SceneNode, type UnitNode, type UnitRef, type UnitRender,
 } from "@studio/film";
 import { resolveConfig } from "./config.js";
+import { styleAfterCreate, styleFilmFormat } from "./style-tools.js";
 
 const UNIT_PARAMS = {
   film: Type.String({ description: "The film's slug" }),
@@ -153,16 +154,22 @@ export function registerFilmTools(pi: ExtensionAPI): void {
       genre: Type.Optional(Type.String()),
       language: Type.Optional(Type.String({ description: "BCP 47 tag of the film's language: en, it" })),
       runtimeTargetSeconds: Type.Optional(Type.Number({ description: "How long the film is meant to run" })),
-      format: Type.Optional(StringEnum(FILM_FORMATS.map((f) => f.id), { description: "Delivery format. Default hd-24" })),
+      format: Type.Optional(StringEnum(FILM_FORMATS.map((f) => f.id), { description: "Delivery format. Default: the style's, else hd-24" })),
+      style: Type.Optional(Type.String({
+        description: "Optional: a style template the person asked for, by id or title (pva_styles). Copied into the film's style/; every scene and shot reads it",
+      })),
     }),
     async execute(_id, params) {
       try {
         const library = await root();
         return await withFileMutationQueue(join(library, params.slug, "film.yaml"), async () => {
-          const result = createFilm(library, params);
+          const { style, ...film } = params;
+          const result = createFilm(library, { ...film, format: film.format ?? styleFilmFormat(library, style, params.slug) });
+          const styled = result.createdFiles.length > 0 ? await styleAfterCreate(library, { target: { project: params.slug }, style }) : [];
           return ok(
             `${result.createdFiles.length > 0 ? "✅ film created" : "● film already there, nothing changed"}: ${params.slug}\n` +
             `Its own unit, for the pipeline, budget and approval tools: ${address(result.ref)}\n` +
+            (styled.length > 0 ? `${styled.join("\n")}\n` : "") +
             `Next: pva_create_scene for each scene, pva_create_shot for each shot; pva_ingest_footage for material shot or recorded for it.`,
             { workspace: result },
           );
@@ -194,13 +201,21 @@ export function registerFilmTools(pi: ExtensionAPI): void {
       sequence: Type.Optional(Type.String({ description: "The id of the sequence it joins" })),
       sequenceTitle: Type.Optional(Type.String({ description: "With a new sequence: its title" })),
       act: Type.Optional(Type.String({ description: "With a new sequence: the act it is in" })),
+      style: Type.Optional(Type.String({
+        description: "Optional: a style template for this scene alone, by id or title. Omitted, the scene reads the film's style if it has one",
+      })),
     }),
     async execute(_id, params) {
       try {
         const library = await root();
         return await withFileMutationQueue(join(library, params.film, "film.yaml"), async () => {
-          const result = createScene(library, params);
-          return ok(`${result.createdFiles.length > 0 ? "✅ scene created" : "● scene already there"}: ${unitLabel(result.ref)}\nIts own unit: ${address(result.ref)}`, { workspace: result });
+          const { style, ...scene } = params;
+          const result = createScene(library, scene);
+          const styled = await styleAfterCreate(library, {
+            ...(style && result.createdFiles.length > 0 ? { target: { project: params.film, series: params.slug }, style } : {}),
+            unit: result.ref,
+          });
+          return ok([`${result.createdFiles.length > 0 ? "✅ scene created" : "● scene already there"}: ${unitLabel(result.ref)}\nIts own unit: ${address(result.ref)}`, ...styled].join("\n"), { workspace: result });
         });
       } catch (error) {
         return fail(error);
@@ -237,8 +252,10 @@ export function registerFilmTools(pi: ExtensionAPI): void {
     }),
     async execute(_id, params) {
       try {
-        const result = createShot(await root(), params);
-        return ok(`${result.createdFiles.length > 0 ? "✅ shot created" : "● shot already there"}: ${unitLabel(result.ref)}\nIts unit: ${address(result.ref)}`, { workspace: result });
+        const library = await root();
+        const result = createShot(library, params);
+        const styled = await styleAfterCreate(library, { unit: result.ref });
+        return ok([`${result.createdFiles.length > 0 ? "✅ shot created" : "● shot already there"}: ${unitLabel(result.ref)}\nIts unit: ${address(result.ref)}`, ...styled].join("\n"), { workspace: result });
       } catch (error) {
         return fail(error);
       }

@@ -29,6 +29,7 @@
     "studio/episode",
     "studio/film",
     "studio/cast",
+    "studio/style",
     "studio/runtime",
     "studio/pipelines",
     "studio/adapters",

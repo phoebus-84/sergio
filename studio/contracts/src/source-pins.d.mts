@@ -7,7 +7,8 @@ export declare const PINS_DIR: "source/pins";
 
 export type SourceRef =
   | { kind: "channel-source"; name: string }
-  | { kind: "episode"; series: string; episode: string };
+  | { kind: "episode"; series: string; episode: string }
+  | { kind: "style"; series?: string };
 
 export interface InventoryEntry {
   hash: string;

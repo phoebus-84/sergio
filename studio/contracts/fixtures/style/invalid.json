@@ -1,0 +1,24 @@
+{
+  "templates": [
+    { "name": "no parameters list", "code": "required", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleTemplate", "id": "x", "version": "1.0.0", "title": "X", "summary": "Y" } },
+    { "name": "a version range", "code": "pattern", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleTemplate", "id": "x", "version": "^1.0", "title": "X", "summary": "Y", "parameters": [] } },
+    { "name": "an id that is not a slug", "code": "pattern", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleTemplate", "id": "My Style", "version": "1.0.0", "title": "X", "summary": "Y", "parameters": [] } },
+    { "name": "a level that is not one", "code": "enum", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleTemplate", "id": "x", "version": "1.0.0", "title": "X", "summary": "Y", "parameters": [], "levels": ["shot"] } },
+    { "name": "an unknown field", "code": "additionalProperties", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleTemplate", "id": "x", "version": "1.0.0", "title": "X", "summary": "Y", "parameters": [], "prompt": "inline" } }
+  ],
+  "params": [
+    { "name": "a colour that is not hex", "code": "pattern", "doc": { "kind": "palette", "title": "P", "colors": [{ "id": "a", "name": "A", "value": "red" }] } },
+    { "name": "a colour named twice", "code": "duplicate", "doc": { "kind": "palette", "title": "P", "colors": [{ "id": "a", "name": "A", "value": "#000000" }, { "id": "a", "name": "B", "value": "#ffffff" }] } },
+    { "name": "fewer colours than it holds to", "code": "too-few", "doc": { "kind": "palette", "title": "P", "min": 3, "colors": [{ "id": "a", "name": "A", "value": "#000000" }] } },
+    { "name": "more colours than it allows", "code": "too-many", "doc": { "kind": "palette", "title": "P", "max": 1, "colors": [{ "id": "a", "name": "A", "value": "#000000" }, { "id": "b", "name": "B", "value": "#ffffff" }] } },
+    { "name": "a number out of range", "code": "value", "doc": { "kind": "values", "title": "V", "fields": [{ "id": "n", "label": "N", "type": "number", "value": 9, "max": 4 }] } },
+    { "name": "an enum value not among its options", "code": "value", "doc": { "kind": "values", "title": "V", "fields": [{ "id": "t", "label": "T", "type": "enum", "value": "fours", "options": ["ones", "twos"] }] } },
+    { "name": "a colour field that is not hex", "code": "value", "doc": { "kind": "values", "title": "V", "fields": [{ "id": "c", "label": "C", "type": "color", "value": "blue" }] } },
+    { "name": "a field type that is not one", "code": "enum", "doc": { "kind": "values", "title": "V", "fields": [{ "id": "c", "label": "C", "type": "date", "value": "x" }] } },
+    { "name": "neither a palette nor values", "code": "kind", "doc": { "kind": "fonts", "title": "F" } }
+  ],
+  "bindings": [
+    { "name": "a template pin with no hash", "code": "required", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleBinding", "template": { "id": "x", "version": "1.0.0", "origin": "builtin" }, "appliedAt": "2026-11-20T10:00:00Z" } },
+    { "name": "an origin that is not one", "code": "enum", "doc": { "apiVersion": "studio.video/v1alpha1", "kind": "StyleBinding", "template": { "id": "x", "version": "1.0.0", "origin": "web", "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "appliedAt": "2026-11-20T10:00:00Z" } }
+  ]
+}
