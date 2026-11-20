@@ -27,6 +27,8 @@ const SKIP = new Set([
   "node_modules", ".git", ".beads", ".venv", "dist", ".svelte-kit",
   "models", "voices", "evaluation", "test", "tests", "__tests__",
   "fixtures", "coverage", "site",
+  // A style template's STYLE.md is data with {{placeholders}}, not a page (ADR-0054).
+  "templates",
 ]);
 
 /** Every .md under a component, excluding build and test noise. */
