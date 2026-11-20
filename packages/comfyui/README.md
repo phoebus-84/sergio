@@ -51,13 +51,14 @@ has never seen the graph can run it:
     "prompt": { "type": "text" },
     "width":  { "type": "integer", "default": 1024, "min": 256, "max": 2048 },
     "seed":   { "type": "seed" },
-    "start":  { "type": "image", "optional": true }
+    "start":  { "type": "image", "optional": true },
+    "vae":    { "type": "model", "default": "ae.safetensors" }
   },
   "outputs": { "9": "image" },
   "requires": {
-    "models": [{ "node": "16", "input": "unet_name", "folder": "diffusion_models" }]
+    "models": [{ "node": "17", "input": "vae_name", "folder": "vae" }]
   },
-  "prompt": { "…": "the API-format graph, with {{prompt}}, {{width}}, {{seed}}, {{start}}, {{outputPrefix}}" },
+  "prompt": { "…": "the API-format graph, with {{prompt}}, {{width}}, {{seed}}, {{start}}, {{vae}}, {{outputPrefix}}" },
   "optionalNodes": { "start": "2" }
 }
 ```
@@ -65,14 +66,18 @@ has never seen the graph can run it:
 - **kind**: `image`, `image-edit`, `video`, `speech`, `music`, `audio`, `other`.
 - **inputs**, one per placeholder: `text`, `string`, `integer`, `number`,
   `boolean`, `choice` (with `options`), `seed` (picked at random when absent,
-  and returned), or a file: `image`, `audio`, `video`, uploaded to the
-  server's input folder under its content's hash, its name filled in.
+  and returned), `model` (a file a loader reads), or a file: `image`,
+  `audio`, `video`, uploaded to the server's input folder under its
+  content's hash, its name filled in.
 - **outputs**: node id → `image`, `video` or `audio`. Every file the node
   saved is downloaded, whatever key the server lists it under.
 - **requires**: `models` names a loader node's input; the file is the value
-  it holds (or its placeholder's default) and the probe checks the loader
-  lists it. `nodes` adds classes beyond the graph's own, `packs` says which
-  custom node packs provide them. Nothing is downloaded.
+  it holds and the probe checks the loader lists it. Every server names its
+  files its own way, so make that value a `model` input with a default: a
+  caller, or `withDefaults(workflow, { vae: "z_image_ae.safetensors" })`,
+  names another file without a copy of the workflow (a file named in the
+  graph itself is a warning). `nodes` adds classes beyond the graph's own,
+  `packs` says which custom node packs provide them. Nothing is downloaded.
 - **verifiedOn**: when and where it last ran on a real server; absent, never.
 - `{{outputPrefix}}` is the runner's: each run saves under a folder of its own.
 
@@ -83,8 +88,10 @@ each folder's, a later one hiding an earlier one of the same name and saying
 so.
 
 `probeWorkflow(client, workflow)` reads `/object_info/<class>` for every class
-the graph needs and the choices of every model input: whether the server can
-run it, before anything is queued. `runWorkflow({ client, workflow, values })`
+the graph needs: whether the server has it, whether the graph gives it every
+input this server's version requires (a node gains required inputs between
+versions), and whether each loader lists the model file — and if not, the
+files it does list. All before anything is queued. `runWorkflow({ client, workflow, values })`
 checks the values, probes, uploads, queues, waits and downloads; the result
 has the graph as queued, every value filled in, the seeds, the uploads by
 hash, each output's bytes, the server's version and devices, and how long the
@@ -92,16 +99,20 @@ server says it ran (`executionSeconds`, from its own timestamps).
 
 ## Built-in workflows
 
-Core ComfyUI nodes only. **None has been run against a real server from this
-repository yet** (none has `verifiedOn`): check the node and model names
-against yours before relying on them.
+Core ComfyUI nodes only. Each model is a `model` input; its default is the
+file as the first server they ran on names it — give another where yours
+differs. `verifiedOn` says which have run on a real server.
 
-| Workflow | Kind | Models it requires |
-|---|---|---|
-| `z-image-turbo` | text to image | `z_image_turbo_bf16.safetensors`, `qwen_3_4b.safetensors`, `ae.safetensors` |
-| `flux2-klein-edit` | image edit | `flux-2-klein-4b.safetensors`, `qwen_3_4b.safetensors`, `flux2-vae.safetensors` |
-| `wan22-ti2v-5b` | text or first frame to video | `wan2.2_ti2v_5B_fp16.safetensors`, `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `wan2.2_vae.safetensors` |
-| `ace-step-music` | music from tags and lyrics | `ace_step_v1_3.5b.safetensors` |
+| Workflow | Kind | Model inputs and their defaults | Run on a server |
+|---|---|---|---|
+| `z-image-turbo` | text to image | `unetModel` `z_image_turbo_bf16`, `textEncoder` `qwen_3_4b`, `vae` `z_image_ae` | yes, ComfyUI 0.45.0 on an RX 7900 XTX (ROCm) |
+| `flux2-klein-edit` | image edit | `unetModel` `flux-2-klein-4b`, `textEncoder` `qwen_3_4b`, `vae` `flux2-vae` | yes, ComfyUI 0.45.0 on an RX 7900 XTX (ROCm) |
+| `wan22-ti2v-5b` | text or first frame to video | `unetModel` `wan2.2_ti2v_5B_fp16`, `textEncoder` `umt5_xxl_fp16`, `vae` `wan2.2_vae` | not yet |
+| `ace-step-v1-music` | music from tags and lyrics, ACE-Step **v1** | `checkpoint` `ace_step_v1_3.5b` | not yet |
+
+(All `.safetensors`.) ACE-Step 1.5 has other nodes (`TextEncodeAceStepAudio1.5`,
+`EmptyAceStep1.5LatentAudio`): it needs a workflow of its own, not a file
+name.
 
 ## Adding a workflow
 

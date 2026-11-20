@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   BUILT_IN, checkWorkflow, ComfyUiError, createComfyUiClient, describeProbe, executionSecondsOf, listWorkflows, probeWorkflow,
-  readWorkflowFile, requiredNodes, resolveValues, runWorkflow, type ComfyUiClient, type ComfyUiPrompt, type DeclaredWorkflow,
+  readWorkflowFile, requiredNodes, resolveValues, runWorkflow, withDefaults, type ComfyUiClient, type ComfyUiPrompt, type DeclaredWorkflow,
 } from "../src/index.js";
 
 const BASE = "http://comfy.test:8188";
@@ -21,6 +21,8 @@ interface Fake {
   missing: Set<string>;
   /** Model files each loader class lists, by its input. */
   models: Record<string, Record<string, string[]>>;
+  /** Other inputs each class requires, as a newer ComfyUI may. */
+  required: Record<string, string[]>;
   /** Newer ComfyUI describes a COMBO as ["COMBO", { options }]. */
   comboStyle: "old" | "new";
   neverFinishes: boolean;
@@ -30,10 +32,11 @@ interface Fake {
 function fake(): Fake {
   const f: Fake = {
     calls: [], queued: [], missing: new Set(), comboStyle: "new", neverFinishes: false, timestamps: true, fetch: undefined as unknown as typeof fetch,
+    required: {},
     models: {
       UNETLoader: { unet_name: ["z_image_turbo_bf16.safetensors", "wan2.2_ti2v_5B_fp16.safetensors"] },
-      CLIPLoader: { clip_name: ["qwen_3_4b.safetensors", "umt5_xxl_fp8_e4m3fn_scaled.safetensors"] },
-      VAELoader: { vae_name: ["ae.safetensors", "wan2.2_vae.safetensors"] },
+      CLIPLoader: { clip_name: ["qwen_3_4b.safetensors", "umt5_xxl_fp16.safetensors"] },
+      VAELoader: { vae_name: ["z_image_ae.safetensors", "wan2.2_vae.safetensors"] },
     },
   };
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -49,7 +52,10 @@ function fake(): Fake {
     if (path.startsWith("/object_info/")) {
       const cls = decodeURIComponent(path.slice("/object_info/".length));
       if (f.missing.has(cls)) return json({});
-      const required = Object.fromEntries(Object.entries(f.models[cls] ?? {}).map(([input, files]) => [input, f.comboStyle === "old" ? [files, {}] : ["COMBO", { options: files }]]));
+      const required = {
+        ...Object.fromEntries(Object.entries(f.models[cls] ?? {}).map(([input, files]) => [input, f.comboStyle === "old" ? [files, {}] : ["COMBO", { options: files }]])),
+        ...Object.fromEntries((f.required[cls] ?? []).map((input) => [input, ["INT", { default: 1 }]])),
+      };
       return json({ [cls]: { input: { required } } });
     }
     if (path === "/prompt") {
@@ -104,12 +110,13 @@ const tiny = (): DeclaredWorkflow => ({
     steps: { type: "integer", default: 4, min: 1, max: 10 },
     seed: { type: "seed" },
     start: { type: "image", optional: true },
+    unet: { type: "model", default: "z_image_turbo_bf16.safetensors" },
   },
   outputs: { "9": "image" },
   optionalNodes: { start: "2" },
   requires: { models: [{ node: "1", input: "unet_name", folder: "diffusion_models" }] },
   prompt: {
-    "1": { class_type: "UNETLoader", inputs: { unet_name: "z_image_turbo_bf16.safetensors", weight_dtype: "default" } },
+    "1": { class_type: "UNETLoader", inputs: { unet_name: "{{unet}}", weight_dtype: "default" } },
     "2": { class_type: "LoadImage", inputs: { image: "{{start}}" } },
     "3": { class_type: "KSampler", inputs: { model: ["1", 0], seed: "{{seed}}", steps: "{{steps}}", text: "{{prompt}}", image: ["2", 0] } },
     "9": { class_type: "SaveImage", inputs: { images: ["3", 0], filename_prefix: "{{outputPrefix}}" } },
@@ -153,17 +160,19 @@ describe("a declaration", () => {
 describe("the built-in workflows", () => {
   it("are all valid, and declare their models", () => {
     const entries = listWorkflows([]);
-    expect(entries.map((e) => e.name)).toEqual(["ace-step-music", "flux2-klein-edit", "wan22-ti2v-5b", "z-image-turbo"]);
+    expect(entries.map((e) => e.name)).toEqual(["ace-step-v1-music", "flux2-klein-edit", "wan22-ti2v-5b", "z-image-turbo"]);
     for (const e of entries) {
       expect(e.problems).toEqual([]);
       expect(e.origin).toBe(BUILT_IN);
       expect(e.workflow!.requires!.models!.length).toBeGreaterThan(0);
-      // never run against a real server from here: they say so by having no verifiedOn
-      expect(e.workflow!.verifiedOn).toBeUndefined();
+      // every model file is a model input with a default, so a server that names it otherwise needs no copy
+      for (const m of e.workflow!.requires!.models!) expect(e.workflow!.prompt[m.node]!.inputs[m.input]).toMatch(/^\{\{\w+\}\}$/);
     }
     expect(Object.fromEntries(entries.map((e) => [e.name, e.workflow!.kind]))).toEqual({
-      "ace-step-music": "music", "flux2-klein-edit": "image-edit", "wan22-ti2v-5b": "video", "z-image-turbo": "image",
+      "ace-step-v1-music": "music", "flux2-klein-edit": "image-edit", "wan22-ti2v-5b": "video", "z-image-turbo": "image",
     });
+    // only those that ran on a real server say where
+    expect(entries.filter((e) => e.workflow!.verifiedOn).map((e) => e.name)).toEqual(["flux2-klein-edit", "z-image-turbo"]);
   });
 
   it("are hidden by an operator's workflow of the same name, which says what it hides", () => {
@@ -190,14 +199,15 @@ describe("the probe", () => {
   it("reads the node classes and whether each loader lists the model, old and new COMBO alike", async () => {
     const probe = await probeWorkflow(client, builtIn("z-image-turbo"));
     expect(probe).toMatchObject({ runnable: true, missingNodes: [] });
-    expect(probe.models.map((m) => [m.file, m.status])).toEqual([
-      ["z_image_turbo_bf16.safetensors", "present"], ["qwen_3_4b.safetensors", "present"], ["ae.safetensors", "present"],
+    expect(probe.models.map((m) => [m.file, m.status, m.inputName])).toEqual([
+      ["z_image_turbo_bf16.safetensors", "present", "unetModel"], ["qwen_3_4b.safetensors", "present", "textEncoder"], ["z_image_ae.safetensors", "present", "vae"],
     ]);
     f.comboStyle = "old";
-    f.models.VAELoader!.vae_name = ["other.safetensors"];
+    f.models.VAELoader!.vae_name = ["ae.safetensors", "sdxl_vae_fp16_fix.safetensors"];
     const missing = await probeWorkflow(client, builtIn("z-image-turbo"));
     expect(missing.runnable).toBe(false);
-    expect(describeProbe(missing)).toBe("missing models ae.safetensors (models/vae)");
+    // the files the loader has, so the right one can be named
+    expect(describeProbe(missing)).toBe("missing models z_image_ae.safetensors (models/vae; input vae; the loader has ae.safetensors, sdxl_vae_fp16_fix.safetensors)");
     expect(f.queued).toHaveLength(0);
   });
 
@@ -210,6 +220,52 @@ describe("the probe", () => {
     expect(probe.missingNodes).toEqual(["Wan22ImageToVideoLatent"]);
     expect(f.calls.filter((c) => c.path === "/object_info/UNETLoader")).toHaveLength(1);
     expect(requiredNodes(builtIn("wan22-ti2v-5b"))).toContain("SaveVideo");
+  });
+});
+
+describe("a node's required inputs", () => {
+  it("are read from /object_info, so a server whose version requires one more refuses before a run, not at queue time", async () => {
+    f.required.ImageScaleToTotalPixels = ["resolution_steps", "crop"];
+    const probe = await probeWorkflow(client, builtIn("flux2-klein-edit"));
+    expect(probe.missingInputs).toEqual([{ node: "5", classType: "ImageScaleToTotalPixels", input: "crop" }]);
+    expect(probe.runnable).toBe(false);
+    expect(describeProbe(probe)).toContain("node 5 ImageScaleToTotalPixels lacks crop (this server's version requires it)");
+    const e = await failure(runWorkflow({ client, workflow: builtIn("flux2-klein-edit"), values: { prompt: "x", image: { bytes: Buffer.from("x"), filename: "a.png" }, unetModel: "z_image_turbo_bf16.safetensors", vae: "z_image_ae.safetensors" } }));
+    expect(e.code).toBe("bad-request");
+    expect(f.calls.some((c) => c.path === "/upload/image" || c.path === "/prompt")).toBe(false);
+  });
+});
+
+describe("model inputs", () => {
+  it("name another file of the server without copying the workflow, and are checked like any model", async () => {
+    f.models.VAELoader!.vae_name = ["ae.safetensors"];
+    await runWorkflow({ client, workflow: builtIn("z-image-turbo"), values: { prompt: "x", vae: "ae.safetensors" } });
+    expect(f.queued[0]!["17"]!.inputs.vae_name).toBe("ae.safetensors");
+    const e = await failure(runWorkflow({ client, workflow: builtIn("z-image-turbo"), values: { prompt: "x", vae: "none.safetensors" } }));
+    expect(e.code).toBe("missing-model");
+    expect(e.message).toContain("none.safetensors (models/vae; input vae; the loader has ae.safetensors)");
+    expect(() => resolveValues(builtIn("z-image-turbo"), { prompt: "x", vae: "" })).toThrow(/vae: a model's file name/);
+  });
+
+  it("take other defaults, checked against their declaration", () => {
+    const w = withDefaults(builtIn("z-image-turbo"), { vae: "ae.safetensors", steps: 6 });
+    expect(w.inputs.vae!.default).toBe("ae.safetensors");
+    expect(w.inputs.steps!.default).toBe(6);
+    expect(builtIn("z-image-turbo").inputs.vae!.default).toBe("z_image_ae.safetensors");
+    expect(() => withDefaults(builtIn("z-image-turbo"), { vea: "x" })).toThrow(/no input vea/);
+    expect(() => withDefaults(builtIn("z-image-turbo"), { steps: 500 })).toThrow(/steps: at most 50/);
+    expect(() => withDefaults(builtIn("z-image-turbo"), { seed: 1 })).toThrow(/a seed has no default/);
+  });
+
+  it("must be read by a model requirement, and a file named in the graph is worth a warning", () => {
+    const w = tiny();
+    w.inputs.lora = { type: "model", default: "x.safetensors" };
+    w.prompt["3"]!.inputs.lora = "{{lora}}";
+    expect(checkWorkflow(w).map((p) => p.message)).toContain("inputs.lora is a model, and no requires.models entry reads it: name the loader's node and input there");
+    expect(checkWorkflow(tiny())).toEqual([]);
+    const literal = tiny();
+    literal.requires!.models = [{ node: "1", input: "weight_dtype" }];
+    expect(checkWorkflow(literal).find((p) => p.level === "warning")).toMatchObject({ message: expect.stringContaining("names its file in the graph") });
   });
 });
 
@@ -273,10 +329,10 @@ describe("runWorkflow", () => {
     f.missing.add("EmptyFlux2LatentImage");
     const e = await failure(runWorkflow({ client, workflow: builtIn("flux2-klein-edit"), values: { prompt: "make it night", image: { bytes: Buffer.from("x"), filename: "a.png" } } }));
     expect(e.code).toBe("missing-node");
-    expect(e.message).toMatch(/missing nodes EmptyFlux2LatentImage, ReferenceLatent; missing models flux-2-klein-4b.safetensors \(models\/diffusion_models\)/);
+    expect(e.message).toMatch(/missing nodes EmptyFlux2LatentImage, ReferenceLatent; missing models flux-2-klein-4b.safetensors \(models\/diffusion_models; input unetModel; the loader has z_image_turbo_bf16/);
     f.missing.clear();
-    f.models.CheckpointLoaderSimple = { ckpt_name: [] };
-    const music = await failure(runWorkflow({ client, workflow: builtIn("ace-step-music"), values: { tags: "strings" } }));
+    f.models.CheckpointLoaderSimple = { ckpt_name: ["ace_step_1.5_turbo_aio.safetensors"] };
+    const music = await failure(runWorkflow({ client, workflow: builtIn("ace-step-v1-music"), values: { tags: "strings" } }));
     expect(music.code).toBe("missing-model");
     expect(f.calls.some((c) => c.path === "/upload/image" || c.path === "/prompt")).toBe(false);
   });
@@ -293,7 +349,8 @@ describe("runWorkflow", () => {
       if (new URL(String(input)).pathname.startsWith("/history/")) return new Response(JSON.stringify({ p1: { status: { status_str: "success", completed: true }, outputs: {} } }));
       return f.fetch(input, init);
     }) as typeof fetch });
-    const e = await failure(runWorkflow({ client: quiet, workflow: builtIn("ace-step-music"), values: { tags: "x" } }));
+    f.models.CheckpointLoaderSimple = { ckpt_name: ["ace_step_v1_3.5b.safetensors"] };
+    const e = await failure(runWorkflow({ client: quiet, workflow: builtIn("ace-step-v1-music"), values: { tags: "x" } }));
     expect(e.code).toBe("no-output");
     expect(e.message).toMatch(/audio node 59 \(SaveAudio\)/);
   });

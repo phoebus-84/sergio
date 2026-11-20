@@ -6,9 +6,13 @@
     "prompt": { "type": "text", "description": "What to change, and what to keep" },
     "megapixels": { "type": "number", "default": 1, "min": 0.25, "max": 4, "description": "The reference is scaled to about this many megapixels" },
     "steps": { "type": "integer", "default": 4, "min": 1, "max": 50 },
-    "seed": { "type": "seed" }
+    "seed": { "type": "seed" },
+    "unetModel": { "type": "model", "default": "flux-2-klein-4b.safetensors", "description": "FLUX.2 [klein] 4B, as this server names it" },
+    "textEncoder": { "type": "model", "default": "qwen_3_4b.safetensors", "description": "Qwen3 4B text encoder" },
+    "vae": { "type": "model", "default": "flux2-vae.safetensors", "description": "The FLUX.2 autoencoder" }
   },
   "outputs": { "14": "image" },
+  "verifiedOn": "ComfyUI 0.45.0, RX 7900 XTX (ROCm), 2026-11-20",
   "requires": {
     "models": [
       { "node": "1", "input": "unet_name", "folder": "diffusion_models" },
@@ -17,11 +21,11 @@
     ]
   },
   "prompt": {
-    "1": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-4b.safetensors", "weight_dtype": "default" } },
-    "2": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen_3_4b.safetensors", "type": "flux2", "device": "default" } },
-    "3": { "class_type": "VAELoader", "inputs": { "vae_name": "flux2-vae.safetensors" } },
+    "1": { "class_type": "UNETLoader", "inputs": { "unet_name": "{{unetModel}}", "weight_dtype": "default" } },
+    "2": { "class_type": "CLIPLoader", "inputs": { "clip_name": "{{textEncoder}}", "type": "flux2", "device": "default" } },
+    "3": { "class_type": "VAELoader", "inputs": { "vae_name": "{{vae}}" } },
     "4": { "class_type": "LoadImage", "inputs": { "image": "{{image}}" } },
-    "5": { "class_type": "ImageScaleToTotalPixels", "inputs": { "image": ["4", 0], "upscale_method": "lanczos", "megapixels": "{{megapixels}}" } },
+    "5": { "class_type": "ImageScaleToTotalPixels", "inputs": { "image": ["4", 0], "upscale_method": "lanczos", "megapixels": "{{megapixels}}", "resolution_steps": 1 } },
     "6": { "class_type": "VAEEncode", "inputs": { "pixels": ["5", 0], "vae": ["3", 0] } },
     "7": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["2", 0], "text": "{{prompt}}" } },
     "8": { "class_type": "ReferenceLatent", "inputs": { "conditioning": ["7", 0], "latent": ["6", 0] } },

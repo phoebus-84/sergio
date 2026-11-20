@@ -16,6 +16,8 @@ export interface WorkflowTemplate extends GraphTemplate {
   description: string;
   /** Which node saves which result: role → node id. */
   outputs: Record<string, string>;
+  /** When and where it last ran well on a real server; absent, never from here. */
+  verifiedOn?: string;
 }
 
 /** The template as stored; a fresh copy each time. */

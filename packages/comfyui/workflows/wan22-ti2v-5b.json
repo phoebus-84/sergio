@@ -11,7 +11,10 @@
     "fps": { "type": "integer", "default": 24, "min": 8, "max": 60 },
     "steps": { "type": "integer", "default": 20, "min": 1, "max": 60 },
     "cfg": { "type": "number", "default": 5, "min": 1, "max": 15 },
-    "seed": { "type": "seed" }
+    "seed": { "type": "seed" },
+    "unetModel": { "type": "model", "default": "wan2.2_ti2v_5B_fp16.safetensors", "description": "Wan 2.2 TI2V 5B, as this server names it" },
+    "textEncoder": { "type": "model", "default": "umt5_xxl_fp16.safetensors", "description": "UMT5-XXL text encoder (fp16, or umt5_xxl_fp8_e4m3fn_scaled.safetensors)" },
+    "vae": { "type": "model", "default": "wan2.2_vae.safetensors", "description": "The Wan 2.2 autoencoder (not Wan 2.1's)" }
   },
   "outputs": { "58": "video" },
   "optionalNodes": { "image": "56" },
@@ -23,9 +26,9 @@
     ]
   },
   "prompt": {
-    "37": { "class_type": "UNETLoader", "inputs": { "unet_name": "wan2.2_ti2v_5B_fp16.safetensors", "weight_dtype": "default" } },
-    "38": { "class_type": "CLIPLoader", "inputs": { "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan", "device": "default" } },
-    "39": { "class_type": "VAELoader", "inputs": { "vae_name": "wan2.2_vae.safetensors" } },
+    "37": { "class_type": "UNETLoader", "inputs": { "unet_name": "{{unetModel}}", "weight_dtype": "default" } },
+    "38": { "class_type": "CLIPLoader", "inputs": { "clip_name": "{{textEncoder}}", "type": "wan", "device": "default" } },
+    "39": { "class_type": "VAELoader", "inputs": { "vae_name": "{{vae}}" } },
     "48": { "class_type": "ModelSamplingSD3", "inputs": { "model": ["37", 0], "shift": 8 } },
     "6": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["38", 0], "text": "{{prompt}}" } },
     "7": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["38", 0], "text": "{{negativePrompt}}" } },

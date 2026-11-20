@@ -8,6 +8,7 @@
 //       "prompt": { "type": "text" },
 //       "width":  { "type": "integer", "default": 1024, "min": 256, "max": 2048 },
 //       "seed":   { "type": "seed" },          absent: a random one, returned
+//       "vae":    { "type": "model", "default": "ae.safetensors" },   a file a loader reads
 //       "image":  { "type": "image" },         a file: uploaded, its input name filled in
 //       "start":  { "type": "image", "optional": true }   leaves its optionalNodes out when absent
 //     },
@@ -15,7 +16,7 @@
 //     "requires": {
 //       "nodes": ["SaveImage"],                classes beyond the graph's own (they are read from it)
 //       "packs": ["ComfyUI-VideoHelperSuite"], where custom classes come from, for a person
-//       "models": [{ "node": "16", "input": "unet_name", "folder": "diffusion_models" }]
+//       "models": [{ "node": "17", "input": "vae_name", "folder": "vae" }]   its value: {{vae}}
 //     },
 //     "verifiedOn": "ComfyUI 0.3.75, 2026-11-20", when and where it last ran; absent: never on a real server
 //     "prompt": { … API format, with {{name}} placeholders … },
@@ -24,8 +25,10 @@
 //
 // `{{outputPrefix}}` is the runner's: every output node's filename_prefix
 // should be it, so that each run writes files of its own. A model is the
-// value a loader node's input holds (a file name, or a placeholder whose
-// value or default is one); the probe checks the server lists it.
+// value a loader node's input holds. Every server names its files its own
+// way, so a model is best a `model` input with a default — a caller, or the
+// library's defaults, can then name another file without copying the
+// template — and the probe checks the server lists the file it gets.
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -39,7 +42,7 @@ export type WorkflowKind = typeof WORKFLOW_KINDS[number];
 export const OUTPUT_ROLES = ["image", "video", "audio"] as const;
 export type OutputRole = typeof OUTPUT_ROLES[number];
 export const FILE_INPUT_TYPES = ["image", "audio", "video"] as const;
-export const VALUE_INPUT_TYPES = ["text", "string", "integer", "number", "boolean", "seed", "choice"] as const;
+export const VALUE_INPUT_TYPES = ["text", "string", "integer", "number", "boolean", "seed", "choice", "model"] as const;
 export const INPUT_TYPES = [...VALUE_INPUT_TYPES, ...FILE_INPUT_TYPES] as const;
 export type InputType = typeof INPUT_TYPES[number];
 export type FileInputType = typeof FILE_INPUT_TYPES[number];
@@ -154,6 +157,14 @@ export function checkWorkflow(value: unknown): WorkflowProblem[] {
   for (const name of Object.keys(inputs)) {
     if (!used.has(name) && !(w.bypassNodes && name in w.bypassNodes)) error(`inputs.${name} is declared, and no {{${name}}} in the graph reads it`);
   }
+  const modelInputs = new Set((Array.isArray(w.requires?.models) ? w.requires!.models : []).flatMap((m) => {
+    const v = isObject(m) && typeof m.node === "string" && typeof m.input === "string" ? prompt[m.node]?.inputs[m.input] : undefined;
+    const p = typeof v === "string" ? PLACEHOLDER.exec(v) : null;
+    return p ? [p[1]!] : [];
+  }));
+  for (const [name, d] of Object.entries(inputs)) {
+    if (isObject(d) && d.type === "model" && !modelInputs.has(name)) error(`inputs.${name} is a model, and no requires.models entry reads it: name the loader's node and input there`);
+  }
   for (const [name, ids] of Object.entries({ ...(w.optionalNodes ?? {}), ...(w.bypassNodes ?? {}) })) {
     for (const id of typeof ids === "string" ? [ids] : ids) if (!prompt[id]) error(`node ${id}, named for ${name}, is not in the graph`);
   }
@@ -180,6 +191,9 @@ export function checkWorkflow(value: unknown): WorkflowProblem[] {
       const node = prompt[m.node];
       if (!node) error(`requires.models[${i}]: the graph has no node ${m.node}`);
       else if (!(m.input in node.inputs)) error(`requires.models[${i}]: node ${m.node} (${node.class_type}) has no input ${m.input}`);
+      else if (typeof node.inputs[m.input] === "string" && !PLACEHOLDER.test(node.inputs[m.input] as string)) {
+        warn(`requires.models[${i}]: node ${m.node} names its file in the graph; a server that names it otherwise cannot run it without a copy of the workflow. Make it a model input with a default`);
+      }
     }
   }
   if (w.verifiedOn !== undefined && typeof w.verifiedOn !== "string") error("verifiedOn: when and where it last ran, as text");
@@ -192,6 +206,8 @@ export function problemOfValue(d: InputDeclaration, v: unknown): string | null {
     case "text":
     case "string":
       return typeof v === "string" ? null : "a string";
+    case "model":
+      return typeof v === "string" && v.trim() !== "" ? null : "a model's file name, as the loader lists it";
     case "boolean":
       return typeof v === "boolean" ? null : "true or false";
     case "choice":
@@ -218,16 +234,42 @@ export function requiredNodes(workflow: Pick<DeclaredWorkflow, "prompt" | "requi
   return [...new Set([...Object.values(prompt).map((n) => n.class_type), ...(workflow.requires?.nodes ?? [])])].sort();
 }
 
-/** The model files a graph names, for each requirement: null when a placeholder has no value or default yet. */
-export function requiredModels(workflow: DeclaredWorkflow, prompt: ComfyUiPrompt = workflow.prompt): (ModelRequirement & { classType: string; file: string | null })[] {
+/**
+ * The model files a graph names, for each requirement: null when a
+ * placeholder has no value or default yet. `inputName` is the workflow's
+ * input that sets it, when one does.
+ */
+export function requiredModels(workflow: DeclaredWorkflow, prompt: ComfyUiPrompt = workflow.prompt): (ModelRequirement & { classType: string; file: string | null; inputName?: string })[] {
   return (workflow.requires?.models ?? []).flatMap((m) => {
     const node = prompt[m.node];
     if (!node) return []; // an optional node left out: its model is not needed
     let value = node.inputs[m.input];
     const placeholder = typeof value === "string" ? PLACEHOLDER.exec(value) : null;
     if (placeholder) value = workflow.inputs[placeholder[1]!]?.default;
-    return [{ ...m, classType: node.class_type, file: typeof value === "string" && value !== "" ? value : null }];
+    const inputName = placeholder?.[1] ?? workflowInputOf(workflow, m);
+    return [{ ...m, classType: node.class_type, file: typeof value === "string" && value !== "" ? value : null, ...(inputName ? { inputName } : {}) }];
   });
+}
+
+/** The input a filled graph's model came from, read from the template. */
+function workflowInputOf(workflow: DeclaredWorkflow, m: ModelRequirement): string | undefined {
+  const v = workflow.prompt[m.node]?.inputs[m.input];
+  const p = typeof v === "string" ? PLACEHOLDER.exec(v) : null;
+  return p?.[1];
+}
+
+/** The workflow with other defaults for some inputs (a library's, for its server), each checked against its declaration. */
+export function withDefaults(workflow: DeclaredWorkflow, defaults: Record<string, unknown>): DeclaredWorkflow {
+  const inputs = { ...workflow.inputs };
+  for (const [name, value] of Object.entries(defaults)) {
+    const d = inputs[name];
+    if (!d) throw new Error(`the workflow has no input ${name}`);
+    if (isFileInput(d) || d.type === "seed") throw new Error(`${name}: a ${d.type} has no default`);
+    const wrong = problemOfValue(d, value);
+    if (wrong) throw new Error(`${name}: ${wrong}`);
+    inputs[name] = { ...d, default: value as WorkflowValue };
+  }
+  return { ...workflow, inputs };
 }
 
 /** One workflow file, read and checked. */

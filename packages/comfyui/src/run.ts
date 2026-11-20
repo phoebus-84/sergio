@@ -159,7 +159,8 @@ export async function runWorkflow(o: RunWorkflowOptions): Promise<WorkflowRun> {
     ...(o.cache ? { cache: o.cache } : {}), ...(o.signal ? { signal: o.signal } : {}),
   });
   if (!probe.runnable) {
-    throw new ComfyUiError(probe.missingNodes.length > 0 ? "missing-node" : "missing-model", `the server cannot run this workflow: ${describeProbe(probe)}`);
+    const code = probe.missingNodes.length > 0 ? "missing-node" : probe.models.some((m) => m.status === "missing") ? "missing-model" : "bad-request";
+    throw new ComfyUiError(code, `the server cannot run this workflow: ${describeProbe(probe)}`);
   }
 
   const uploads: Record<string, UploadedInput> = {};
