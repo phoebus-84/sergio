@@ -12,7 +12,9 @@
 // staging is described, not scripted, and the set's own Python stays off.
 // What a look at one frame does not show is measured and said: whether each
 // character was in the picture, whether the set hid it, whether two came to
-// stand in one place, and whether a body was moved faster than its feet step.
+// stand in one place, whether a body was moved faster than its feet step,
+// and whether a part of a body passed into another: a hand into the head.
+// A character that plays no clip stands with its arms beside it.
 // ---------------------------------------------------------------------------
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -30,6 +32,7 @@ import {
 } from "@av/blender/stage-shot";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { CLIP_NAME, resolveRig } from "./rig-source.js";
+import { THROUGH_MARK, throughText } from "./rig-sheet-tools.js";
 import { guardEpisodePath } from "./trust-guards.js";
 
 export const STAGE_SHOT_TOOL = "pva_stage_shot";
@@ -98,10 +101,19 @@ export function describeStageShot(report: StageShotReport, staged: readonly Stag
       warnings.push(player.inFrame === 0 ? `   ⚠️ ${player.name} is never in the picture` : `   ⚠️ ${player.name} is in the picture for ${share(player.inFrame)} of the shot`);
     }
     if (player.hidden > 0.005) warnings.push(`   ⚠️ ${player.name} is behind something of the set for ${share(player.hidden)} of the shot`);
+    const hangs = Object.values(player.standing ?? {});
+    if (hangs.some((degrees) => degrees > -75)) {
+      lines.push(`   ${player.name} stands with its arms ${hangs.length > 1 && hangs[0] !== hangs[1] ? `at ${hangs.join("° and ")}°` : `at ${hangs[0]}°`} below the horizontal when it plays nothing: lower, a hand would pass into its body`);
+    }
+    for (const through of player.through ?? []) {
+      const deep = through.depth / Math.max(player.tall, 1e-6) >= THROUGH_MARK;
+      const text = throughText({ ...through, depth: through.depth / Math.max(player.tall, 1e-6) }, `${Math.max(1, Math.round(through.depth * 100))} cm`);
+      (deep ? warnings : lines).push(`   ${deep ? "⚠️ " : ""}${player.name}: ${text}, deepest at ${secs(through.at)}`);
+    }
   });
   for (const pair of report.tooClose) warnings.push(`   ⚠️ ${pair.players[0]} and ${pair.players[1]} stand in the same place from ${secs(pair.from)}: one passes through the other`);
   lines.push(...warnings, ...report.notes.map((note) => `   ${note}`));
-  lines.push("   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is. A hand through a wall, a look that misses the other's face, a light that flatters nobody are seen, not measured");
+  lines.push("   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, and whether a part of a body passes into another of it. A hand through a wall or someone else, a look that misses the other's face, a light that flatters nobody are seen, not measured");
   return lines;
 }
 
@@ -124,7 +136,8 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       "A place is a mark of the set by name, or \"x, y\" in metres on the floor as seen from the front: x to the right, y away from the audience. " +
       "`set` is a .blend of the episode (pva_blender_create_scene), in metres, z up, its front towards -y: an object named mark.<name> is a place called <name>, turned the way its -y points; a place in metres stands on the set's floor there. " +
       "The set brings its light and its world; `setCamera: true` films with its own camera. Otherwise the camera is asked for in words — `view` front, three-quarter, side or back, seen from the audience; `framing` wide, full, medium or close; `on` the players it is about — and goes with them unless `follow` is false. " +
-      "It reports for each player the share of the shot it was in the picture and the share the set hid it, and pairs that came to stand in one place. " +
+      "A two-legged character that plays no clip — before its first, between two, after its last — stands with its arms beside it, not in its rig's rest pose. " +
+      "It reports for each player the share of the shot it was in the picture and the share the set hid it, pairs that came to stand in one place, and a part of a body that went into another of it (a hand into the head), how deep and when. " +
       "Release each character at its own height first (pva_release_model): two in one picture are in proportion only then. Saves assets/video/<shotId>.mp4 and <shotId>.provenance.json. Look at the result before it is used: pva_inspect_media.",
     parameters: Type.Object({
       channel: Type.String({ description: "Channel slug" }),

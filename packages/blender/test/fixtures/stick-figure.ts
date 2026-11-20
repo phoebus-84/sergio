@@ -19,8 +19,12 @@ export const STICK_JOINTS: Joint[] = [
   { name: "RightLeg", parent: 9, at: [-0.12, 0.5, 0] },
 ];
 
-/** The figure. `names` renames its joints, for a skeleton whose names say nothing. */
-export function stickFigure(options: { names?: (name: string) => string; walk?: boolean } = {}): Buffer {
+/**
+ * The figure. `names` renames its joints, for a skeleton whose names say nothing. `boxes` puts a
+ * box of the given half-size around a joint in place of its tetrahedron: a big head, a wide body.
+ * `reach` adds a clip of two seconds in which the left arm goes up and over, to the head, and back.
+ */
+export function stickFigure(options: { names?: (name: string) => string; walk?: boolean; boxes?: Partial<Record<string, number>>; reach?: boolean } = {}): Buffer {
   const joints = STICK_JOINTS;
   const chunks: Buffer[] = [];
   const bufferViews: Record<string, unknown>[] = [];
@@ -36,15 +40,23 @@ export function stickFigure(options: { names?: (name: string) => string; walk?: 
   };
 
   // A tetrahedron at each joint, reaching down towards the ground so the body has a height.
-  const corners: Vec3[] = [[0.06, 0, 0], [-0.06, 0, 0.05], [-0.06, 0, -0.05], [0, -0.3, 0]];
-  const faces = [0, 1, 2, 0, 3, 1, 1, 3, 2, 2, 3, 0];
-  const count = joints.length * 4;
+  const tetrahedron = { corners: [[0.06, 0, 0], [-0.06, 0, 0.05], [-0.06, 0, -0.05], [0, -0.3, 0]] as Vec3[], faces: [0, 1, 2, 0, 3, 1, 1, 3, 2, 2, 3, 0] };
+  // A box, its faces wound to face out: corner b is at +h on x when b & 1, on y when b & 2, on z when b & 4.
+  const box = (h: number) => ({
+    corners: [0, 1, 2, 3, 4, 5, 6, 7].map((b): Vec3 => [b & 1 ? h : -h, b & 2 ? h : -h, b & 4 ? h : -h]),
+    faces: [0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5, 0, 1, 5, 0, 5, 4, 2, 6, 7, 2, 7, 3, 0, 2, 3, 0, 3, 1, 4, 5, 7, 4, 7, 6],
+  });
+  const solids = joints.map((joint) => (options.boxes?.[joint.name] !== undefined ? box(options.boxes[joint.name]!) : tetrahedron));
+  const count = solids.reduce((sum, solid) => sum + solid.corners.length, 0);
+  const triangles = solids.reduce((sum, solid) => sum + solid.faces.length, 0);
   const positions = Buffer.alloc(count * 12), bound = Buffer.alloc(count * 4), weights = Buffer.alloc(count * 16);
-  const indices = Buffer.alloc(joints.length * faces.length * 2);
+  const indices = Buffer.alloc(triangles * 2);
   const low: Vec3 = [Infinity, Infinity, Infinity], high: Vec3 = [-Infinity, -Infinity, -Infinity];
+  let first = 0, written = 0;
   joints.forEach((joint, j) => {
+    const { corners, faces } = solids[j]!;
     corners.forEach((corner, c) => {
-      const vertex = j * 4 + c;
+      const vertex = first + c;
       for (let axis = 0; axis < 3; axis++) {
         const value = joint.at[axis]! + corner[axis]!;
         positions.writeFloatLE(value, vertex * 12 + axis * 4);
@@ -54,12 +66,13 @@ export function stickFigure(options: { names?: (name: string) => string; walk?: 
       bound.writeUInt8(j, vertex * 4);
       weights.writeFloatLE(1, vertex * 16);
     });
-    faces.forEach((corner, f) => indices.writeUInt16LE(j * 4 + corner, (j * faces.length + f) * 2));
+    faces.forEach((corner) => indices.writeUInt16LE(first + corner, (written++) * 2));
+    first += corners.length;
   });
   const position = add(positions, { componentType: 5126, count, type: "VEC3", min: low.map((v) => Math.fround(v)), max: high.map((v) => Math.fround(v)) });
   const jointsAt = add(bound, { componentType: 5121, count, type: "VEC4" });
   const weightsAt = add(weights, { componentType: 5126, count, type: "VEC4" });
-  const indexAt = add(indices, { componentType: 5123, count: joints.length * faces.length, type: "SCALAR" });
+  const indexAt = add(indices, { componentType: 5123, count: triangles, type: "SCALAR" });
   const inverse = Buffer.alloc(joints.length * 64);
   joints.forEach((joint, j) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -joint.at[0], -joint.at[1], -joint.at[2], 1].forEach((value, k) => inverse.writeFloatLE(value, j * 64 + k * 4)));
   const inverseAt = add(inverse, { componentType: 5126, count: joints.length, type: "MAT4" });
@@ -91,6 +104,20 @@ export function stickFigure(options: { names?: (name: string) => string; walk?: 
       samplers: [{ input, output: swing(1), interpolation: "LINEAR" }, { input, output: swing(-1), interpolation: "LINEAR" }],
       channels: [{ sampler: 0, target: { node: 7, path: "rotation" } }, { sampler: 1, target: { node: 9, path: "rotation" } }],
     });
+  }
+
+  if (options.reach) {
+    const times = Buffer.alloc(12);
+    [0, 1, 2].forEach((value, k) => times.writeFloatLE(value, k * 4));
+    const input = add(times, { componentType: 5126, count: 3, type: "SCALAR", min: [0], max: [2] });
+    // About z, the way the figure faces: its left arm, out along +x, is turned up through +y and over.
+    const turns = Buffer.alloc(48);
+    [0, 135, 0].forEach((degrees, k) => {
+      const half = (degrees * Math.PI) / 360;
+      [0, 0, Math.sin(half), Math.cos(half)].forEach((value, i) => turns.writeFloatLE(value, k * 16 + i * 4));
+    });
+    const output = add(turns, { componentType: 5126, count: 3, type: "VEC4" });
+    animations.push({ name: "reach", samplers: [{ input, output, interpolation: "LINEAR" }], channels: [{ sampler: 0, target: { node: 3, path: "rotation" } }] });
   }
 
   const json = {

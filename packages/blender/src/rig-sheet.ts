@@ -4,7 +4,9 @@
 // A rig that is right at rest is the usual way an automatic rig is wrong.
 // This puts a rigged binary glTF in known poses, renders each from three
 // sides on one sheet, plays its clips over six moments each, and measures
-// how far every pose pulled the surface out of shape. The work is done by
+// how far every pose pulled the surface out of shape and, for a two-legged
+// body, whether a part passed into another: a hand into the head. The work
+// is done by
 // python/rig-sheet.py inside Blender; nothing here runs code that came with
 // the model: a .glb is data.
 // ---------------------------------------------------------------------------
@@ -59,6 +61,29 @@ export interface RigStrain {
   torn: number;
 }
 
+/**
+ * Two parts of a two-legged body in each other, more than at rest. Its skin is cut up by the bone
+ * that moves each point most: head, body, left and right hand (the forearm and all that hangs from
+ * it), upper arm, leg. Only parts that are not joined are looked at: a hand and the head, the body
+ * or the other hand; one leg and the other.
+ */
+export interface RigThrough {
+  parts: [string, string];
+  /** How far one is in the other, in heights of the body, beyond how far it is at rest. */
+  depth: number;
+}
+
+/** The same over a clip, looked for at 24 moments a second. */
+export interface RigClipThrough extends RigThrough {
+  /** When it first happens, in seconds from the start of the clip; for how long; when it is deepest. */
+  from: number;
+  seconds: number;
+  at: number;
+}
+
+/** Less than this share of the body's height in another part is a brush, not a part passing through. */
+export const RIG_THROUGH_FROM = 0.02;
+
 export interface SheetLayout {
   /** The picture, relative to the output directory. */
   sheet: string;
@@ -78,12 +103,14 @@ export interface RigSheetReport {
     /** biped: its bones' names were read as a two-legged body's. */
     skeleton: "biped" | "unknown";
     roles: Record<string, string>;
+    /** The parts its skin was cut into to see what passes through what; none when it is not a biped's. */
+    parts: string[];
   };
   bones: { name: string; parent: string | null; at: [number, number, number] }[];
   /** The rows of the pose sheet, top to bottom. */
   views: string[];
   /** The columns of the pose sheet, left to right; the first is the rest pose. */
-  poses: SheetLayout & { list: (RigPose & RigStrain)[] };
+  poses: SheetLayout & { list: (RigPose & RigStrain & { through: RigThrough[] })[] };
   clips: (SheetLayout & RigStrain & {
     name: string;
     from: "rig" | "file";
@@ -91,6 +118,8 @@ export interface RigSheetReport {
     seconds: number;
     /** How far the body moves over the ground, in heights of the body: 0 is played on the spot. */
     travel: number;
+    /** Parts in each other, deepest first. */
+    through: RigClipThrough[];
   })[];
   /** The motions the rig holds inside, by name. */
   actionsInside: string[];

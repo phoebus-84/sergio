@@ -123,7 +123,7 @@ describe("pva_stage_shot", () => {
       "   child (assets/models/child.glb), 1.2 m tall, at 1.5, 2: waits 2s; then goes to 0.5, 2 playing running, 2 m in 1s",
       "   ⚠️ host is moved at 2 m/s on its way to lamp and its clip walks at 1: its feet will slide. Leave `seconds` out of that act and it goes at its clip's pace",
       "   ⚠️ child is moved at 2 m/s on its way to 0.5, 2 and its clip walks at 1: its feet will slide. Leave `seconds` out of that act and it goes at its clip's pace",
-      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is. A hand through a wall, a look that misses the other's face, a light that flatters nobody are seen, not measured",
+      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, and whether a part of a body passes into another of it. A hand through a wall or someone else, a look that misses the other's face, a light that flatters nobody are seen, not measured",
     ]);
     const provenance = JSON.parse(readFileSync(video("meeting.provenance.json"), "utf8"));
     expect(provenance).toMatchObject({
@@ -178,14 +178,19 @@ describe("pva_stage_shot", () => {
     expect(placeOf("mark.2")).toBe("mark.2");
   });
 
-  it("says what a look at one frame does not show: out of the picture, hidden, two in one place, feet that slide", () => {
+  it("says what a look at one frame does not show: out of the picture, hidden, two in one place, feet that slide, a hand in a head", () => {
     const report: StageShotReport = {
       frames: 96, fps: 24, seconds: 4, width: 1280, height: 720, set: true, marks: [],
       camera: { kind: "words", view: "three-quarter", framing: "wide", follow: true },
       players: [
         { name: "host", skeleton: true, at: [-4, 1, 0], turn: 90, tall: 1.7, ends: 4, travel: 4, inFrame: 0.75, hidden: 0.11,
-          does: [{ from: 0, seconds: 4, clip: "walking.glb", action: "walking", clipSeconds: 1, to: [0, 1, 0], metres: 4, speed: 1, pace: 0.92 }] },
-        { name: "statue", skeleton: false, at: [0, 1.2, 0], turn: 0, tall: 2, ends: 0, travel: 0, inFrame: 0, hidden: 0, does: [] },
+          does: [{ from: 0, seconds: 4, clip: "walking.glb", action: "walking", clipSeconds: 1, to: [0, 1, 0], metres: 4, speed: 1, pace: 0.92 }],
+          standing: { left: -60, right: -65 },
+          through: [
+            { parts: ["right hand", "head"], depth: 0.107, from: 1.5, seconds: 2.25, at: 2 },
+            { parts: ["left hand", "body"], depth: 0.032, from: 0.5, seconds: 0.29, at: 0.63 },
+          ] },
+        { name: "statue", skeleton: false, at: [0, 1.2, 0], turn: 0, tall: 2, ends: 0, travel: 0, inFrame: 0, hidden: 0, does: [], standing: null, through: [] },
       ],
       tooClose: [{ players: ["host", "statue"], from: 3.5 }],
       notes: ["the set has no light of its own: a sun was added from beside the camera"],
@@ -197,13 +202,17 @@ describe("pva_stage_shot", () => {
       "   on the set sets/hall.blend (it has no marks); camera three-quarter, wide, on everyone, going with them",
       // Within fifteen parts in a hundred of its clip's pace, a walk is not said to slide.
       "   host (the role host), 1.7 m tall, at left: goes to 0, 1 playing walking, 4 m in 4s at its clip's pace (0.92 m/s)",
+      // A body wider than the arms clear stands with them less low; a hand that brushes the body by under 5% of its height is said, not marked.
+      "   host stands with its arms at -60° and -65° below the horizontal when it plays nothing: lower, a hand would pass into its body",
+      "   host: its left hand brushes its body (3 cm) from 0.5s for 0.29s, deepest at 0.63s",
       "   statue (the role statue), 2 m tall, at 0, 1.2: stands (it has no skeleton)",
       "   ⚠️ host is in the picture for 75% of the shot",
       "   ⚠️ host is behind something of the set for 11% of the shot",
+      "   ⚠️ host: its right hand goes into its head (11 cm) from 1.5s for 2.25s, deepest at 2s",
       "   ⚠️ statue is never in the picture",
       "   ⚠️ host and statue stand in the same place from 3.5s: one passes through the other",
       "   the set has no light of its own: a sun was added from beside the camera",
-      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is. A hand through a wall, a look that misses the other's face, a light that flatters nobody are seen, not measured",
+      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, and whether a part of a body passes into another of it. A hand through a wall or someone else, a look that misses the other's face, a light that flatters nobody are seen, not measured",
     ]);
   });
 });

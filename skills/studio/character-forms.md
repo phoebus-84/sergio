@@ -198,9 +198,13 @@ never saved over: an episode appends the rig and animates a copy.
    - **Read the sheet, then the numbers.** For each pose the tool says how
      much of the surface was strained and how many edges were torn, and
      marks the poses that went further than a sound rig does (ten hand-made
-     two-legged rigs stay under 1% strained and tear almost nothing). The
-     numbers say where to look and let two attempts be compared pose for
-     pose; they do not see a hand passing through a hat, or a face that no
+     two-legged rigs stay under 1% strained and tear almost nothing). For a
+     two-legged body it also finds a part that goes into another it is not
+     joined to — a hand into the head, the body or the other hand, a leg
+     through the other — in each pose and through each clip, with when.
+     Under 5% of the body's height that is a brush, said and not marked;
+     above it, a hand is in a face. The numbers say where to look and let
+     two attempts be compared pose for pose; they do not see a face that no
      longer looks like the character. Look at the shoulders, the hips, the
      neck and whatever the character wears.
    - **Automatic rigging is good and not reliable.** Make more than one
@@ -239,10 +243,12 @@ never saved over: an episode appends the rig and animates a copy.
      moments of the sheet no bow could be seen. Ask again with another
      `seed`, or ask for one thing a clip.
    - **Play every clip before it is used**: `pva_rig_sheet` shows six moments
-     of each from two sides. Feet that slide, a hand through the body, a
-     limb bent the wrong way are seen there and are not measured. A motion
-     made for a person's proportions puts the hand of a character with a
-     large head inside its face.
+     of each from two sides, and says when a part of the body goes into
+     another. A motion made for a person's proportions puts the hand of a
+     character with a large head inside its face: the lamplighter's wave,
+     made from a sentence, put his hand 9% of his height into his head for
+     two and a half seconds. Feet that slide and a limb bent the wrong way
+     are seen on the sheet and are not measured.
    - Only two-legged bodies are carried by name. The fingers and the face
      are not carried at all.
    - For anything stranger — a creature, a monster, a thing with wings — and
@@ -337,9 +343,9 @@ looked at.
      else in the edit.
    - **It is one character on an empty stage.** Two characters in one
      picture, or a character in a place, is the next step.
-   - Look at what was filmed before it is used. A hand through the head, a
-     body that sinks into the floor, a walk that slides are seen, not
-     measured.
+   - Look at what was filmed before it is used. A body that sinks into the
+     floor and a walk that slides are seen, not measured; a hand that goes
+     into the head is said on the clip's sheet before it is filmed.
 
 7. **A scene.** `pva_stage_shot { channel, series, episode, shotId, set,
    players }` films several characters in one picture, on a set or on an
@@ -356,8 +362,13 @@ looked at.
      (once, `loops` times, for `seconds`); go `to` a place while a clip
      plays; turn; wait `seconds`. `loops: 0` on the last act goes on for as
      long as the shot. One clip gives way to the next over a quarter of a
-     second; a body with nothing to play returns to its rest pose, so give
-     it a standing clip if it has one.
+     second, the short way round.
+   - **Between clips it stands.** A two-legged body with nothing to play —
+     before its first clip, between two, after its last — stands with its
+     arms beside it, not in its rig's A- or T-pose: hung 75° below the
+     horizontal, or less low where a hand would go into the body, and that
+     is said. A skeleton whose names were not read as a biped's stays in
+     its rest pose, and that is said too.
    - **A walk goes at its clip's pace.** The pace is read from the foot that
      carries the body, and the way takes as long as that says: the same
      walk measured 0.70 m/s on a figure one metre tall and 0.83 on the same
@@ -381,7 +392,9 @@ looked at.
    - **Read what it measured.** For each player, the share of the shot its
      chest was in the picture and the share something of the set was
      between it and the camera; pairs that came to stand in one place; a
-     body moved faster or slower than its feet step. Then look at the film:
+     body moved faster or slower than its feet step; a part of a body that
+     went into another of it, how many centimetres and when, marked from 5%
+     of its height. Then look at the film:
      a hand through a wall, a look that misses the other's face, a light
      that flatters nobody are seen, not measured.
    - **What it does not do.** Nobody touches anything: no hand on a door, no

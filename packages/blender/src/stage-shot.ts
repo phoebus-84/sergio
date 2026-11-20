@@ -11,6 +11,10 @@
 // audience. A set is a .blend; an object in it named `mark.<name>` is a
 // place a player can be sent to by that name.
 //
+// A two-legged body stands with its arms beside it whenever it plays no
+// clip, and is watched in every frame for a part passing into another: a
+// hand into its head, its body or its other hand, a leg through the other.
+//
 // No script comes with a request, and the set's own Python is not run.
 // python/stage-shot.py does the staging; the frames are joined here.
 // ---------------------------------------------------------------------------
@@ -21,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { joinFrames, nonempty } from "./frames.js";
 import { blenderExecutable, probe } from "./index.js";
 import { runProcess } from "./process.js";
-import { RIG_FACINGS, type RigFacing } from "./rig-sheet.js";
+import { RIG_FACINGS, type RigClipThrough, type RigFacing } from "./rig-sheet.js";
 import { RIG_SHOT_DEFAULTS, RIG_SHOT_LIMITS, SHOT_CAMERAS, type ShotCamera } from "./rig-shot.js";
 
 /** wide: everyone with air around them. full, medium, close: as for one character, of the tallest it is on. */
@@ -123,6 +127,18 @@ export interface StagePlayerReport {
   inFrame: number;
   /** The share of the shot something of the set is between its chest and the camera. */
   hidden: number;
+  /**
+   * How far below the horizontal its upper arms hang when it plays no clip — before its first,
+   * between two, after its last — in degrees: -75 unless the hand would pass into the body there,
+   * then as near it as clears. null: its bones were not read as a two-legged body's, and it stands
+   * in its rest pose.
+   */
+  standing: { left?: number; right?: number } | null;
+  /**
+   * Parts of it in each other, deepest first, as `pva_rig_sheet` measures them on a clip: here
+   * `depth` is in metres, beyond how far they are when it stands, and the times are the shot's.
+   */
+  through: RigClipThrough[];
 }
 
 export interface StageShotReport {

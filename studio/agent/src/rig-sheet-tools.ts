@@ -21,7 +21,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
-import { RIG_AXES, RIG_FACINGS, RIG_SHEET_LIMITS, rigSheet, type RigAxis, type RigFacing, type RigSheetReport, type RigStrain } from "@av/blender/rig-sheet";
+import { RIG_AXES, RIG_FACINGS, RIG_SHEET_LIMITS, rigSheet, type RigAxis, type RigFacing, type RigClipThrough, type RigSheetReport, type RigStrain, type RigThrough } from "@av/blender/rig-sheet";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { guardEpisodePath } from "./trust-guards.js";
 
@@ -39,6 +39,20 @@ export function pulled(strain: RigStrain, edges: number): boolean {
   return strain.strained > RIG_STRAIN_MARKS.strained || strain.torn / edges > RIG_STRAIN_MARKS.tornShare;
 }
 
+/** A part this deep in another, as a share of the body's height, is marked: a hand in the head. Less is a brush. */
+export const THROUGH_MARK = 0.05;
+
+/** How one part is in another, in words: "its right hand goes into its head (9% of its height) from 0.79s for 2.46s". */
+export function throughText(through: RigThrough | RigClipThrough, depth: string): string {
+  const [a, b] = through.parts;
+  const how = through.depth >= THROUGH_MARK ? `goes into its ${b} (${depth})` : `brushes its ${b} (${depth})`;
+  return `its ${a} ${how}${"from" in through ? ` from ${Number(through.from.toFixed(2))}s for ${Number(through.seconds.toFixed(2))}s` : ""}`;
+}
+
+const throughs = (found: readonly (RigThrough | RigClipThrough)[]) =>
+  found.map((through) => throughText(through, `${Math.max(1, Math.round(through.depth * 100))}% of its height`));
+const marked = (found: readonly RigThrough[]) => found.some((through) => through.depth >= THROUGH_MARK);
+
 const strainText = (strain: RigStrain) => `${percent(strain.strained)} of the surface strained, ${strain.torn.toLocaleString("en-US")} edge${strain.torn === 1 ? "" : "s"} torn`;
 
 /** What the sheet shows and measured, as lines the agent reads before it opens the picture. */
@@ -50,11 +64,16 @@ export function describeRigSheet(report: RigSheetReport, files: { poses: string;
     `   ${report.rig.bones} bones, ${report.rig.vertices.toLocaleString("en-US")} vertices; ` +
       (report.rig.skeleton === "biped" ? "its bones' names were read as a two-legged body's" : "its bones' names were not read as a two-legged body's"),
   ];
-  for (const pose of shown) lines.push(`   ${pulled(pose, edges) ? "⚠️ " : ""}${pose.name}: ${strainText(pose)}`);
+  for (const pose of shown) {
+    const through = pose.through ?? [];
+    lines.push(`   ${pulled(pose, edges) || marked(through) ? "⚠️ " : ""}${pose.name}: ${[strainText(pose), ...throughs(through)].join("; ")}`);
+  }
   for (const clip of report.clips) {
+    const through = clip.through ?? [];
     lines.push(
-      `   clip ${clip.name}: ${files.clips[clip.name] ?? clip.sheet} — ${clip.seconds}s, at its worst ${strainText(clip)}, ` +
-        (clip.travel < 0.1 ? "played on the spot" : `the body travels ${clip.travel} of its height`),
+      `   ${marked(through) ? "⚠️ " : ""}clip ${clip.name}: ${files.clips[clip.name] ?? clip.sheet} — ${clip.seconds}s, at its worst ${strainText(clip)}, ` +
+        (clip.travel < 0.1 ? "played on the spot" : `the body travels ${clip.travel} of its height`) +
+        (through.length ? `; ${throughs(through).join("; ")}` : ""),
     );
   }
   const unseen = report.actionsInside.filter((name) => !report.clips.some((clip) => clip.from === "rig" && clip.name === name));
@@ -65,15 +84,23 @@ export function describeRigSheet(report: RigSheetReport, files: { poses: string;
   if (report.rig.skeleton !== "biped") {
     lines.push(`   bones: ${report.bones.slice(0, 60).map((bone) => bone.name).join(", ")}${report.bones.length > 60 ? ` and ${report.bones.length - 60} more` : ""}`);
   }
-  const marked = shown.filter((pose) => pulled(pose, edges)).map((pose) => pose.name);
+  const strained = shown.filter((pose) => pulled(pose, edges)).map((pose) => pose.name);
+  const passing = report.clips.filter((clip) => marked(clip.through ?? [])).map((clip) => `clip ${clip.name}`);
+  const parts = (report.rig.parts ?? []).length > 0;
   lines.push(
     "   open the sheet and read it tile by tile: where a limb meets the body, and whatever the character wears. " +
-      (marked.length > 0
-        ? `Start at ${marked.join(", ")}: a sound rig of a body this fine strains under ${percent(RIG_STRAIN_MARKS.strained)} of its surface in these poses and tears almost none`
+      (strained.length > 0
+        ? `Start at ${strained.join(", ")}: a sound rig of a body this fine strains under ${percent(RIG_STRAIN_MARKS.strained)} of its surface in these poses and tears almost none`
         : edges < RIG_STRAIN_MARKS.fromEdges
           ? "The body is too coarse for the numbers to mark a pose: they compare two rigs of it, no more"
-          : "No pose pulled the surface further than a sound rig does; the numbers do not see a limb passing through the body, or a face that no longer looks like itself"),
+          : `No pose pulled the surface further than a sound rig does; the numbers do not see ${parts ? "" : "a limb passing through the body, or "}a face that no longer looks like itself`),
   );
+  if (passing.length > 0) {
+    lines.push(
+      `   ${passing.join(" and ")} put${passing.length === 1 ? "s" : ""} a part of the body into another: a motion made for other proportions does that. ` +
+        "Look at the moments said on its sheet before it is filmed; ask for another motion, or film it where that part is out of the picture",
+    );
+  }
   return lines;
 }
 
@@ -88,7 +115,8 @@ export function registerRigSheetTools(pi: ExtensionAPI): void {
       "Puts the body in known poses — for a two-legged body: arms up, arms down, reach, step, wide, head turn, bow; for any other, each of its largest limbs swung, or poses of your own — " +
       "and renders every pose from the front, three-quarter and the side on one sheet beside the rig (<rig>.poses.png). " +
       "Plays clips over six moments each (<rig>.clip.<name>.sheet.png): the clip files pva_rig_model left beside the rig, unless you name others, and clips inside the rig named in `actions`. " +
-      "Measures how far each pose pulled the surface out of shape (edges strained, edges torn) and marks the poses that went further than a sound rig does; writes it all to <rig>.sheet.json. " +
+      "Measures how far each pose pulled the surface out of shape (edges strained, edges torn) and marks the poses that went further than a sound rig does; " +
+      "for a two-legged body it also finds, in each pose and through each clip, a part that goes into another it is not joined to — a hand into the head, the body or the other hand, a leg through the other — and says how deep and when: a motion made for other proportions does that. Writes it all to <rig>.sheet.json. " +
       "Open the sheet and read it: the numbers say where to look, not whether the character still looks right. " +
       "Use the same poses on two attempts to choose between them. A rig from pva_rig_model faces +z.",
     parameters: Type.Object({
