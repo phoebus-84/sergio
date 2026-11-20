@@ -20,7 +20,7 @@ a series, a film or a scene may take one; nothing has to.
 
 | Module | |
 |---|---|
-| `levels` | where a style lives (a project, a series or a scene), which units read it, what a unit says of itself for `{{unit.*}}` |
+| `levels` | where a style lives (a project, a series or a scene), which units read it, what a unit says of itself for <code v-pre>{{unit.*}}</code> |
 | `catalog` | `listStyles` (nearest wins: project, library, studio), `findStyle` by the name a person gives, `readStyleFolder`, `folderHash` |
 | `pins` | `syncStylePin` — a unit's pin on the style it reads (ADR-0035); `dependentsOf` a level's style; `STYLE_READERS` by level |
 | `apply` | `applyStyle` (a template, or the level above's), `readTargetStyle`, `resolveUnitStyle` (the brief written for a unit), `writeStyleParams`, `writeStyleBrief`, `saveStyleAsTemplate` |

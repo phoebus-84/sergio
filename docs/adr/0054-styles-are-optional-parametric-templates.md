@@ -41,9 +41,9 @@ a film and a scene stay free to be anything, made any way.
                     (number, enum, boolean, color, font, text — each with what a control needs)
 ```
 
-- **Values are never inline.** The brief names a value — `{{palette}}`,
-  `{{palette.accent}}`, `{{print.timing}}` — and the parameter file holds it.
-  `{{unit.title}}` and `{{unit.idea}}` are filled from the unit the brief is
+- **Values are never inline.** The brief names a value — <code v-pre>{{palette}}</code>,
+  <code v-pre>{{palette.accent}}</code>, <code v-pre>{{print.timing}}</code> — and the parameter file holds it.
+  <code v-pre>{{unit.title}}</code> and <code v-pre>{{unit.idea}}</code> are filled from the unit the brief is
   read for. A placeholder that names nothing is a problem located by line,
   and a template with a problem cannot be applied. The parameter files are
   typed so that a form can be drawn from them: a palette is colour pickers,

@@ -616,8 +616,8 @@ before. The agent loads `style-templates`. What it does:
   scene's or a series' style wins over its project's; `fromParent` copies
   the level above's to change it.
 - **Parametric:** the brief never writes a value inline. "Print it in
-  `{{palette}}`" reads `params/palette.json`; a colour is `{{palette.accent}}`,
-  a value `{{print.timing}}`. `pva_style` gives the brief a unit reads with
+  <code v-pre>{{palette}}</code>" reads `params/palette.json`; a colour is <code v-pre>{{palette.accent}}</code>,
+  a value <code v-pre>{{print.timing}}</code>. `pva_style` gives the brief a unit reads with
   every value filled in, and pins the style for it.
 - **Changing it:** `pva_set_style` changes a parameter file's values, or the
   brief, checked. Every unit that read the style keeps a pin on it
