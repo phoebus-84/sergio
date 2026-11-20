@@ -96,11 +96,11 @@ Rules that hold whatever the source:
 - **Where it runs is the tools' business.** Heavy work goes to the operator's
   other machines only through the tools, which read the library's machines
   file (`pva_capability_status` shows it). Never ssh to a machine to render,
-  run Blender or run a model by hand on your own. The Blender tools still run
-  here (issue #121), and when this machine cannot do the job, tell the operator.
-  The one exception until then is Blender work the operator explicitly asks to
-  run on that machine (see `blender-scene`). Say first that its checks and
-  provenance are lost.
+  run Blender or run a model by hand. The Blender tools (`pva_stage_shot`,
+  `pva_rig_shot`, `pva_rig_sheet`, `pva_blender_render`) go to the machine
+  `prefer.blender` names by themselves, and say where they ran; a machine that
+  cannot is passed over, with the reason. When no place can do the job, tell
+  the operator.
 
 - **A generated prompt is assembled, not improvised**: what the shot shows
   (the plan), who is in it (the character entries, verbatim), where (the

@@ -45,12 +45,18 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   - **Reports.** `pva_capability_status` and `pva_config` list each machine,
     whether it answers over SSH (and ssh's reason when it does not), its
     system, cores and Blender version, and where each role goes.
-  - **Blender** on another machine is reported, not yet used: the Blender
-    tools still run here until
-    [#121](https://github.com/phoebus-84/video-studio/issues/121). Until then
-    the agent runs Blender work on that machine by hand only when you ask for
-    it explicitly, and says first that the tools' checks and provenance are
-    lost.
+  - **Blender.** `pva_stage_shot`, `pva_rig_shot`, `pva_rig_sheet` and
+    `pva_blender_render` run where `prefer.blender` says: on the first
+    `blender` machine that answers with a Blender the tools take, with its
+    `bin` and its GPU lock, else here
+    ([#121](https://github.com/phoebus-84/video-studio/issues/121)). The code
+    goes to the machine's engine clone by git push, the files once by content,
+    and the output comes back checked byte for byte; the tool keeps it as a
+    local result, with `machine` in its provenance, and says where Blender ran.
+    A tool's `machine` (`"local"` or a name) picks the place. Files a `.blend`
+    names go with it when they are in the channel or film, named relative to
+    it. A Blender job, like a render, runs committed code only:
+    `packages/blender` too.
   - `@av/machines` is the new package. render-worker's SSH transport moved
     there and render-worker re-exports it, so an engine now needs
     `packages/machines` committed too.

@@ -37,6 +37,18 @@ Each episode has its own folder on the engine, `<cache root>/<channel>/<series>/
 
 Errors keep their codes (`no-engine`, `dirty-code`, `code-sync-failed`, `engine-busy`, `timeline-invalid`, …) and their `problems`. The engine compares its binaries with `engine.env`'s pins and warns when they differ. Those pins live only in `engine.env`.
 
+## Blender jobs on an engine
+
+The same engine runs `@av/blender`'s functions with its machine's own Blender (ADR-0056): `rigShot`, `rigSheet`, `stageShot`, and `runBlender` for a preview or an animation of a saved `.blend` (a scene is created on the controlling machine). `runBlenderRemote(kind, request, { target, key, bin, gpuLock? })` returns what the function returns, with this machine's paths, plus `machine`.
+
+1. **Code.** As for a render, but a job refuses uncommitted `packages/blender`, `packages/render-worker`, `packages/machines`, `package.json` or `bun.lock` (`BLENDER_CODE`), not the composer.
+2. **Files.** The request's files are mirrored under `files/` and sent once by content (`diff`, `receive`).
+3. **Files a `.blend` names.** `blender-paths <key>` asks the engine's Blender (`bpy.utils.blend_paths`) which of them are missing. Those under the caller's allowed folders on this machine are sent, and the engine is asked again; any other fails as `missing-file`, with its path, before Blender runs.
+4. **Run.** `blender <key>` reads a job (`{ version, kind, request, bin, gpuLock?, lockWaitSeconds?, attempt }`). It holds `flock` on `gpuLock` while Blender runs, calls the function with `blenderPath: bin` into `blender/<attempt>/out/`, and answers with the result (paths under `out/`), every file written with its size and hash, the commit and the Blender version.
+5. **Back.** `fetch-blender <key> <attempt>` streams `out/` as a bundle. Each file is checked against the answer's hash and written into the caller's `outputDir`; a file that differs fails the job (`transfer-failed`) and nothing is left.
+
+The engine loads the Blender code for these three commands only, so `version` and `sync` run on a clone whose new dependencies are not installed yet.
+
 ## Sharing a render between machines
 
 `pva_compose_video` also takes `hosts`, a list of machines (`local` is this one, the others as for `host`), and an optional `assembleOn` (`local` by default, and it need not be in `hosts`). It is used only when the operator asks for it. `sharedRenderer` splits the video's one-second segments into contiguous runs, one per machine in order, and each machine draws its run in parallel: `local` into `<outputPath>.shared`, an engine with a `drawOnly` job into its `drawn/`. The assembler then joins every segment, adds the audio, normalises loudness and writes the mp4; only the assembler readies the soundtrack.

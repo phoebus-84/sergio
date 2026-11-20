@@ -11,13 +11,15 @@ description: Create editable Blender scenes and animations using bpy, background
 1. Read `packages/blender/README.md` from the repository root. Run
    `pva_blender_probe`. Supported targets: **Blender 4.2–4.x and 5.2.x LTS**.
    Do not substitute a renderer or install Blender/add-ons without permission.
-   The Blender tools run on the machine the studio runs on. The library's machines
-   file may name another machine with the `blender` role, and `pva_capability_status`
-   shows its Blender. Until issue #121 makes the tools go there, run Blender work here.
-   If this machine cannot do the job, tell the operator. Run it on that machine by hand
-   only when the operator explicitly asks for it. Then first say that the tools' checks
-   and provenance are lost for that work. Use the role's `bin` (and its `gpuLock`), and
-   record in the journal what ran where. Never choose to on your own.
+   The Blender tools run where the library's machines file prefers (`prefer.blender`):
+   on a machine with the `blender` role when it answers and its Blender is supported,
+   else here. Their answer says where Blender ran; `pva_capability_status` shows the
+   machines. Pass `machine` only when the operator asks for a place. Never copy the
+   package to a machine, run Blender there over ssh or fetch results by hand: the
+   tools do it with their checks and provenance. A `.blend` travels with the files it
+   names when they are in the channel or film and named relative to it; save a scene
+   with relative paths (*File › External Data › Make Paths Relative*). A remote
+   machine runs committed code only: commit `packages/blender` changes first.
 2. Establish the shot: subject, reference images, framing, camera/lens, scale,
    action beats, seconds, FPS, resolution, lighting, engine, render-time budget,
    asset provenance, and who directs/approves it. Use one named shot per scene.
