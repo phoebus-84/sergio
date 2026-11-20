@@ -49,16 +49,24 @@ export function blenderExecutable(): string {
   const mac = "/Applications/Blender.app/Contents/MacOS/Blender";
   return process.platform === "darwin" && existsSync(mac) ? mac : "blender";
 }
-export function probe(blenderPath = blenderExecutable()): { available: boolean; detail: string } {
-  const p = spawnSync(blenderPath, ["--version"], { encoding: "utf8", timeout: 10_000 });
-  const version = p.stdout?.match(/Blender (\d+)\.(\d+)[^\n]*/);
-  const supported = version && (
+/**
+ * Whether `blender --version`'s output names a Blender these tools take:
+ * 4.2–4.x or 5.2.x LTS. Also for a Blender on another machine.
+ */
+export function blenderVersionSupport(versionOutput: string): { supported: boolean; detail: string } {
+  const version = versionOutput.match(/Blender (\d+)\.(\d+)[^\n]*/);
+  const supported = !!version && (
     (Number(version[1]) === 4 && Number(version[2]) >= 2) ||
     (Number(version[1]) === 5 && Number(version[2]) === 2)
   );
+  return { supported, detail: supported ? version![0] : "Requires Blender 4.2–4.x or 5.2.x LTS; set BLENDER_BIN" };
+}
+export function probe(blenderPath = blenderExecutable()): { available: boolean; detail: string } {
+  const p = spawnSync(blenderPath, ["--version"], { encoding: "utf8", timeout: 10_000 });
+  const version = blenderVersionSupport(p.stdout ?? "");
   return {
-    available: !p.error && p.status === 0 && !!supported,
-    detail: p.error ? p.error.message : supported ? version[0] : "Requires Blender 4.2–4.x or 5.2.x LTS; set BLENDER_BIN",
+    available: !p.error && p.status === 0 && version.supported,
+    detail: p.error ? p.error.message : version.detail,
   };
 }
 export function settingsFor(input: Partial<RenderSettings> = {}): RenderSettings {
