@@ -12,11 +12,10 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import type { DrawSegmentsOptions, DrawSegmentsResult, RenderResult, RenderTimelineOptions, SegmentDrawer } from "@av/remotion-composer";
 import { prepareJob, type PreparedJob } from "./files.js";
-import { readHostsConfig } from "./hosts.js";
 import { decodeBundle, drawnPath, encodeBundle, RenderWorkerError, type DrawAnswer } from "./protocol.js";
 import { SegmentQueue } from "./queue.js";
 import { readSpeeds, recordSpeeds, speedKey, weightsFor } from "./speeds.js";
-import { call, engineFacts, fetchVideo, openDrawSession, openEngine, renderOn, sendFiles, type DrawSession, type EngineAnswer, type EngineSession, type RemoteRendererOptions } from "./remote.js";
+import { call, engineFacts, hostsConfigOf, fetchVideo, openDrawSession, openEngine, renderOn, sendFiles, type DrawSession, type EngineAnswer, type EngineSession, type RemoteRendererOptions } from "./remote.js";
 
 /** The machine this runs on, in `hosts` and `assembleOn`. */
 export const LOCAL = "local";
@@ -81,7 +80,7 @@ export function sharedRenderer(options: SharedRendererOptions): (render: RenderT
     const timeline = render.timeline as { durationInFrames?: number; fps?: number };
     if (!timeline.durationInFrames || !timeline.fps) throw new RenderWorkerError("bad-request", "the timeline has no durationInFrames or fps");
     const total = Math.ceil(timeline.durationInFrames / timeline.fps);
-    const config = options.config ?? readHostsConfig(options.configFile);
+    const config = hostsConfigOf(options);
     const keys = hosts.map((h) => speedKey(h, LOCAL));
     const weights = weightsFor(hosts, keys, readSpeeds(options.speedsFile), config);
     // More machines than seconds: the slowest ones sit out.

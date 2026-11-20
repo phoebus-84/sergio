@@ -144,6 +144,79 @@ A tool whose capability is not ready will fail rather than silently degrade.
 `npm run doctor` tells you which are ready; `pva_capability_status` tells the
 agent the same thing from inside a session.
 
+### Your other machines
+
+If you have a stronger machine than the one the studio runs on, declare it once
+in `library/.render/machines.json`. That machine might have many cores, a GPU, a
+ComfyUI server on its own loopback, or a newer Blender in your home folder. Set
+`AVG_MACHINES` to use another file, which must then exist. The tools read the
+file, so you no longer tell the agent which machine to use or how to reach it,
+and the agent does not ssh there by hand
+([ADR-0056](adr/0056-machines-are-declared-once.md)).
+
+```json
+{
+  "machines": {
+    "gpu-box": {
+      "ssh": "gpu-box",
+      "note": "32 cores, AMD GPU on ROCm",
+      "roles": {
+        "remotion":  { "repo": "~/sergio" },
+        "blender":   { "bin": "~/opt/blender-5.2.1-linux-x64/blender", "gpuLock": "~/ai/generation.lock" },
+        "comfyui":   { "port": 8188, "gpuLock": "~/ai/generation.lock" },
+        "heavy-cpu": {},
+        "heavy-gpu": { "gpuLock": "~/ai/generation.lock" }
+      }
+    }
+  },
+  "prefer": {
+    "remotion": ["local", "gpu-box"],
+    "blender":  ["gpu-box", "local"],
+    "comfyui":  ["gpu-box"]
+  }
+}
+```
+
+- **`ssh`** is what `ssh` connects to: an alias of your `~/.ssh/config`, or
+  `[user@]host`. Keys, ports and jump hosts stay in the SSH config. Tools use
+  `BatchMode`, so the key must work without a prompt (an agent or an
+  unencrypted key). No secret goes in this file. The loader refuses any field it
+  does not know.
+- **`roles`**: what the machine is for.
+  - `remotion` makes it a render engine: `repo` and `cache` for its clone and
+    cache, `speed` for shared renders. Set it up as in
+    `packages/render-worker/README.md`.
+  - `blender` names its Blender (`bin`).
+  - `comfyui` names the port (and `host`) its server listens on there, or a
+    `url` this machine reaches directly.
+  - `heavy-cpu` and `heavy-gpu` are declared for the reports.
+  - `gpuLock` is a path on that machine. A tool holds `flock` on it while its
+    work runs there. It protects anything only if your own GPU scripts take
+    the same lock with `flock`.
+- **`prefer`**: for each role, the places to try, in order. `"local"` is this
+  machine. The first that answers is used. Without an entry, Remotion and
+  Blender work stays here, and ComfyUI is looked for on the machines that have
+  the role.
+
+> **A machine declared without `prefer` takes no work by itself.** If you list
+> `machines` and leave `prefer` out, renders still run on this machine:
+> nothing moved, and that is by design. Add `"remotion": ["gpu-box", "local"]`
+> to send renders there. The one role that needs no `prefer` is `comfyui`,
+> because a server is looked for on the machines that have that role.
+
+What uses it now:
+
+| Role | Effect |
+|---|---|
+| `remotion` | `pva_compose_video` without `host` renders where `prefer.remotion` says: the first machine whose engine answers (`engine.sh version`), so one with a broken or not-yet-set-up clone is passed over for the next. Name it with `host` to set its clone up. A `remotion` machine is a `host` by name and comes first for `auto`. Its role's settings go over `render-hosts.json`, which still works on its own. |
+| `comfyui` | Unless `AVG_COMFYUI_URL` is set, speech and voice cleaning reach the machine's server themselves: `ssh -N -L` on a free local port, checked with `/system_stats`, reused, closed when the studio exits. They hold its `gpuLock` around each call. The receipt names the machine. |
+| `blender` | Reported (its Blender's version and whether the tools take it). The Blender tools still run here until [issue #121](https://github.com/phoebus-84/video-studio/issues/121). Until then, the agent runs Blender work there by hand only when you explicitly ask, and says first that the tools' checks and provenance are lost. |
+
+`pva_capability_status` and `pva_config` list every machine, whether it
+answers over SSH (with ssh's reason when it does not), its system, cores and
+Blender, and where each role goes. A file that does not validate is an error,
+with the field's path, in every tool that reads it.
+
 ### Render memory
 
 A render opens one Chrome tab per worker, each holding the frame's pictures
@@ -332,14 +405,17 @@ The voice worker can speak with an enrolled clone voice, through the Qwen3-TTS
 `pva_synthesize_speech` with `provider: "comfyui-qwen"` speaks through the
 Qwen3-TTS nodes of a ComfyUI server you run (`packages/comfyui-speech`): free,
 no spend ledger, and never chosen on its own.
-- **The address** is `AVG_COMFYUI_URL`, or `url` in the library's
-  `.render/comfyui.json` (`AVG_COMFYUI_CONFIG` names another file). That file
-  also sets the nodes: `model`, `device`, `precision`, `attention`,
-  `unloadModelAfterGenerate`, `outputPrefix`, `inputSubfolder`,
+- **The address** is `AVG_COMFYUI_URL`. Without it, the server is that of
+  a machine with the `comfyui` role in the machines file
+  ([Your other machines](#your-other-machines)). Without one, it is `url` in
+  the library's `.render/comfyui.json` (`AVG_COMFYUI_CONFIG` names another
+  file). `comfyui.json` also sets the nodes: `model`, `device`, `precision`,
+  `attention`, `unloadModelAfterGenerate`, `outputPrefix`, `inputSubfolder`,
   `timeoutSeconds`.
-- **A server that listens only on its own loopback** needs a tunnel you open:
-  `ssh -N -L 18188:127.0.0.1:8188 <host>`, then
-  `AVG_COMFYUI_URL=http://127.0.0.1:18188`.
+- **A server that listens only on its own loopback** needs no tunnel from
+  you. Give its machine the `comfyui` role and the tools open one when they
+  need it, holding the machine's `gpuLock` around each call. A tunnel you open
+  by hand still works with `AVG_COMFYUI_URL`, which goes over the file.
 - **Voices:** `voice` is a preset speaker or `saved:<name>` (a voice saved on
   the server); `referenceAudioPath` clones a recording of the workspace, with
   `referenceText` its exact words; `cleanReference: true` cuts it
@@ -1341,6 +1417,7 @@ the same absolute path for every process that needs to be the operator.
 | `AVG_HEADLESS` | unset (the gateway sets `1` for Pi) | Any value but empty or `0` makes `vpr` an agent without reading the operator key |
 | `FAL_KEY` | — | Required for `image.generate` / `image.edit` |
 | `AVG_TTS_WORKER_URL` | local worker | Speech synthesis endpoint |
+| `AVG_MACHINES` | `library/.render/machines.json` | The machines file ([Your other machines](#your-other-machines)); a file named here must exist |
 | `STRUDEL_CHROME_PATH` | Remotion's Chrome, else Playwright's or the machine's | The Chrome music is rendered with |
 | `AVG_AGENT_BACKEND` | `pi` | Which agent the gateway runs per episode: `pi` or `claude` |
 | `AVG_CLAUDE_MODEL` | Claude Code's default | Model of the gateway's Claude sessions |

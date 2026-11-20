@@ -10,7 +10,8 @@ import { PassThrough, Writable } from "node:stream";
 import type { RenderResult, RenderTimelineOptions } from "@av/remotion-composer";
 import { localGit, renderCommit, syncCode, type Git } from "./code-sync.js";
 import { sha256File, prepareJob, type JobFile } from "./files.js";
-import { engineCommand, findEngine, readHostsConfig, type EngineTarget, type HostsConfig, type TailscalePeer } from "./hosts.js";
+import { readMachines, type Machines } from "@av/machines";
+import { engineCommand, findEngine, readHostsConfig, withMachines, type EngineTarget, type HostsConfig, type TailscalePeer } from "./hosts.js";
 import { checkKey, encodeBundle, lastJsonLine, RenderWorkerError, type DrawAnswer, type EngineVersion, type RenderJob } from "./protocol.js";
 import { sshExec, type Exec, type ExecResult } from "./ssh.js";
 
@@ -22,6 +23,9 @@ export interface RemoteRendererOptions {
   /** render-hosts.json; absent or missing means no configuration. */
   configFile?: string;
   config?: HostsConfig;
+  /** The machines file (@av/machines): its remotion machines go over render-hosts.json's hosts. */
+  machinesFile?: string;
+  machines?: Machines;
   /** The clone whose HEAD the engine renders with: the repository this package is in, by default. */
   repoRoot?: string;
   exec?: Exec;
@@ -51,6 +55,11 @@ export function remoteRenderer(options: RemoteRendererOptions): (render: RenderT
   };
 }
 
+/** The hosts' settings: render-hosts.json's, with the machines file's over them. */
+export function hostsConfigOf(options: Pick<RemoteRendererOptions, "config" | "configFile" | "machines" | "machinesFile">): HostsConfig {
+  return withMachines(options.config ?? readHostsConfig(options.configFile), options.machines ?? readMachines(options.machinesFile));
+}
+
 /** What an engine says about itself in a render's answer. */
 export interface EngineAnswer { concurrency?: number; browsers?: number; commit?: string | null }
 
@@ -76,7 +85,7 @@ export async function openEngine(options: Omit<RemoteRendererOptions, "key"> & {
   const exec = options.exec ?? sshExec();
   const log = options.onLog ?? (() => undefined);
   const withSignal = options.signal ? { signal: options.signal } : {};
-  const config = options.config ?? readHostsConfig(options.configFile);
+  const config = hostsConfigOf(options);
   const found = await findEngine(options.host, {
     exec,
     config,

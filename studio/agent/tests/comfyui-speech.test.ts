@@ -8,6 +8,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,6 +27,8 @@ let queued: Record<string, { class_type: string; inputs: Record<string, unknown>
 let uploads: { name: string; subfolder: string; bytes: Buffer }[];
 let paths: string[];
 let missing: Set<string>;
+/** Where the stubbed server answers: its URL, and a tunnel's local end while it is open. */
+let origins: Set<string>;
 const saved: Record<string, string | undefined> = {};
 const ENV = ["AVG_LIBRARY_ROOT", "AVG_COMFYUI_URL", "AVG_COMFYUI_CONFIG", "AVG_TTS_WORKER_URL", "ELEVENLABS_API_KEY"];
 
@@ -78,9 +81,10 @@ beforeEach(() => {
   uploads = [];
   paths = [];
   missing = new Set();
+  origins = new Set([URL_BASE]);
   vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
-    if (url.origin !== URL_BASE) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+    if (!origins.has(url.origin)) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
     const path = url.pathname;
     paths.push(path);
     if (path === "/system_stats") return Response.json({ system: { comfyui_version: "9.9.9" }, devices: [{ name: "cuda:0 Test GPU" }] });
@@ -328,7 +332,7 @@ describe("the ComfyUI server in pva_capability_status and pva_voices", () => {
   });
 
   it("is unavailable when not configured or not answering", async () => {
-    expect(await comfyUiSpeechStatus(root, {})).toEqual({ available: false, detail: "AVG_COMFYUI_URL is not set and the library's .render/comfyui.json names no url" });
+    expect(await comfyUiSpeechStatus(root, {})).toEqual({ available: false, detail: "AVG_COMFYUI_URL is not set, the library's .render/machines.json gives no machine the comfyui role, and its .render/comfyui.json names no url" });
     const down = await comfyUiSpeechStatus(root, { AVG_COMFYUI_URL: "http://127.0.0.1:9" });
     expect(down.available).toBe(false);
     expect(down.detail).toContain("no answer from ComfyUI");
@@ -355,5 +359,99 @@ describe("pva_clean_voice", () => {
     expect(record).toMatchObject({ provider: COMFYUI_PROVIDER, operation: "clean-voice", workflow: "clean", input: { path: "assets/noisy.mp3" }, cut: { startSeconds: 0, durationSeconds: 8 }, output: { path: "assets/sounds/voice.wav", sha256: sha(wav) } });
     expect((await call("pva_clean_voice", { inputPath: "assets/noisy.mp3", outputPath: "assets/sounds/voice.wav" })).content[0].text).toContain("already exists");
     expect((await call("pva_clean_voice", { inputPath: "assets/noisy.mp3", outputPath: "voice.wav" })).content[0].text).toContain("under assets/");
+  });
+});
+
+describe("the ComfyUI server of the machines file", () => {
+  // A machine whose ComfyUI listens on its own loopback: the tunnel is a fake
+  // ssh that makes the stubbed server answer on the forwarded local port.
+  let spawned: string[][];
+  let lockFile: string;
+  let commands: { destination: string; command: string }[];
+  let refuse: boolean;
+
+  beforeEach(async () => {
+    delete process.env.AVG_COMFYUI_URL;
+    spawned = [];
+    commands = [];
+    refuse = false;
+    lockFile = join(root, "gpu", "generation.lock");
+    mkdirSync(join(root, ".render"), { recursive: true });
+    writeFileSync(join(root, ".render", "machines.json"), JSON.stringify({
+      machines: { "gpu-box": { ssh: "gpu-box", roles: { comfyui: { port: 8188, gpuLock: lockFile } } } },
+    }));
+    const { TunnelPool } = await import("@av/machines");
+    const { setMachineDeps } = await import("../src/machines.js");
+    setMachineDeps({
+      pool: new TunnelPool(),
+      spawn: (_program, args) => {
+        spawned.push(args);
+        const port = Number(args[args.indexOf("-L") + 1]!.split(":")[1]);
+        const child = Object.assign(new EventEmitter(), { exitCode: null as number | null, stderr: null, kill: () => true });
+        const exit = (code: number) => {
+          origins.delete(`http://127.0.0.1:${port}`);
+          child.exitCode = code;
+          child.emit("exit", code, null);
+        };
+        child.kill = () => (setImmediate(() => exit(143)), true);
+        if (refuse) setImmediate(() => exit(255));
+        else origins.add(`http://127.0.0.1:${port}`);
+        return child as never;
+      },
+      // The machine's side of the lock: it answers "locked" and holds until the session closes.
+      // (Real flock is tested in @av/machines.)
+      exec: async (destination, command, input = {}) => {
+        commands.push({ destination, command });
+        input.stdout?.write("locked\n");
+        for await (const _ of (input.stdin ?? []) as AsyncIterable<Buffer>) { /* held until stdin ends */ }
+        input.stdout?.end();
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    });
+  });
+
+  afterEach(async () => {
+    const { machineDeps, setMachineDeps } = await import("../src/machines.js");
+    machineDeps().pool.closeAll();
+    setMachineDeps();
+  });
+
+  it("speaks through a tunnel it opens on demand, reuses it, holds the GPU lock, and says which machine spoke", async () => {
+    const result = await speak({ voice: "serena" });
+    expect(result.isError).toBeFalsy();
+    expect(spawned).toHaveLength(1);
+    expect(spawned[0]!.join(" ")).toMatch(/-o BatchMode=yes .*-L 127\.0\.0\.1:\d+:127\.0\.0\.1:8188 -- gpu-box$/);
+    expect(commands.some((c) => c.destination === "gpu-box" && c.command.includes(`flock -x -w 900 ${lockFile}`))).toBe(true);
+    const receipt = JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8"));
+    expect(receipt.server).toEqual({ machine: "gpu-box", ssh: "gpu-box", via: "tunnel", gpuLock: lockFile });
+
+    expect((await speak({ voice: "ryan", sceneId: "line-2" })).isError).toBeFalsy();
+    expect(spawned).toHaveLength(1);
+    const status = await comfyUiSpeechStatus(root);
+    expect(status.available).toBe(true);
+    expect(status.detail).toMatch(/^ComfyUI 9\.9\.9 on gpu-box \(through a tunnel to 127\.0\.0\.1:8188, here http:\/\/127\.0\.0\.1:\d+\), GPU lock /);
+  });
+
+  it("AVG_COMFYUI_URL still goes over the machines file", async () => {
+    process.env.AVG_COMFYUI_URL = URL_BASE;
+    expect((await speak({ voice: "serena" })).isError).toBeFalsy();
+    expect(spawned).toHaveLength(0);
+    expect(commands).toHaveLength(0);
+    expect(JSON.parse(readFileSync(narration("line-1.synthesis.json"), "utf-8")).server).toBeUndefined();
+  });
+
+  it("a declared machine that does not answer is an error, not a reason to use comfyui.json", async () => {
+    refuse = true;
+    writeFileSync(join(root, ".render", "comfyui.json"), JSON.stringify({ url: URL_BASE }));
+    const result = await speak({ voice: "serena" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/no comfyui server answered: gpu-box: the tunnel to gpu-box:8188 closed \(exit 255\)/);
+    expect(queued).toHaveLength(0);
+    expect((await comfyUiSpeechStatus(root)).detail).toMatch(/no comfyui server answered/);
+  });
+
+  it("an invalid machines file is reported, with the field", async () => {
+    writeFileSync(join(root, ".render", "machines.json"), JSON.stringify({ machines: { "gpu-box": { ssh: "gpu-box", roles: { comfyui: { port: "8188" } } } } }));
+    expect(await comfyUiSpeechStatus(root)).toMatchObject({ available: false, detail: expect.stringMatching(/machines\.gpu-box\.roles\.comfyui\.port: is not a port/) });
   });
 });

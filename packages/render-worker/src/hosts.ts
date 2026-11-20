@@ -1,8 +1,11 @@
 // Which machine renders. Nothing about the machines is written in code: they
-// are the tailnet's online Linux peers (`tailscale status --json`) that answer
-// `engine.sh version` over SSH, and the SSH user, the clone's path and the
-// cache's path come from configuration — a render-hosts.json the caller
-// names, environment variables, then the user's SSH config and the defaults.
+// are the machines file's `remotion` machines (@av/machines, ADR-0056), the
+// hosts of a render-hosts.json, and the tailnet's online Linux peers
+// (`tailscale status --json`), that answer `engine.sh version` over SSH. The
+// SSH destination, the clone's path and the cache's path come from that
+// configuration: the machines file's role, then render-hosts.json's host,
+// environment variables, render-hosts.json's defaults, the user's SSH config
+// and the defaults.
 //
 // render-hosts.json (every field optional):
 //   {
@@ -18,10 +21,13 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { candidates, machinesWith, type Machines } from "@av/machines";
 import { lastJsonLine, RenderWorkerError, type EngineVersion } from "./protocol.js";
 import { shellPath, SSH_FAILED, type Exec } from "./ssh.js";
 
 export interface HostSettings {
+  /** What ssh connects to, used as it is: no user is put before it. From the machines file. */
+  destination?: string;
   address?: string;
   user?: string;
   repo?: string;
@@ -30,7 +36,7 @@ export interface HostSettings {
   speed?: number;
 }
 
-export interface HostsConfig extends Omit<HostSettings, "address"> {
+export interface HostsConfig extends Omit<HostSettings, "address" | "destination"> {
   hosts?: Record<string, HostSettings>;
 }
 
@@ -66,6 +72,37 @@ export function readHostsConfig(file: string | undefined): HostsConfig {
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new RenderWorkerError("bad-request", `${file} is not an object`);
   return value as HostsConfig;
+}
+
+/**
+ * render-hosts.json's settings with the machines file's over them: each
+ * `remotion` machine becomes a host whose ssh destination is used as it is,
+ * its role's settings over the file's entry for it, field by field. The
+ * machines come first, in `prefer.remotion`'s order then the file's, so
+ * "auto" tries them before render-hosts.json's other hosts.
+ */
+export function withMachines(config: HostsConfig, machines: Machines): HostsConfig {
+  const engines = machinesWith(machines, "remotion");
+  if (engines.length === 0) return config;
+  const preferred = machines.prefer.remotion
+    ? candidates(machines, "remotion").flatMap((p) => (p.kind === "machine" ? [p.machine] : []))
+    : [];
+  const ordered = [...preferred, ...engines.filter((m) => !preferred.includes(m))];
+  const old = Object.entries(config.hosts ?? {});
+  const hosts: Record<string, HostSettings> = {};
+  for (const machine of ordered) {
+    const own = old.find(([n]) => same(n, machine.name))?.[1] ?? {};
+    const role = machine.roles.remotion ?? {};
+    hosts[machine.name] = {
+      ...own,
+      destination: machine.ssh,
+      ...(role.repo ? { repo: role.repo } : {}),
+      ...(role.cache ? { cache: role.cache } : {}),
+      ...(role.speed ? { speed: role.speed } : {}),
+    };
+  }
+  for (const [name, settings] of old) if (!ordered.some((m) => same(m.name, name))) hosts[name] = settings;
+  return { ...config, hosts };
 }
 
 /** The tailnet's peers, from `tailscale status --json`'s output. */
@@ -150,7 +187,7 @@ export function engineTarget(name: string, options: { config?: HostsConfig; peer
   const cache = own.cache ?? env.AVG_RENDER_ENGINE_CACHE ?? config.cache;
   return {
     name: peer?.name ?? name,
-    destination: user ? `${user}@${address}` : address,
+    destination: own.destination ?? (user ? `${user}@${address}` : address),
     repo,
     ...(cache ? { cache } : {}),
   };
@@ -203,7 +240,7 @@ export async function findEngine(
   }
   const names = [...Object.keys(options.config?.hosts ?? {})];
   for (const p of peers) if (mayBeEngine(p) && !names.some((n) => same(n, p.name))) names.push(p.name);
-  if (names.length === 0) throw new RenderWorkerError("no-engine", "no engine to try: no hosts in the render-hosts config and no online Linux tailnet peers");
+  if (names.length === 0) throw new RenderWorkerError("no-engine", "no engine to try: no remotion machine in the machines file, no hosts in the render-hosts config and no online Linux tailnet peers");
   const targets = names.map((n) => engineTarget(n, settings));
   const probes = await Promise.all(targets.map((t) => probeEngine(options.exec, t)));
   const index = probes.findIndex((p) => p.ok);

@@ -103,3 +103,31 @@ test("tailscale is found through AVG_TAILSCALE, then PATH, then where the Window
   assert.deepEqual(tailscalePeers({ env: {}, platform: "linux", run: () => ({ status: null, stdout: "", error: missing }) }), []);
   assert.deepEqual(tailscalePeers({ env: {}, platform: "win32", run: () => ({ status: 1, stdout: "" }) }), [], "installed but down: no peers, no further tries");
 });
+
+test("the machines file's remotion machines go over render-hosts.json, field by field, and first", async () => {
+  const { parseMachines } = await import("@av/machines");
+  const { withMachines } = await import("../src/hosts.js");
+  const machines = parseMachines({
+    machines: {
+      "gpu-box": { ssh: "gpu-box", roles: { remotion: { repo: "~/sergio", speed: 3 } } },
+      "spare": { ssh: "me@spare.lan", roles: { remotion: {} } },
+      "no-render": { ssh: "no-render", roles: { blender: { bin: "blender" } } },
+    },
+    prefer: { remotion: ["local", "spare"] },
+  });
+  const config = { user: "cfg-user", hosts: { "render-box": { address: "rb" }, "GPU-BOX": { address: "old", user: "old-user", cache: "/old/cache" } } };
+  const merged = withMachines(config, machines);
+  assert.deepEqual(Object.keys(merged.hosts ?? {}), ["spare", "gpu-box", "render-box"]);
+  assert.deepEqual(merged.hosts!["gpu-box"], { address: "old", user: "old-user", cache: "/old/cache", destination: "gpu-box", repo: "~/sergio", speed: 3 });
+  // the machine's destination is used as it is: no user put before it, whatever the environment says
+  const env = { AVG_RENDER_SSH_USER: "env-user", AVG_RENDER_ENGINE_REPO: "/env/repo" };
+  assert.deepEqual(engineTarget("gpu-box", { config: merged, peers, env }), { name: "gpu-box", destination: "gpu-box", repo: "~/sergio", cache: "/old/cache" });
+  assert.deepEqual(engineTarget("spare", { config: merged, peers, env }), { name: "spare", destination: "me@spare.lan", repo: "/env/repo" });
+  assert.equal(withMachines(config, parseMachines({})), config, "no machines, nothing changes");
+
+  const engine = fakeEngine();
+  engine.unreachable.add("me@spare.lan");
+  const found = await findEngine("auto", { exec: engine.exec, config: merged, peers: [], env: {} });
+  assert.equal(found.target.destination, "gpu-box");
+  assert.deepEqual(engine.calls.map((c) => c.destination).slice(0, 3), ["me@spare.lan", "gpu-box", "cfg-user@rb"]);
+});

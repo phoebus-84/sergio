@@ -324,7 +324,12 @@ looked at.
    clip, camera, framing }` films the character playing one of its clips:
    local, free, a couple of dozen seconds for a few seconds of film. It
    lands in `assets/video/<shotId>.mp4` with no sound, as generated clips
-   do, and goes on a timeline or in a cut like any other.
+   do, and goes on a timeline or in a cut like any other. It runs on the
+   machine the studio runs on, as `pva_stage_shot` and `pva_rig_sheet` do,
+   until issue #121. If this one cannot, tell the operator. Run them on
+   another machine by hand only when the operator explicitly asks (see
+   `blender-scene`), and say first that the tools' checks and provenance are
+   lost.
    - **Film a role.** `role` names a role of the series' cast: the release
      it pins is read back against its record and filmed as it was released,
      and the shot's provenance says who played it. `rigPath` in its place

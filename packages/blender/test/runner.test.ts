@@ -103,3 +103,11 @@ test("parallel calls cannot claim the same attempt", async t => {
   const results = await Promise.allSettled([runBlender(req, f.options), runBlender(req, f.options)]);
   assert.equal(results.filter(r => r.status === "fulfilled").length, 1);
 });
+
+test("the Blender versions the tools take, from --version's output wherever it ran", async () => {
+  const { blenderVersionSupport } = await import("../src/index.js");
+  assert.deepEqual(blenderVersionSupport("Blender 5.2.1 LTS\nbuild date: …"), { supported: true, detail: "Blender 5.2.1 LTS" });
+  assert.equal(blenderVersionSupport("Blender 4.2.3 LTS").supported, true);
+  assert.equal(blenderVersionSupport("Blender 5.0.1").supported, false);
+  assert.equal(blenderVersionSupport("").supported, false);
+});

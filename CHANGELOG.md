@@ -23,6 +23,38 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 
 ### Added
 
+- **Your other machines, declared once.** `library/.render/machines.json`
+  (`AVG_MACHINES` names another file) says which machines you have, how SSH
+  reaches each (an alias of your SSH config), what each is for (`remotion`,
+  `blender`, `comfyui`, `heavy-cpu`, `heavy-gpu`) and in which order to use
+  them, `"local"` included. The tools route by it, so you no longer tell the
+  agent "use that machine, connect with ssh …", and the skills tell it never
+  to ssh there by hand (ADR-0056). Nothing changes until you write the file.
+  - **ComfyUI speech** reaches a server that listens only on its machine's
+    loopback through a tunnel the tool opens on a free port when it is
+    needed. The tool checks the tunnel, reuses it and closes it when the
+    studio exits; no `ssh -N -L` by hand. It holds the machine's GPU lock
+    (`gpuLock`, taken with `flock`) around each call, and the receipt names
+    the machine. `AVG_COMFYUI_URL` still goes over the file; `comfyui.json`
+    keeps the nodes' settings and is the fallback for the address.
+  - **Renders.** A `remotion` machine is an engine by its name; its settings
+    go over `render-hosts.json`, which still works on its own; `auto` tries it
+    first. Without `host`, `pva_compose_video` renders where
+    `prefer.remotion` says (here when it says nothing), and `host: "local"`
+    renders here.
+  - **Reports.** `pva_capability_status` and `pva_config` list each machine,
+    whether it answers over SSH (and ssh's reason when it does not), its
+    system, cores and Blender version, and where each role goes.
+  - **Blender** on another machine is reported, not yet used: the Blender
+    tools still run here until
+    [#121](https://github.com/phoebus-84/video-studio/issues/121). Until then
+    the agent runs Blender work on that machine by hand only when you ask for
+    it explicitly, and says first that the tools' checks and provenance are
+    lost.
+  - `@av/machines` is the new package. render-worker's SSH transport moved
+    there and render-worker re-exports it, so an engine now needs
+    `packages/machines` committed too.
+
 - **Style templates: a ready-made look, never required.** A channel, a
   series, a film or a scene may take a style — "make it in the risograph
   style", "prepare this scene using 'Tide riso'" — and nothing has to

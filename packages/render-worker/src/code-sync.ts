@@ -11,7 +11,7 @@ import { shellPath, shellQuote, type Exec } from "./ssh.js";
 import { engineCommand, type EngineTarget } from "./hosts.js";
 
 /** What decides the rendered pixels and how the engine runs: changes here must be committed first. */
-export const RENDER_CODE = ["packages/remotion-composer", "packages/render-worker", "package.json", "bun.lock"];
+export const RENDER_CODE = ["packages/remotion-composer", "packages/render-worker", "packages/machines", "package.json", "bun.lock"];
 
 /** Where the pushed commit lands on the engine before it is checked out. */
 export const INCOMING_REF = "refs/render-worker/incoming";

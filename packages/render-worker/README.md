@@ -16,7 +16,8 @@ An engine is a Linux machine that renders episodes for another one over SSH. It 
 
 Nothing about the machines is written in code.
 
-- **Discovery.** `auto` tries the hosts in `render-hosts.json`, then the tailnet's online Linux peers from `tailscale status --json`, and takes the first whose `engine.sh version` answers over SSH. The tailscale program is `AVG_TAILSCALE`, else `tailscale` on `PATH`, else where the installer puts it (`%ProgramFiles%\Tailscale\tailscale.exe` on Windows, which does not add it to `PATH`).
+- **The machines file.** The operator's machines are declared once, in `library/.render/machines.json` ([`@av/machines`](../machines/README.md), ADR-0056). A machine with the `remotion` role is an engine: its `ssh` destination is used as it is, and its role's `repo`, `cache` and `speed` go over its `render-hosts.json` entry field by field. `withMachines(config, machines)` does the merge, and `hostsConfigOf` reads both files for a renderer given `machinesFile` (or `machines`) beside `configFile`. `render-hosts.json` still works on its own, as a fallback.
+- **Discovery.** `auto` tries the machines file's `remotion` machines (in `prefer.remotion`'s order, then the file's), then the other hosts in `render-hosts.json`, then the tailnet's online Linux peers from `tailscale status --json`, and takes the first whose `engine.sh version` answers over SSH. The tailscale program is `AVG_TAILSCALE`, else `tailscale` on `PATH`, else where the installer puts it (`%ProgramFiles%\Tailscale\tailscale.exe` on Windows, which does not add it to `PATH`).
 - **Settings.** `render-hosts.json` is `$AVG_RENDER_HOSTS`, else `library/.render/render-hosts.json` (a dot folder, so nothing takes it for a channel; it is the operator's machines, not code, so it stays out of git); every field is optional:
 
   ```json
@@ -24,7 +25,7 @@ Nothing about the machines is written in code.
     "hosts": { "<peer name>": { "address": "…", "user": "…", "repo": "…", "cache": "…" } } }
   ```
 
-  A host's own entry wins, then `AVG_RENDER_SSH_USER`, `AVG_RENDER_ENGINE_REPO` and `AVG_RENDER_ENGINE_CACHE`, then the file's defaults. With no user, `ssh` and its own config decide. The address is the entry's, else the peer's tailnet IPv4, else the name. `AVG_RENDER_SSH` names the ssh program. The clone defaults to `~/sergio`, and the cache root to `$XDG_CACHE_HOME/sergio/render`.
+  A machine's `remotion` role wins, then a host's own entry, then `AVG_RENDER_SSH_USER`, `AVG_RENDER_ENGINE_REPO` and `AVG_RENDER_ENGINE_CACHE`, then the file's defaults. With no user, `ssh` and its own config decide. The address is the entry's, else the peer's tailnet IPv4, else the name. `AVG_RENDER_SSH` names the ssh program. The clone defaults to `~/sergio`, and the cache root to `$XDG_CACHE_HOME/sergio/render`.
 
 A render goes like this:
 
