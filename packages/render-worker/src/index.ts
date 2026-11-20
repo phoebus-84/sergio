@@ -1,12 +1,12 @@
 export {
-  call, DEFAULT_REPO_ROOT, engineFacts, fetchVideo, formatBytes, openEngine, remoteRenderer, renderOn, sendFiles,
+  call, DEFAULT_REPO_ROOT, engineFacts, hostsConfigOf, fetchVideo, formatBytes, openEngine, remoteRenderer, renderOn, sendFiles,
   type EngineAnswer, type EngineSession, type RemoteRendererOptions, type RemoteRenderResult,
 } from "./remote.js";
 export { LOCAL, runsOf, sharedRenderer, type SharedRendererOptions, type SharedRenderResult, type SharedShare } from "./shared.js";
 export { SegmentQueue, type QueueDrawer } from "./queue.js";
 export { readSpeeds, recordSpeeds, speedKey, splitByWeight, weightsFor, type SpeedEntry, type Speeds } from "./speeds.js";
 export {
-  DEFAULT_REPO, engineCommand, engineTarget, findEngine, findPeer, mayBeEngine, parseTailscaleStatus, probeEngine, readHostsConfig, tailscalePeers, tailscalePrograms,
+  DEFAULT_REPO, engineCommand, engineTarget, findEngine, findPeer, mayBeEngine, parseTailscaleStatus, probeEngine, readHostsConfig, tailscalePeers, tailscalePrograms, withMachines,
   type EngineTarget, type FoundEngine, type HostSettings, type HostsConfig, type Probe, type TailscalePeer,
 } from "./hosts.js";
 export { gitRemote, INCOMING_REF, localGit, RENDER_CODE, renderCommit, syncCode, type Git, type GitResult } from "./code-sync.js";
