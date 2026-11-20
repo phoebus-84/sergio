@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -364,8 +364,7 @@ describe("pva_clean_voice", () => {
 
 describe("the ComfyUI server of the machines file", () => {
   // A machine whose ComfyUI listens on its own loopback: the tunnel is a fake
-  // ssh that makes the stubbed server answer on the forwarded local port, and
-  // the GPU lock is real flock, run by a local sh standing in for the machine.
+  // ssh that makes the stubbed server answer on the forwarded local port.
   let spawned: string[][];
   let lockFile: string;
   let commands: { destination: string; command: string }[];
@@ -399,17 +398,14 @@ describe("the ComfyUI server of the machines file", () => {
         else origins.add(`http://127.0.0.1:${port}`);
         return child as never;
       },
-      exec: (destination, command, input = {}) => {
+      // The machine's side of the lock: it answers "locked" and holds until the session closes.
+      // (Real flock is tested in @av/machines.)
+      exec: async (destination, command, input = {}) => {
         commands.push({ destination, command });
-        return new Promise((resolve) => {
-          const child = spawn("sh", ["-c", command], { stdio: ["pipe", "pipe", "pipe"] });
-          let err = "";
-          if (input.stdout) child.stdout.pipe(input.stdout);
-          child.stderr.on("data", (b: Buffer) => (err += b.toString()));
-          child.on("close", (code) => resolve({ code: code ?? 1, stdout: "", stderr: err }));
-          if (input.stdin && typeof input.stdin !== "string" && !Buffer.isBuffer(input.stdin)) (input.stdin as NodeJS.ReadableStream).pipe(child.stdin);
-          else child.stdin.end();
-        });
+        input.stdout?.write("locked\n");
+        for await (const _ of (input.stdin ?? []) as AsyncIterable<Buffer>) { /* held until stdin ends */ }
+        input.stdout?.end();
+        return { code: 0, stdout: "", stderr: "" };
       },
     });
   });

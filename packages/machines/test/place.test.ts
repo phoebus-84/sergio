@@ -32,7 +32,7 @@ test("a probe that throws is a machine that did not answer; none answering is no
   await assert.rejects(place(machines, "heavy-gpu", async () => ({ ok: true })), { code: "no-machine" });
 });
 
-test("the probe says what a machine is, in one ssh command", async () => {
+test("the probe says what a machine is, in one ssh command", { skip: process.platform === "win32" ? "runs the probe in a local sh" : false }, async () => {
   const exec = localShell({ unreachable: new Set(["spare"]) });
   const probe = await probeMachine(exec, machines.machines[0]!);
   assert.equal(probe.reachable, true);
