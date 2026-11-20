@@ -470,11 +470,17 @@ The same server runs any graph written down as a workflow
 `pva_comfyui_run` runs one in an episode, a channel source or a film unit.
 Free on your GPU, never chosen on its own, never a fallback for a paid call.
 
-- **Built in** (core nodes only, never yet run on a real server from here):
-  `z-image-turbo` (text to image), `flux2-klein-edit` (image edit),
-  `wan22-ti2v-5b` (text or first frame to video), `ace-step-music` (music
-  from tags and lyrics). Each declares the model files it needs and where
-  they go under `models/`; nothing downloads them.
+- **Built in** (core nodes only): `z-image-turbo` (text to image) and
+  `flux2-klein-edit` (image edit), both run on a real server;
+  `wan22-ti2v-5b` (text or first frame to video) and `ace-step-v1-music`
+  (ACE-Step v1 music from tags and lyrics), not yet. Each takes its model
+  files as `model` inputs with defaults, and says where they go under
+  `models/`; nothing downloads them.
+- **Your server's file names:** where yours names a model otherwise, give
+  the file as that input on the call, or once for this library in
+  `.render/comfyui.json`:
+  `"workflowDefaults": { "z-image-turbo": { "vae": "ae.safetensors" } }`.
+  `pva_comfyui_workflows { workflow }` lists the files each loader has.
 - **Yours:** export a graph from ComfyUI in API format (*Workflow → Export
   (API)*), replace the values to set with `"{{name}}"` and each output's
   `filename_prefix` with `"{{outputPrefix}}"`, declare its `inputs`,
@@ -484,14 +490,16 @@ Free on your GPU, never chosen on its own, never a fallback for a paid call.
   (that one only, in its repository). The `comfyui-workflows` skill and
   `packages/comfyui/README.md` have the format.
 - **Before a run** the server is asked, through `/object_info`, for every
-  node class and model the graph names: what is missing is reported and
-  nothing is sent. `pva_capability_status` shows the same for every workflow.
+  node class the graph names, every input this server's version of each
+  node requires, and every model file: what is missing is reported (for a
+  model, with the files its loader has) and nothing is sent. `pva_capability_status` shows the same for every workflow.
 - **Each output** goes in the workspace by kind (`assets/images/`,
   `assets/video/comfyui/`, `music/`, `artifacts/narration/`,
   `assets/audio/`), never over a file, with `<file>.comfyui.json` beside it:
   the workflow and graph by hash, every value, input files by hash, seeds,
   models, the server's version, `runtimeVerified: false`, $0 and the GPU
-  time, which also goes to the unit's journal.
+  time, which also goes to an episode's or film unit's journal (a channel
+  source has it in the receipt only).
 - **Settings** in `.render/comfyui.json`, all optional:
   `workflowTimeoutSeconds` (default 1800), `workflowOutputPrefix` and
   `workflowInputSubfolder` (default `studio-workflows`).

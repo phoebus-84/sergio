@@ -71,8 +71,8 @@ depends on it, unchanged in behaviour.
 - **kind**: `image`, `image-edit`, `video`, `speech`, `music`, `audio`,
   `other` — what it makes, which decides where its outputs go by default.
 - **inputs**, one per placeholder: their type (`text`, `string`, `integer`,
-  `number`, `boolean`, `choice`, `seed`) and range, a default, and which
-  are files to upload (`image`, `audio`, `video`). A seed not given is
+  `number`, `boolean`, `choice`, `seed`, `model`) and range, a default, and
+  which are files to upload (`image`, `audio`, `video`). A seed not given is
   picked and returned.
 - **outputs**: node id → `image`, `video` or `audio`. Every file the node
   saved is kept, whatever key the server lists it under.
@@ -81,9 +81,15 @@ depends on it, unchanged in behaviour.
   loader node's input, whose value is the file. `folder` and `source` say
   where it goes and where to get it. **Nothing downloads a model or
   installs a node.**
-- **verifiedOn**: when and where it last ran well on a real server. The
-  built-in workflows have none: they were written without a server, and the
-  tools say so.
+- **Model files are inputs.** Every server names its files its own way: on
+  the first real server, three of the four built-in workflows failed on a
+  file name alone. So a loader's file is a `model` input with a default,
+  checked against the loader's list like any model. A call may name
+  another file, and a library sets its server's names once, per workflow,
+  in `.render/comfyui.json` (`workflowDefaults`), without copying the
+  workflow. A file named in the graph itself is a warning.
+- **verifiedOn**: when and where it last ran well on a real server; absent,
+  never, and the tools say so.
 - `{{outputPrefix}}` belongs to the runner: each run saves under a folder of
   its own on the server.
 
@@ -108,10 +114,13 @@ graphs stay in `@av/comfyui-speech`, run by its own operations.
 
 Before anything is uploaded or queued, the server is asked
 `/object_info/<class>` for every class the filled graph needs (once per
-class across a listing) and, for each required model, whether the loader's
-input lists the file among its choices. A missing node or model is an
-error naming it — and for a model, the `models/` folder it goes in — with
-nothing sent. `pva_comfyui_workflows` and `pva_capability_status` show the
+class across a listing): whether it has the class, whether the graph gives
+each node every input this server's version requires (nodes gain required
+inputs between versions, and the server would refuse the graph at queue
+time), and, for each required model, whether the loader's input lists the
+file among its choices. A missing node, input or model is an error naming
+it — for a model, the `models/` folder it goes in and the files the loader
+does list — with nothing sent. `pva_comfyui_workflows` and `pva_capability_status` show the
 same probe for every workflow without running any.
 
 ### Receipts
@@ -139,8 +148,9 @@ is refused before the GPU is used, and a retake is a new name.
 $0: the GPU is the operator's. Nothing is reserved on the spend ledger.
 What a run did cost is its time: the server's own measure (from its
 `execution_start` to its `execution_success` timestamps) and the wall time,
-queue included, in the receipt and in the unit's journal as an
-`artifact-written` event with `gpuSeconds`.
+queue included, in the receipt and, for an episode or a film unit, in its
+journal as an `artifact-written` event with `gpuSeconds`. A channel source
+has no journal of its own: its runs' time is in their receipts.
 
 ### How what it makes enters a production
 
@@ -214,9 +224,10 @@ resolution are another change's.
   receipt, by writing it down once — no adapter, no code.
 - What a server lacks is said before anything runs, in the listing, the
   status and the refusal.
-- Built-in workflows written without a server may be wrong in a node's or a
-  model's name: they say they were never run, and the first run is their
-  test. The list of what to check is in the pull request that adds them.
+- A built-in workflow that has not run on a real server may be wrong in a
+  node's name or inputs: it says so, and its first run is its test. Two of
+  the four have run (`verifiedOn`); ACE-Step v1 is kept as a v1 graph, and
+  ACE-Step 1.5, whose nodes differ, is a workflow still to add.
 - ComfyUI is reached through its own tools, not as a provider of the
   provider-neutral capabilities (ADR-0015): a stage that asks for
   `image.generate` still gets the provider its profile names. Making

@@ -66,10 +66,16 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     unit: files of the workspace uploaded under their hash, what it made
     written by kind with `<file>.comfyui.json` beside it (workflow and graph
     by hash, values, seeds, models, server version, GPU time). $0; the GPU
-    time also goes to the unit's journal.
-  - Built in, not yet run on a real server: Z-Image Turbo (text to image),
-    FLUX.2 [klein] 4B (image edit), Wan 2.2 TI2V 5B (video), ACE-Step v1
-    (music).
+    time also goes to an episode's or film unit's journal.
+  - The server is asked first, through `/object_info`, for every node, every
+    input its version requires and every model file: what is missing is
+    said before anything runs, with the files each loader has.
+  - Model files are inputs with defaults: a server that names them
+    otherwise sets its names once in `.render/comfyui.json`
+    (`workflowDefaults`), with no copy of the workflow.
+  - Built in: Z-Image Turbo (text to image) and FLUX.2 [klein] 4B (image
+    edit), run on a real server; Wan 2.2 TI2V 5B (video) and ACE-Step v1
+    (music), not yet.
   - `pva_synthesize_speech` with `provider: "comfyui-qwen"` takes
     `voiceDesign`: a voice made from a description, kept on the server with
     `saveVoiceAs` (under consent bound to that name) for every later line.

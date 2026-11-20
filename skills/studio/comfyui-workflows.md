@@ -54,12 +54,16 @@ skill), which also designs voices from a description.
 1. `pva_capability_status` — does the server answer, which workflows can it
    run. `pva_comfyui_workflows { channel }` lists them all, with the
    channel's or film's own; `workflow: "<name>"` shows one in full: every
-   input with its type, default and range, the outputs, the models.
+   input with its type, default and range, the outputs, the models and the
+   files the server's loaders have.
 2. `pva_comfyui_run` on the unit: `channel`/`series`/`episode` as every
    tool takes them (a film: the film, the scene or `_`, the shot or `_`),
    `workflow`, `name`, and `inputs`. A file input is the workspace-relative
    path of a file of that unit; it is uploaded under its content's hash, so
-   no local name reaches the server.
+   no local name reaches the server. A `model` input is a file name the
+   loader lists: when the probe says a model is missing and the loader has
+   the same model under another name, pass that name (and tell the operator
+   they can set it once in `.render/comfyui.json`, `workflowDefaults`).
 3. **Look at what it made** before using it. A workflow that says *never
    run on a real server yet* may be wrong in a node's name or a model's
    file; the first run is its test.
@@ -74,7 +78,8 @@ Each output lands by kind — images in `assets/images/`, clips in
 `<file>.comfyui.json`: the workflow and the graph by hash, every value, the
 input files by hash, the seeds, the models named, the server's version,
 `runtimeVerified: false` (ComfyUI names models, it does not attest them),
-`$0`, and the GPU time, which also goes to the unit's journal.
+`$0`, and the GPU time, which also goes to an episode's or film unit's
+journal.
 
 ## Where it goes next
 
@@ -132,9 +137,11 @@ name, and the listing says so.
 - `outputs`: the id of every node that saves a result, and whether it is an
   `image`, a `video` or `audio`. Video saved by the core `SaveVideo` and by
   VideoHelperSuite's combine node both work.
-- `requires.models`: each loader node and the input that names its file;
-  `folder` is where the file goes under `models/`. The probe checks the
-  server lists it. Nothing downloads it.
+- Model files: make each loader's file a `model` input with a default
+  (`"vae": { "type": "model", "default": "ae.safetensors" }`, and
+  `"vae_name": "{{vae}}"` in the graph), and name the loader's node and
+  input in `requires.models`; `folder` is where the file goes under
+  `models/`. The probe checks the server lists it. Nothing downloads it.
 - `verifiedOn`: once it has run well on the server, when and where
   (`"ComfyUI 0.3.75, RTX 4090, 2026-11-20"`).
 

@@ -168,7 +168,7 @@ source is legitimate, and each cue keeps where it came from:
    sources — supplied, licensed, or generated — rather than cover it with a
    pad: which one is the person's decision.
 4. **Generated with a model**: a music workflow on the operator's ComfyUI
-   server (`ace-step-music`, or one of theirs; the `comfyui-workflows`
+   server (`ace-step-v1-music`, or one of theirs; the `comfyui-workflows`
    skill), when the person chooses it, or offered when a cue needs what code
    does not give and `pva_capability_status` says a music workflow can run.
    `pva_comfyui_run` on the film with the cue's `tags` (genre, instruments,
@@ -202,7 +202,7 @@ pieces, their renders and the generated cues of a unit.
       "terms": "composed for this film: music/ward.strudel" },
     { "id": "night", "file": "music/night.flac", "seconds": 75,
       "over": ["040-harbour"], "enters": "040-harbour, under the boat's horn", "leaves": "040-harbour, fades with the lights",
-      "terms": "generated for this film: ace-step-music, seed 4417 (music/night.flac.comfyui.json); the model's licence, the operator's terms" }
+      "terms": "generated for this film: ace-step-v1-music, seed 4417 (music/night.flac.comfyui.json); the model's licence, the operator's terms" }
   ],
   "silence": ["030-corridor: no music; the ventilation hum is the scene."],
   "credits": ["Music: “Theme” by <author>, CC BY 4.0"]
