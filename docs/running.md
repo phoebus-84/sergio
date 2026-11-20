@@ -198,6 +198,12 @@ and the agent does not ssh there by hand
   Blender work stays here, and ComfyUI is looked for on the machines that have
   the role.
 
+> **A machine declared without `prefer` takes no work by itself.** If you list
+> `machines` and leave `prefer` out, renders still run on this machine:
+> nothing moved, and that is by design. Add `"remotion": ["gpu-box", "local"]`
+> to send renders there. The one role that needs no `prefer` is `comfyui`,
+> because a server is looked for on the machines that have that role.
+
 What uses it now:
 
 | Role | Effect |
