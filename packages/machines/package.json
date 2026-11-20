@@ -1,0 +1,22 @@
+{
+  "name": "@av/machines",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "The operator's machines, declared once: which exist, how SSH reaches them, what each is for and in which order to use them. Answers where to run a role and how to reach a service on a machine's loopback (a health-checked ssh -L tunnel). Knows nothing about episodes or the studio.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0"
+  }
+}
