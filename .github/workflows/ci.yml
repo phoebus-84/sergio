@@ -76,6 +76,8 @@ jobs:
           - packages/infographics
           - packages/video-composer
           - packages/remotion-composer
+          - packages/machines
+          - packages/render-worker
           - packages/strudel
           - studio/contracts
           - studio/series
