@@ -25,6 +25,33 @@ Under Claude Code, start `claude` from the repository root: its `.mcp.json` star
 `pva` MCP server, which serves the same tools as `mcp__pva__pva_*`. The slash commands
 are its prompts (`/mcp__pva__video`, `/mcp__pva__render`, …).
 
+## Where heavy work runs
+
+The operator's other machines — a GPU box, a render engine, a ComfyUI server — are
+declared once, in the library's machines file (`library/.render/machines.json`,
+ADR-0055): how SSH reaches each, what each is for, and in which order to use them.
+**The tools route by that file. You do not.**
+
+- At the start of a session, read `pva_capability_status`: a `machine-<name>` line per
+  machine (whether it answers, its cores, its Blender) and a `machines` line saying
+  where each role goes (`blender → gpu-box, local`). You are never told an SSH alias,
+  and you never need one.
+- **Never ssh to a machine by hand** to do the studio's work: no copying packages there,
+  no installing them, no runner scripts, no `ssh -L` tunnels, no Python run there, no
+  fetching results back by hand. That loses the tools' checks and provenance. The tools
+  already go there when the file says so:
+  - `pva_compose_video` renders where `prefer.remotion` says when you give no `host`;
+  - `pva_synthesize_speech` / `pva_clean_voice` with provider `comfyui-qwen` reach the
+    machine's ComfyUI themselves, through a tunnel they open, holding its GPU lock.
+- **Blender tools still run on this machine** (`pva_stage_shot`, `pva_rig_shot`,
+  `pva_rig_sheet`, `pva_blender_render`, …) until remote Blender lands
+  (issue #121). When this machine's Blender is missing or unsupported and the machines
+  file names a machine with the blender role, stop and tell the operator: say what you
+  need and which machine could do it. Do not work around the tool.
+- A machine that does not answer is the operator's to fix; say which and why (the
+  status line carries ssh's own reason). Do not change the machines file unless the
+  operator asks you to.
+
 ## Usage
 
 Once installed, the executive producer extension loads at session start. Tools and

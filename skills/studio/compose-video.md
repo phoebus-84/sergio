@@ -116,12 +116,17 @@ recompiled and why) and lists every finding, writing nothing.
 
 ## Where it renders
 
-By default `pva_compose_video` renders on this machine. Keep it there unless
-the operator asks for another one (`packages/render-worker/README.md` says how
-it works and how to set a machine up):
+Without `host`, `pva_compose_video` renders where the library's machines file
+(`library/.render/machines.json`, ADR-0055) says: its `prefer.remotion` order,
+the first machine that answers, or this machine when it says nothing. The
+tool's answer says where it went and which machines it passed over. Do not
+pass `host` unless the operator asks for a machine
+(`packages/render-worker/README.md` says how it works and how to set a machine
+up), and never ssh to a machine to render by hand:
 
-- `host` renders the whole video on another machine of the tailnet: a peer
-  name, a host from `library/.render/render-hosts.json`, or `auto`.
+- `host` renders the whole video on another machine: a machine of the machines
+  file, a peer name of the tailnet, a host from
+  `library/.render/render-hosts.json`, or `auto`. `local` renders here.
 - `hosts` (with `assembleOn`) shares one render among several machines
   through a queue: each comes back for more as it finishes, so the faster
   ones draw more. Only when the operator asks for a shared render.

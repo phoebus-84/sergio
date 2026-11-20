@@ -93,6 +93,12 @@ that can be right first.
 
 Rules that hold whatever the source:
 
+- **Where it runs is the tools' business.** Heavy work goes to the operator's
+  other machines only through the tools, which read the library's machines
+  file (`pva_capability_status` shows it). Never ssh to a machine to render,
+  run Blender or run a model by hand. The Blender tools still run here
+  (issue #121); when this machine cannot do the job, tell the operator.
+
 - **A generated prompt is assembled, not improvised**: what the shot shows
   (the plan), who is in it (the character entries, verbatim), where (the
   location entry), and the look (the bible). The same words every time is

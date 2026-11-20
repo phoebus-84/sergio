@@ -11,6 +11,11 @@ description: Create editable Blender scenes and animations using bpy, background
 1. Read `packages/blender/README.md` from the repository root. Run
    `pva_blender_probe`. Supported targets: **Blender 4.2–4.x and 5.2.x LTS**.
    Do not substitute a renderer or install Blender/add-ons without permission.
+   The Blender tools run on the machine the studio runs on. The library's machines
+   file may name another machine with the `blender` role, and `pva_capability_status`
+   shows its Blender. Even so, never copy the package there, never run Blender there
+   over ssh by hand, and never fetch results back yourself (issue #121 makes the tools
+   do it). If this machine cannot do the job, tell the operator.
 2. Establish the shot: subject, reference images, framing, camera/lens, scale,
    action beats, seconds, FPS, resolution, lighting, engine, render-time budget,
    asset provenance, and who directs/approves it. Use one named shot per scene.
