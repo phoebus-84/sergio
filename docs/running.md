@@ -204,7 +204,7 @@ What uses it now:
 |---|---|
 | `remotion` | `pva_compose_video` without `host` renders where `prefer.remotion` says. A `remotion` machine is a `host` by name and comes first for `auto`. Its role's settings go over `render-hosts.json`, which still works on its own. |
 | `comfyui` | Unless `AVG_COMFYUI_URL` is set, speech and voice cleaning reach the machine's server themselves: `ssh -N -L` on a free local port, checked with `/system_stats`, reused, closed when the studio exits. They hold its `gpuLock` around each call. The receipt names the machine. |
-| `blender` | Reported (its Blender's version and whether the tools take it). The Blender tools still run here until [issue #121](https://github.com/phoebus-84/video-studio/issues/121). |
+| `blender` | Reported (its Blender's version and whether the tools take it). The Blender tools still run here until [issue #121](https://github.com/phoebus-84/video-studio/issues/121). Until then, the agent runs Blender work there by hand only when you explicitly ask, and says first that the tools' checks and provenance are lost. |
 
 `pva_capability_status` and `pva_config` list every machine, whether it
 answers over SSH (with ssh's reason when it does not), its system, cores and

@@ -13,9 +13,11 @@ description: Create editable Blender scenes and animations using bpy, background
    Do not substitute a renderer or install Blender/add-ons without permission.
    The Blender tools run on the machine the studio runs on. The library's machines
    file may name another machine with the `blender` role, and `pva_capability_status`
-   shows its Blender. Even so, never copy the package there, never run Blender there
-   over ssh by hand, and never fetch results back yourself (issue #121 makes the tools
-   do it). If this machine cannot do the job, tell the operator.
+   shows its Blender. Until issue #121 makes the tools go there, run Blender work here.
+   If this machine cannot do the job, tell the operator. Run it on that machine by hand
+   only when the operator explicitly asks for it. Then first say that the tools' checks
+   and provenance are lost for that work. Use the role's `bin` (and its `gpuLock`), and
+   record in the journal what ran where. Never choose to on your own.
 2. Establish the shot: subject, reference images, framing, camera/lens, scale,
    action beats, seconds, FPS, resolution, lighting, engine, render-time budget,
    asset provenance, and who directs/approves it. Use one named shot per scene.

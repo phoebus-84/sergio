@@ -196,9 +196,17 @@ list of missing files, before rendering. The issue holds the detail.
 - The operator writes one file once. The agent reads where things run from
   `pva_capability_status` and never needs to be told an SSH alias.
 - The skills say: the tools route by the machines file, and the agent does not
-  copy code to a machine, open a tunnel or run scripts there by hand. Until remote
-  Blender lands, a Blender tool runs here. When this machine cannot do the
-  job, the agent tells the operator instead of working around the tool.
+  copy code to a machine, open a tunnel or run scripts there by hand.
+- **Until remote Blender lands (#121), Blender is the one interim exception.**
+  - By default, a Blender tool runs here, and when this machine cannot do
+    the job, the agent tells the operator.
+  - When the operator explicitly asks for Blender work on a `blender`
+    machine, the agent may run it there by hand. It uses the role's `bin` and
+    `gpuLock`. It says first that the tools' checks and provenance are lost
+    for that work, and records in the unit's journal what ran where.
+  - The agent never chooses this on its own, even when the other machine is
+    faster. A shot staged by hand on a stronger machine (about twice as fast
+    at twice the resolution, in the last film) is the gap #121 closes.
 - A machine can be named in two old places and one new one. The order is fixed
   above and tested, and `pva_config` shows what was read.
 - Declaring `heavy-cpu` and `heavy-gpu` before any tool routes by them is

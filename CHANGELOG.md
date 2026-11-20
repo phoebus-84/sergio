@@ -47,7 +47,10 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     system, cores and Blender version, and where each role goes.
   - **Blender** on another machine is reported, not yet used: the Blender
     tools still run here until
-    [#121](https://github.com/phoebus-84/video-studio/issues/121).
+    [#121](https://github.com/phoebus-84/video-studio/issues/121). Until then
+    the agent runs Blender work on that machine by hand only when you ask for
+    it explicitly, and says first that the tools' checks and provenance are
+    lost.
   - `@av/machines` is the new package. render-worker's SSH transport moved
     there and render-worker re-exports it, so an engine now needs
     `packages/machines` committed too.

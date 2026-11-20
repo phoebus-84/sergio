@@ -45,9 +45,16 @@ ADR-0056): how SSH reaches each, what each is for, and in which order to use the
     machine's ComfyUI themselves, through a tunnel they open, holding its GPU lock.
 - **Blender tools still run on this machine** (`pva_stage_shot`, `pva_rig_shot`,
   `pva_rig_sheet`, `pva_blender_render`, …) until remote Blender lands
-  (issue #121). When this machine's Blender is missing or unsupported and the machines
-  file names a machine with the blender role, stop and tell the operator: say what you
-  need and which machine could do it. Do not work around the tool.
+  (issue #121). Until then:
+  - by default, Blender work runs here through the tools;
+  - when this machine's Blender is missing or unsupported and the machines file names a
+    machine with the blender role, stop and tell the operator what you need and which
+    machine could do it;
+  - **the one exception**: when the operator explicitly asks for Blender work on that
+    machine, you may run it there by hand. Use the role's `bin` from the machines file,
+    and its `gpuLock` (`flock`) when it has one. First say plainly that this work loses
+    the tools' checks and provenance, and record in the unit's journal what ran where.
+    Never decide this on your own because the other machine is faster.
 - A machine that does not answer is the operator's to fix; say which and why (the
   status line carries ssh's own reason). Do not change the machines file unless the
   operator asks you to.
