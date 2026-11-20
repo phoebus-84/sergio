@@ -172,7 +172,7 @@ describe("the built-in workflows", () => {
       "ace-step-v1-music": "music", "flux2-klein-edit": "image-edit", "wan22-ti2v-5b": "video", "z-image-turbo": "image",
     });
     // only those that ran on a real server say where
-    expect(entries.filter((e) => e.workflow!.verifiedOn).map((e) => e.name)).toEqual(["flux2-klein-edit", "z-image-turbo"]);
+    expect(entries.filter((e) => e.workflow!.verifiedOn).map((e) => e.name)).toEqual(["flux2-klein-edit", "wan22-ti2v-5b", "z-image-turbo"]);
   });
 
   it("are hidden by an operator's workflow of the same name, which says what it hides", () => {

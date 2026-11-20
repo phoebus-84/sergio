@@ -17,6 +17,7 @@
     "vae": { "type": "model", "default": "wan2.2_vae.safetensors", "description": "The Wan 2.2 autoencoder (not Wan 2.1's)" }
   },
   "outputs": { "58": "video" },
+  "verifiedOn": "ComfyUI 0.45.0, RX 7900 XTX (ROCm), 2026-11-20",
   "optionalNodes": { "image": "56" },
   "requires": {
     "models": [

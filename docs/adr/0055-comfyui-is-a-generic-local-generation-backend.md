@@ -225,7 +225,7 @@ resolution are another change's.
 - What a server lacks is said before anything runs, in the listing, the
   status and the refusal.
 - A built-in workflow that has not run on a real server may be wrong in a
-  node's name or inputs: it says so, and its first run is its test. Two of
+  node's name or inputs: it says so, and its first run is its test. Three of
   the four have run (`verifiedOn`); ACE-Step v1 is kept as a v1 graph, and
   ACE-Step 1.5, whose nodes differ, is a workflow still to add.
 - ComfyUI is reached through its own tools, not as a provider of the

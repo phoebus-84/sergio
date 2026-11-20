@@ -107,7 +107,7 @@ differs. `verifiedOn` says which have run on a real server.
 |---|---|---|---|
 | `z-image-turbo` | text to image | `unetModel` `z_image_turbo_bf16`, `textEncoder` `qwen_3_4b`, `vae` `z_image_ae` | yes, ComfyUI 0.45.0 on an RX 7900 XTX (ROCm) |
 | `flux2-klein-edit` | image edit | `unetModel` `flux-2-klein-4b`, `textEncoder` `qwen_3_4b`, `vae` `flux2-vae` | yes, ComfyUI 0.45.0 on an RX 7900 XTX (ROCm) |
-| `wan22-ti2v-5b` | text or first frame to video | `unetModel` `wan2.2_ti2v_5B_fp16`, `textEncoder` `umt5_xxl_fp16`, `vae` `wan2.2_vae` | not yet |
+| `wan22-ti2v-5b` | text or first frame to video | `unetModel` `wan2.2_ti2v_5B_fp16`, `textEncoder` `umt5_xxl_fp16`, `vae` `wan2.2_vae` | yes, ComfyUI 0.45.0 on an RX 7900 XTX (ROCm), with and without a first frame |
 | `ace-step-v1-music` | music from tags and lyrics, ACE-Step **v1** | `checkpoint` `ace_step_v1_3.5b` | not yet |
 
 (All `.safetensors`.) ACE-Step 1.5 has other nodes (`TextEncodeAceStepAudio1.5`,

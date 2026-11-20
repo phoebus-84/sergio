@@ -158,7 +158,8 @@ describe("pva_comfyui_workflows", () => {
     expect(r.text).toMatch(/- z-image-turbo \(image, built-in\): .*server: ✅ runnable/);
     expect(r.text).toMatch(/- wan22-ti2v-5b \(video, built-in\): .*❌ missing nodes Wan22ImageToVideoLatent/);
     expect(r.text).toMatch(/- flux2-klein-edit .*missing models flux-2-klein-4b\.safetensors \(models\/diffusion_models; input unetModel; the loader has z_image_turbo_bf16\.safetensors, wan2\.2_ti2v_5B_fp16\.safetensors\)/);
-    expect(r.text).toMatch(/- wan22-ti2v-5b .*never run on a real server yet/);
+    expect(r.text).toMatch(/- ace-step-v1-music .*never run on a real server yet/);
+    expect(r.text).not.toMatch(/- wan22-ti2v-5b .*never run/);
     expect(r.text).not.toMatch(/- z-image-turbo .*never run/);
     expect(r.text).not.toContain(URL_BASE);
     expect(queued).toHaveLength(0);

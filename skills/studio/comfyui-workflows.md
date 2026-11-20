@@ -70,6 +70,11 @@ skill), which also designs voices from a description.
 4. **A retake** is the same call with another `seed` (the receipt has the
    one used; give it back to make the same take again) or a changed input,
    under a new `name`. Nothing is ever written over.
+5. **Steps trade quality for time.** Fewer `steps` than a workflow's default
+   are for a quick look at framing and motion, not for a take: a Wan 2.2
+   clip at 12 steps came out overexposed from text alone, and from a first
+   frame drifted off its prompt by its last frame. Make the take at the
+   default, or more.
 
 Each output lands by kind — images in `assets/images/`, clips in
 `assets/video/comfyui/`, music in `music/`, speech in

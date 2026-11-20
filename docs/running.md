@@ -470,10 +470,10 @@ The same server runs any graph written down as a workflow
 `pva_comfyui_run` runs one in an episode, a channel source or a film unit.
 Free on your GPU, never chosen on its own, never a fallback for a paid call.
 
-- **Built in** (core nodes only): `z-image-turbo` (text to image) and
-  `flux2-klein-edit` (image edit), both run on a real server;
-  `wan22-ti2v-5b` (text or first frame to video) and `ace-step-v1-music`
-  (ACE-Step v1 music from tags and lyrics), not yet. Each takes its model
+- **Built in** (core nodes only): `z-image-turbo` (text to image),
+  `flux2-klein-edit` (image edit) and `wan22-ti2v-5b` (text or first frame
+  to video), all run on a real server; `ace-step-v1-music` (ACE-Step v1
+  music from tags and lyrics), not yet. Each takes its model
   files as `model` inputs with defaults, and says where they go under
   `models/`; nothing downloads them.
 - **Your server's file names:** where yours names a model otherwise, give
