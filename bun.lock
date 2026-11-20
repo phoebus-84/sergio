@@ -234,6 +234,7 @@
         "@av/audio-edit": "workspace:*",
         "@av/blender": "workspace:*",
         "@av/codex-image": "workspace:*",
+        "@av/comfyui": "workspace:*",
         "@av/comfyui-speech": "workspace:*",
         "@av/elevenlabs": "workspace:*",
         "@av/fal-media": "workspace:*",

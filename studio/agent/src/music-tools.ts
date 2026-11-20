@@ -13,6 +13,7 @@ import type { AudioAnalysis, Inspection } from "@av/strudel";
 import { checkMusic, listMusic, renderMusic, MUSIC_LOUDNESS, MUSIC_OUTPUT_DIRS, MUSIC_PEAK, MusicError, type MusicRequest } from "@studio/episode";
 import type { MusicRenderRecord } from "@studio/contracts/src/music-renders.mjs";
 import { WORKSPACE_PARAMS, guardWorkspacePath, workspaceOf } from "./workspace-target.js";
+import { listGeneratedMusic } from "./comfyui-workflows.js";
 
 const fail = (error: unknown) => ({
   content: [{ type: "text" as const, text: `❌ ${error instanceof MusicError ? `${error.code}: ` : ""}${error instanceof Error ? error.message : String(error)}` }],
@@ -214,8 +215,9 @@ export function registerMusicTools(pi: ExtensionAPI): void {
     name: "pva_music",
     label: "Music",
     description:
-      "List the pieces of music of an episode, a channel source or a film unit (music/*.strudel) and what was rendered from each: the file, " +
-      "the cycles, the parts, its length and loudness, whether the piece changed since (stale) and whether the file is still there.",
+      "List the music of an episode, a channel source or a film unit: the pieces written as code (music/*.strudel) and what was rendered from each — " +
+      "the file, the cycles, the parts, its length and loudness, whether the piece changed since (stale) and whether the file is still there — and " +
+      "the music generated with a ComfyUI workflow (pva_comfyui_run), by its receipt: the file, the workflow, the seed, its length.",
     parameters: Type.Object({ ...WORKSPACE_PARAMS }),
     async execute(_id, params) {
       try {
@@ -231,8 +233,15 @@ export function registerMusicTools(pi: ExtensionAPI): void {
         const lines = listed.pieces.flatMap((piece) => [`- ${piece.path}${piece.renders.length === 0 ? ": not rendered yet" : ""}`, ...piece.renders.map(render)]);
         if (listed.orphans.length > 0) lines.push("- rendered from pieces that are gone:", ...listed.orphans.map(render));
         if (listed.invalid.length > 0) lines.push(`⚠️ unreadable records: ${listed.invalid.join(", ")}`);
-        const text = lines.length > 0 ? `${ws.label}:\n${lines.join("\n")}` : `${ws.label} has no music: a piece is music/<name>.strudel (load the strudel-music skill)`;
-        return { content: [{ type: "text" as const, text }], details: listed as unknown as Record<string, unknown> };
+        // Generated music is a source of its own (ADR-0055): it has a receipt, not a piece.
+        const generated = listGeneratedMusic(ws.dir);
+        if (generated.length > 0) {
+          lines.push("- generated (ComfyUI):", ...generated.map((g) => `  - ${g.path}${g.missing ? " (MISSING or replaced)" : ""}: ${g.workflow}` +
+            `${g.seed !== null ? `, seed ${g.seed}` : ""}${g.durationSeconds !== null ? `, ${g.durationSeconds} s` : ""} → ${g.receiptPath}`));
+        }
+        const text = lines.length > 0 ? `${ws.label}:\n${lines.join("\n")}`
+          : `${ws.label} has no music: a piece written as code is music/<name>.strudel (load the strudel-music skill); generated music comes from a music workflow (pva_comfyui_run)`;
+        return { content: [{ type: "text" as const, text }], details: { ...listed, generated } as unknown as Record<string, unknown> };
       } catch (error) {
         return fail(error);
       }

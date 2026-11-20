@@ -42,6 +42,7 @@ import {
 import { paidCall, providerCost, type SpendCall } from "./spend.js";
 import { COMFYUI_PROVIDER, comfyUiSpeechStatus, comfyUiSpeechTerms, comfyUiVoices, synthesizeWithComfyUi } from "./comfyui-speech.js";
 import { ELEVENLABS_PROVIDER, elevenLabsSpeechTerms, synthesizeWithElevenLabs } from "./elevenlabs-speech.js";
+import { comfyUiWorkflowsStatus } from "./comfyui-workflows.js";
 import { SpendRefused, toMicros } from "@studio/contracts/src/budget.mjs";
 import {
   CODEX_PROVIDER,
@@ -2239,6 +2240,8 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       Object.assign(caps, elevenLabsStatus(Boolean(process.env.ELEVENLABS_API_KEY)));
       // Speech from a ComfyUI server: optional, never a fallback for the worker.
       caps[`text-to-speech-${COMFYUI_PROVIDER}`] = await comfyUiSpeechStatus(LIBRARY_ROOT);
+      // Any other workflow on the same server (pva_comfyui_run): images, video, music.
+      caps["comfyui-workflows"] = await comfyUiWorkflowsStatus(LIBRARY_ROOT);
 
       // FFmpeg
       try {
