@@ -43,18 +43,13 @@ ADR-0056): how SSH reaches each, what each is for, and in which order to use the
   - `pva_compose_video` renders where `prefer.remotion` says when you give no `host`;
   - `pva_synthesize_speech` / `pva_clean_voice` with provider `comfyui-qwen` reach the
     machine's ComfyUI themselves, through a tunnel they open, holding its GPU lock.
-- **Blender tools still run on this machine** (`pva_stage_shot`, `pva_rig_shot`,
-  `pva_rig_sheet`, `pva_blender_render`, …) until remote Blender lands
-  (issue #121). Until then:
-  - by default, Blender work runs here through the tools;
-  - when this machine's Blender is missing or unsupported and the machines file names a
-    machine with the blender role, stop and tell the operator what you need and which
-    machine could do it;
-  - **the one exception**: when the operator explicitly asks for Blender work on that
-    machine, you may run it there by hand. Use the role's `bin` from the machines file,
-    and its `gpuLock` (`flock`) when it has one. First say plainly that this work loses
-    the tools' checks and provenance, and record in the unit's journal what ran where.
-    Never decide this on your own because the other machine is faster.
+  - `pva_stage_shot`, `pva_rig_shot`, `pva_rig_sheet` and `pva_blender_render` run
+    Blender where `prefer.blender` says: the first machine that answers with a supported
+    Blender, its job sent with the code, the files and the GPU lock, the result brought
+    back checked; else here. Their answer says where Blender ran and which machines were
+    passed over. Pass `machine` only when the operator asks for a place.
+- A remote machine runs committed code only. When a tool refuses uncommitted code, say
+  so; commit only if the operator works that way, or run with `machine: "local"`.
 - A machine that does not answer is the operator's to fix; say which and why (the
   status line carries ssh's own reason). Do not change the machines file unless the
   operator asks you to.

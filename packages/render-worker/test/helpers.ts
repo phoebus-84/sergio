@@ -54,7 +54,13 @@ export interface FakeEngine {
   state: { commit: string | null; synced: string | null };
 }
 
-export function fakeEngine(options: { render?: EngineContext["render"]; name?: string } = {}): FakeEngine {
+export function fakeEngine(options: {
+  render?: EngineContext["render"];
+  name?: string;
+  blender?: EngineContext["blender"];
+  blendPaths?: EngineContext["blendPaths"];
+  blenderLockExec?: EngineContext["blenderLockExec"];
+} = {}): FakeEngine {
   const cache = tempDir("rw-engine-");
   const engine: FakeEngine = {
     cache,
@@ -93,6 +99,9 @@ export function fakeEngine(options: { render?: EngineContext["render"]; name?: s
           engine.state.synced = sha;
         },
         concurrency: () => ({ concurrency: 3, browsers: 1 }),
+        ...(options.blender ? { blender: options.blender, blenderVersion: () => "Blender 5.2.1 LTS" } : {}),
+        ...(options.blendPaths ? { blendPaths: options.blendPaths } : {}),
+        ...(options.blenderLockExec ? { blenderLockExec: options.blenderLockExec } : {}),
         render: async (o) => {
           engine.renders.push(o);
           return (options.render ?? fakeRender)(o);

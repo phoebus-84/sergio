@@ -22,6 +22,7 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSyn
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
 import { RIG_AXES, RIG_FACINGS, RIG_SHEET_LIMITS, rigSheet, type RigAxis, type RigFacing, type RigClipThrough, type RigSheetReport, type RigStrain, type RigThrough } from "@av/blender/rig-sheet";
+import { blenderKey, MACHINE_PARAM, placeBlender, placeLines, runBlenderAt } from "./blender-place.js";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { guardEpisodePath } from "./trust-guards.js";
 
@@ -135,6 +136,7 @@ export function registerRigSheetTools(pi: ExtensionAPI): void {
       }), { maxItems: RIG_SHEET_LIMITS.poses, description: "Poses of your own, in place of the ones chosen for the body. Needed for a body that is not two-legged" })),
       actions: Type.Optional(Type.Array(Type.String(), { description: "Clips inside the rig to play, by name" })),
       clips: Type.Optional(Type.Array(Type.String(), { description: "Clip files to play, episode-relative .glb, each the body with one motion. Default: the <rig>.clip.<name>.glb files beside the rig; [] for none" })),
+      machine: MACHINE_PARAM,
     }),
     async execute(_toolCallId, params, signal, onUpdate) {
       const dir = episodePath(LIBRARY_ROOT, params.channel, params.series, params.episode);
@@ -161,13 +163,18 @@ export function registerRigSheetTools(pi: ExtensionAPI): void {
             .map((file) => ({ name: file.slice(clipPrefix.length).replace(/\.glb$/i, ""), path: join(home, file) }))
             .slice(0, Math.max(0, RIG_SHEET_LIMITS.clips - (params.actions?.length ?? 0)));
 
-      onUpdate?.({ content: [{ type: "text" as const, text: `Posing ${params.rigPath} in Blender…` }], details: { rigPath: params.rigPath } });
+      const where = await placeBlender(LIBRARY_ROOT, params.machine, signal);
+      const say = (text: string) => onUpdate?.({ content: [{ type: "text" as const, text }], details: { rigPath: params.rigPath } });
+      say(`Posing ${params.rigPath} in Blender${where.kind === "machine" ? ` on ${where.machine.name}` : ""}…`);
       const work = mkdtempSync(join(tmpdir(), "rig-sheet-"));
       try {
-        const { report, outputDir } = await rigSheet(
-          { rigPath: rigFull, outputDir: join(work, "sheet"), faces: params.faces, poses: params.poses, actions: params.actions, clips },
-          { signal },
-        );
+        const sheet = {
+          rigPath: rigFull, outputDir: join(work, "sheet"), clips,
+          ...(params.faces ? { faces: params.faces } : {}), ...(params.poses ? { poses: params.poses } : {}), ...(params.actions ? { actions: params.actions } : {}),
+        };
+        const { report, outputDir, machine } = await runBlenderAt(where, "rig-sheet", sheet, () => rigSheet(sheet, { signal }), {
+          key: blenderKey(params.channel, params.series, params.episode), allowedRoots: [join(LIBRARY_ROOT, params.channel)], ...(signal ? { signal } : {}), onLog: say,
+        });
 
         // The sheets are views of the rig, remade whenever asked: the last ones are replaced.
         for (const file of readdirSync(home)) {
@@ -193,6 +200,7 @@ export function registerRigSheetTools(pi: ExtensionAPI): void {
           rigSha256: createHash("sha256").update(readFileSync(rigFull)).digest("hex"),
           faces: params.faces ?? "+z",
           marks: RIG_STRAIN_MARKS,
+          ...(machine ? { machine } : {}),
           madeAt: new Date().toISOString(),
           ...kept,
         }, null, 2)}\n`);
@@ -201,7 +209,7 @@ export function registerRigSheetTools(pi: ExtensionAPI): void {
         return {
           content: [{
             type: "text" as const,
-            text: describeRigSheet(kept, { poses: shown(posesFile), clips: Object.fromEntries(Object.entries(clipFiles).map(([name, file]) => [name, shown(file)])) }).join("\n"),
+            text: [...describeRigSheet(kept, { poses: shown(posesFile), clips: Object.fromEntries(Object.entries(clipFiles).map(([name, file]) => [name, shown(file)])) }), ...placeLines(where, machine)].join("\n"),
           }],
           details: {
             sheetPath: join(home, posesFile),

@@ -8,7 +8,8 @@
 // named, in a place. A set is a .blend of the episode, made as any Blender
 // scene is; an object in it named `mark.<name>` is a place by that name.
 //
-// Local (Blender and FFmpeg), free. Nothing a caller wrote is run: the
+// Free. Blender runs where the library's machines file prefers (prefer.blender,
+// ADR-0056), else here; `machine` names the place. Nothing a caller wrote is run: the
 // staging is described, not scripted, and the set's own Python stays off.
 // What a look at one frame does not show is measured and said: whether each
 // character was in the picture, whether the set hid it, whether two came to
@@ -34,6 +35,7 @@ import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { CLIP_NAME, resolveRig } from "./rig-source.js";
 import { THROUGH_MARK, throughText } from "./rig-sheet-tools.js";
 import { guardEpisodePath } from "./trust-guards.js";
+import { blenderKey, MACHINE_PARAM, placeBlender, placeLines, runBlenderAt } from "./blender-place.js";
 
 export const STAGE_SHOT_TOOL = "pva_stage_shot";
 
@@ -172,6 +174,7 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       background: Type.Optional(Type.String({ description: `An empty stage's colour, as #rrggbb. Default ${RIG_SHOT_DEFAULTS.background}. A set has its own world` })),
       ground: Type.Optional(Type.Boolean({ default: true, description: "On an empty stage, a floor that takes the shadows" })),
       overwrite: Type.Optional(Type.Boolean({ default: false, description: "Replace an existing clip of video of this shotId" })),
+      machine: MACHINE_PARAM,
     }),
     async execute(_toolCallId, params, signal, onUpdate) {
       if (!SAFE_NAME.test(params.shotId)) throw new Error("shotId must contain only letters, numbers, underscores and hyphens (max 64)");
@@ -233,10 +236,15 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       // Refused here, before Blender is started and a work folder made.
       stageSettings({ ...request, outputDir: "" });
 
-      onUpdate?.({ content: [{ type: "text" as const, text: `Staging ${players.map((player) => player.name).join(", ")}${params.set ? ` on ${params.set}` : ""} in Blender…` }], details: { shotId: params.shotId } });
+      const where = await placeBlender(LIBRARY_ROOT, params.machine, signal);
+      const say = (text: string) => onUpdate?.({ content: [{ type: "text" as const, text }], details: { shotId: params.shotId } });
+      say(`Staging ${players.map((player) => player.name).join(", ")}${params.set ? ` on ${params.set}` : ""} in Blender${where.kind === "machine" ? ` on ${where.machine.name}` : ""}…`);
       const work = mkdtempSync(join(tmpdir(), "stage-shot-"));
       try {
-        const { report, mediaPath } = await stageShot({ ...request, outputDir: join(work, "shot") }, signal ? { signal } : {});
+        const shot = { ...request, outputDir: join(work, "shot") };
+        const { report, mediaPath, machine } = await runBlenderAt(where, "stage-shot", shot, () => stageShot(shot, signal ? { signal } : {}), {
+          key: blenderKey(params.channel, params.series, params.episode), allowedRoots: [join(LIBRARY_ROOT, params.channel)], ...(signal ? { signal } : {}), onLog: say,
+        });
         mkdirSync(videoDir, { recursive: true });
         copyFileSync(mediaPath, videoFull);
         const bytes = readFileSync(videoFull);
@@ -248,10 +256,12 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
           ...report,
           // The place, by its file; null for an empty stage.
           set: setFull ? { file: params.set, sha256: fileSha(setFull) } : null,
+          // The machine Blender ran on, when not this one.
+          ...(machine ? { machine } : {}),
           madeAt: new Date().toISOString(),
         }, null, 2)}\n`);
         return {
-          content: [{ type: "text" as const, text: describeStageShot(report, staged, `assets/video/${params.shotId}.mp4`, bytes.length / 1024 / 1024, params.set ?? null).join("\n") }],
+          content: [{ type: "text" as const, text: [...describeStageShot(report, staged, `assets/video/${params.shotId}.mp4`, bytes.length / 1024 / 1024, params.set ?? null), ...placeLines(where, machine)].join("\n") }],
           details: { outputPath: videoFull, provenancePath, report } as unknown as Record<string, unknown>,
         };
       } finally {

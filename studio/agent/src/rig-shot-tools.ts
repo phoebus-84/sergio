@@ -26,6 +26,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RIG_SHOT_DEFAULTS, RIG_SHOT_LIMITS, SHOT_CAMERAS, SHOT_FRAMINGS, rigShot, shotSettings, type ShotCamera, type ShotFraming } from "@av/blender/rig-shot";
 import { RIG_FACINGS, type RigFacing } from "@av/blender/rig-sheet";
+import { blenderKey, MACHINE_PARAM, placeBlender, placeLines, runBlenderAt } from "./blender-place.js";
 import { episodePath } from "@studio/contracts/src/layout.mjs";
 import { CLIP_NAME, resolveRig } from "./rig-source.js";
 
@@ -69,6 +70,7 @@ export function registerRigShotTools(pi: ExtensionAPI): void {
       ground: Type.Optional(Type.Boolean({ default: true, description: "A floor that takes the character's shadow. false: the character on the bare colour" })),
       faces: Type.Optional(StringEnum(RIG_FACINGS as unknown as [RigFacing, ...RigFacing[]], { default: "+z", description: "Which way the body faces in its file" })),
       overwrite: Type.Optional(Type.Boolean({ default: false, description: "Replace an existing clip of video of this shotId" })),
+      machine: MACHINE_PARAM,
     }),
     async execute(_toolCallId, params, signal, onUpdate) {
       if (!SAFE_NAME.test(params.shotId)) throw new Error("shotId must contain only letters, numbers, underscores and hyphens (max 64)");
@@ -94,10 +96,15 @@ export function registerRigShotTools(pi: ExtensionAPI): void {
       // Refused here, before Blender is started and a work folder made.
       const settings = shotSettings({ ...request, outputDir: "" });
 
-      onUpdate?.({ content: [{ type: "text" as const, text: `Filming ${filmedShown} in Blender…` }], details: { shotId: params.shotId } });
+      const where = await placeBlender(LIBRARY_ROOT, params.machine, signal);
+      const say = (text: string) => onUpdate?.({ content: [{ type: "text" as const, text }], details: { shotId: params.shotId } });
+      say(`Filming ${filmedShown} in Blender${where.kind === "machine" ? ` on ${where.machine.name}` : ""}…`);
       const work = mkdtempSync(join(tmpdir(), "rig-shot-"));
       try {
-        const { report, mediaPath } = await rigShot({ ...request, outputDir: join(work, "shot") }, signal ? { signal } : {});
+        const shot = { ...request, outputDir: join(work, "shot") };
+        const { report, mediaPath, machine } = await runBlenderAt(where, "rig-shot", shot, () => rigShot(shot, signal ? { signal } : {}), {
+          key: blenderKey(params.channel, params.series, params.episode), allowedRoots: [join(LIBRARY_ROOT, params.channel)], ...(signal ? { signal } : {}), onLog: say,
+        });
         mkdirSync(videoDir, { recursive: true });
         copyFileSync(mediaPath, videoFull);
         const bytes = readFileSync(videoFull);
@@ -107,7 +114,7 @@ export function registerRigShotTools(pi: ExtensionAPI): void {
           ...(cast ? { cast } : {}),
           rig: rigShown, rigSha256: sha256(readFileSync(rigFull)),
           ...(params.clip !== undefined ? { clip: params.clip, clipFile: filmedShown, clipSha256: sha256(readFileSync(filmed)) } : {}),
-          settings, ...report, madeAt: new Date().toISOString(),
+          settings, ...report, ...(machine ? { machine } : {}), madeAt: new Date().toISOString(),
         }, null, 2)}\n`);
         const moved = report.travel < 0.1 ? "on the spot" : `travelling ${report.travel} of its height${report.follow ? ", the camera with it" : ", past a camera that stays"}`;
         return {
@@ -118,6 +125,7 @@ export function registerRigShotTools(pi: ExtensionAPI): void {
               ...(cast ? [`   the role ${cast.role}: ${cast.character} as "${cast.form}" ${cast.release}, as released`] : []),
               `   ${report.camera}, ${report.framing}; ` + (report.action ? `the clip ${params.clip} (${report.clipSeconds}s) played ${moved}` : "the character at rest: name a `clip` to see it move"),
               ...(report.action && report.seconds > report.clipSeconds * 1.05 && report.travel >= 0.1 ? ["   ⚠️ the clip travels and is played more than once: the body jumps back each time it repeats"] : []),
+              ...placeLines(where, machine),
               "   look at it before it is used (pva_inspect_media): a body that leaves the frame, a hand through the head, a floor it sinks into are seen, not measured",
             ].join("\n"),
           }],

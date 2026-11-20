@@ -7,10 +7,10 @@ Accepted. Implemented:
   `@av/machines`, which also holds the SSH transport moved out of `@av/render-worker`;
 - render-worker's host discovery, the ComfyUI speech tools (a tunnel opened on demand,
   the GPU lock held around each call), `pva_compose_video`'s default machine, and the
-  reports of `pva_capability_status` and `pva_config`.
-
-Not yet implemented: running the Blender tools on another machine. Its design is
-below and in [issue #121](https://github.com/phoebus-84/video-studio/issues/121).
+  reports of `pva_capability_status` and `pva_config`;
+- the Blender tools on a `blender` machine (`pva_stage_shot`, `pva_rig_shot`,
+  `pva_rig_sheet`, `pva_blender_render`), through render-worker's Blender jobs
+  ([issue #121](https://github.com/phoebus-84/video-studio/issues/121)).
 
 ## Context
 
@@ -109,7 +109,8 @@ Explicit beats implicit, and the new file beats the files it generalises:
 | `host: "auto"` | the `remotion` machines (in `prefer` order, then the file's) › the hosts of `render-hosts.json` › the tailnet's online Linux peers |
 | The ComfyUI server | `AVG_COMFYUI_URL` › the `comfyui` machines (`url`, else a tunnel) › `url` in `comfyui.json` |
 | ComfyUI's node settings | `comfyui.json`, unchanged |
-| Blender | `BLENDER_BIN` / the local search, unchanged until remote Blender lands |
+| Where a Blender tool runs | the tool's `machine` › `prefer.blender` (the first whose Blender the tools take) › here |
+| Blender here | `BLENDER_BIN` / the local search, unchanged |
 
 An `AVG_MACHINES` that names a missing file is an error. A missing default file
 means no machines. A file that does not validate is an error in every tool that
@@ -175,38 +176,55 @@ that only needs a tunnel does not pull in Remotion.
 | The worker's own `QTW_*` | the worker's environment | no: the worker's configuration, on its machine |
 | Secrets (`FAL_KEY`, `ELEVENLABS_API_KEY`, …) | environment (ADR-0030) | never |
 
-### Remote Blender (next)
+### Remote Blender
 
 `pva_stage_shot`, `pva_rig_shot`, `pva_rig_sheet` and `pva_blender_render`
-will run on the first machine of `prefer.blender` that answers. They will use
-render-worker's transport instead of a copied package. The code goes by git push
-to the engine's clone, and `engine.sh sync` installs it, with `packages/blender`
-added to the code that must be committed. Inputs go by content hash into the
-job's `files/`. A new engine command runs the same `@av/blender` function there
-with `BLENDER_BIN` set to the role's `bin`, holding the role's `gpuLock`. The
-attempt directory comes back as a bundle, each file checked against the hash the
-engine reported, into the same local attempt directory a local run writes. The
-result and manifest stay what a local run gives, plus a `machine` (name, ssh
-destination, commit, Blender version). The open question is a `.blend` that
-references files outside itself. The engine will pack them, or refuse with the
-list of missing files, before rendering. The issue holds the detail.
+run on the first place of `prefer.blender` that can: a machine that answers,
+whose Blender (`<bin> --version`) is one the tools take, and whose clone answers
+or can be brought to this commit; or `"local"`. Without `prefer.blender` they run
+here. A tool's `machine` names the place instead, and a machine that cannot is
+an error, not a reason to run elsewhere.
+
+They use render-worker's transport, not a copied package:
+
+- **Code.** The commit goes by git push to the engine's clone (the blender role's
+  `repo`, else the remotion role's), and `engine.sh sync` installs it. A Blender
+  job refuses uncommitted `packages/blender`, `render-worker` or `machines`; an
+  uncommitted composer does not stop it.
+- **Inputs.** The request's files (bodies, clips, a set, a `.blend`) are mirrored
+  under the job's `files/` and sent once by content, as a render's assets are.
+- **Files a `.blend` names.** The engine's Blender lists them
+  (`bpy.utils.blend_paths`). Those in the channel or film, named relative to the
+  `.blend`, are sent and asked about again; one outside is refused with its
+  path, before Blender runs. The operator's `.blend` is never changed.
+- **The run.** A `blender` engine command runs the same `@av/blender` function a
+  local run calls, with the role's `bin`, holding its `gpuLock` with `flock`
+  while Blender runs (waiting up to an hour). The engine never installs
+  Blender.
+- **Outputs.** The attempt's output directory comes back as a bundle, each file
+  checked against the hash the engine reported, into the local directory a local
+  run writes. A file that arrives wrong fails the job and leaves nothing.
+- **Contract.** The tools get what the function returns, with this machine's
+  paths. A rendered `.blend`'s manifest names this machine's files and keeps the
+  engine's under `machine.paths`. The provenance of what a tool keeps gains
+  `machine`: name, ssh destination, commit, Blender version, GPU lock, files and
+  bytes sent.
+
+The engine loads the Blender code only for Blender commands, so `version` and
+`sync` still run on a clone whose dependencies the new commit has not
+installed yet.
 
 ## Consequences
 
 - The operator writes one file once. The agent reads where things run from
   `pva_capability_status` and never needs to be told an SSH alias.
 - The skills say: the tools route by the machines file, and the agent does not
-  copy code to a machine, open a tunnel or run scripts there by hand.
-- **Until remote Blender lands (#121), Blender is the one interim exception.**
-  - By default, a Blender tool runs here, and when this machine cannot do
-    the job, the agent tells the operator.
-  - When the operator explicitly asks for Blender work on a `blender`
-    machine, the agent may run it there by hand. It uses the role's `bin` and
-    `gpuLock`. It says first that the tools' checks and provenance are lost
-    for that work, and records in the unit's journal what ran where.
-  - The agent never chooses this on its own, even when the other machine is
-    faster. A shot staged by hand on a stronger machine (about twice as fast
-    at twice the resolution, in the last film) is the gap #121 closes.
+  copy code to a machine, open a tunnel or run scripts there by hand. With
+  remote Blender there is no exception left: a shot is staged on the stronger
+  machine through the tool, with its checks and provenance.
+- A `.blend` that names files by absolute paths, or outside the channel or film,
+  cannot travel. The operator makes its paths relative (File › External Data ›
+  Make Paths Relative) or renders it here.
 - A machine can be named in two old places and one new one. The order is fixed
   above and tested, and `pva_config` shows what was read.
 - Declaring `heavy-cpu` and `heavy-gpu` before any tool routes by them is
