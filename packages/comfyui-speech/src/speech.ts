@@ -4,6 +4,8 @@
 //   speakWithSpeaker      a CustomVoice preset speaker, with an optional style instruction
 //   speakWithClonedVoice  the voice of a reference recording, with its transcript when known
 //   speakWithSavedVoice   a voice the server saved earlier under a name
+//   speakWithDesignedVoice  a voice made from a description (VoiceDesign), optionally
+//                         learned from the sentence and saved under a name
 //   cleanAndClone         cut a reference, separate its voice from music and noise
 //                         (audio-separation-nodes-comfyui), learn it, optionally save
 //                         it under a name, and speak with it
@@ -238,6 +240,31 @@ export async function speakWithSavedVoice(o: SpeechOptions & { voice: string }):
     throw new ComfyUiError("bad-request", `the server has no saved voice "${o.voice}"${files.length > 0 ? `; it has ${files.map((f) => f.replace(/\.wav$/i, "")).join(", ")}` : "; it has none"}`);
   }
   return run(o, "saved-voice", c, { savedVoice: file });
+}
+
+/** The VoiceDesign node's longest description, as the studio allows it. */
+export const MAX_VOICE_DESCRIPTION = 2000;
+
+/**
+ * A sentence in a voice made from a description (Qwen3-TTS VoiceDesign; the
+ * node has only a 1.7B model, whatever the settings say). With `saveVoiceAs`
+ * the Base model learns the designed voice from that sentence and the server
+ * saves it under the name, for speakWithSavedVoice: one design, then every
+ * line in the same voice.
+ */
+export async function speakWithDesignedVoice(o: SpeechOptions & {
+  /** The voice: who speaks, and how — age, timbre, accent, manner. */
+  voiceDescription: string;
+  /** Also learn the voice from this sentence and save it on the server under this name. */
+  saveVoiceAs?: string;
+}): Promise<SpeechResult> {
+  const c = common(o);
+  const description = o.voiceDescription.trim();
+  if (description === "") throw new ComfyUiError("bad-request", "the voice description is empty");
+  if (description.length > MAX_VOICE_DESCRIPTION) throw new ComfyUiError("bad-request", `the voice description is longer than ${MAX_VOICE_DESCRIPTION} characters`);
+  if (o.saveVoiceAs !== undefined && !SAVED_VOICE_NAME.test(o.saveVoiceAs)) throw new ComfyUiError("bad-request", `"${o.saveVoiceAs}" is not a voice name: letters, digits, _ and -`);
+  // The Base model learns the voice only when it is saved: without a name, its node is left out and so is its model.
+  return run(o, "design", c, { voiceDescription: description, saveVoiceAs: o.saveVoiceAs, ...(o.saveVoiceAs === undefined ? { model: undefined } : {}) });
 }
 
 export async function cleanAndClone(o: SpeechOptions & ReferenceOptions & {

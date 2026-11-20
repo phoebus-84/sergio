@@ -21,11 +21,13 @@ export {
   cleanVoice,
   DEFAULT_REFERENCE_SECONDS,
   DEFAULT_SAMPLING,
+  MAX_VOICE_DESCRIPTION,
   probeSpeech,
   QWEN_NODE_LANGUAGES,
   QWEN_NODE_SPEAKERS,
   savedVoicesOf,
   speakWithClonedVoice,
+  speakWithDesignedVoice,
   speakWithSavedVoice,
   speakWithSpeaker,
 } from "./speech.js";

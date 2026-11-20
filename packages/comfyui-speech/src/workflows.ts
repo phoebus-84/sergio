@@ -9,7 +9,7 @@ import { readTemplateFile } from "@av/comfyui";
 export { fillWorkflow, nodeClassesOf, placeholdersOf } from "@av/comfyui";
 export type { WorkflowValue } from "@av/comfyui";
 
-export const WORKFLOW_NAMES = ["speaker", "clone", "saved-voice", "clean-clone", "clean"] as const;
+export const WORKFLOW_NAMES = ["speaker", "clone", "saved-voice", "clean-clone", "clean", "design"] as const;
 export type WorkflowName = typeof WORKFLOW_NAMES[number];
 
 export interface WorkflowTemplate extends GraphTemplate {
