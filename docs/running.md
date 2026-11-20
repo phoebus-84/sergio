@@ -421,6 +421,11 @@ no spend ledger, and never chosen on its own.
   `referenceText` its exact words; `cleanReference: true` cuts it
   (`referenceStart`, `referenceDuration`) and separates the voice from music
   and noise first, `saveVoiceAs` keeps the learned voice on the server.
+- **A designed voice:** `voiceDesign` makes a voice from a description
+  (Qwen3-TTS VoiceDesign, 1.7B). With `saveVoiceAs` the Base model learns it
+  from the line and the server keeps it, so every later line is
+  `saved:<name>`. A design needs no consent while nothing is kept; saving it
+  needs a consent record with `"saved_voice": "saved:<name>"`.
 - **Consent is checked before upload or execution.** A reference clone or
   `saved:<name>` requires `voiceConsentPath`, a workspace-relative JSON file
   **created by the operator**, never approved by the agent on their behalf:
@@ -456,6 +461,40 @@ no spend ledger, and never chosen on its own.
 - **Clean only:** `pva_clean_voice` separates a recording's voice from music
   and noise on the same server (optionally cut first) into a new WAV under
   `assets/`, with `<file>.clean.json` beside it. Nothing is cloned.
+
+### Any workflow on a ComfyUI server
+
+The same server runs any graph written down as a workflow
+(`packages/comfyui`, ADR-0055): pictures, edits, clips, music.
+`pva_comfyui_workflows` lists them and whether the server can run each;
+`pva_comfyui_run` runs one in an episode, a channel source or a film unit.
+Free on your GPU, never chosen on its own, never a fallback for a paid call.
+
+- **Built in** (core nodes only, never yet run on a real server from here):
+  `z-image-turbo` (text to image), `flux2-klein-edit` (image edit),
+  `wan22-ti2v-5b` (text or first frame to video), `ace-step-music` (music
+  from tags and lyrics). Each declares the model files it needs and where
+  they go under `models/`; nothing downloads them.
+- **Yours:** export a graph from ComfyUI in API format (*Workflow → Export
+  (API)*), replace the values to set with `"{{name}}"` and each output's
+  `filename_prefix` with `"{{outputPrefix}}"`, declare its `inputs`,
+  `outputs` and `requires`, and save it as
+  `library/.render/comfyui/workflows/<name>.json` (every channel and film on
+  this machine) or `library/<channel or film>/comfyui/workflows/<name>.json`
+  (that one only, in its repository). The `comfyui-workflows` skill and
+  `packages/comfyui/README.md` have the format.
+- **Before a run** the server is asked, through `/object_info`, for every
+  node class and model the graph names: what is missing is reported and
+  nothing is sent. `pva_capability_status` shows the same for every workflow.
+- **Each output** goes in the workspace by kind (`assets/images/`,
+  `assets/video/comfyui/`, `music/`, `artifacts/narration/`,
+  `assets/audio/`), never over a file, with `<file>.comfyui.json` beside it:
+  the workflow and graph by hash, every value, input files by hash, seeds,
+  models, the server's version, `runtimeVerified: false`, $0 and the GPU
+  time, which also goes to the unit's journal.
+- **Settings** in `.render/comfyui.json`, all optional:
+  `workflowTimeoutSeconds` (default 1800), `workflowOutputPrefix` and
+  `workflowInputSubfolder` (default `studio-workflows`).
 
 ### Editing audio
 

@@ -54,6 +54,35 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   - `@av/machines` is the new package. render-worker's SSH transport moved
     there and render-worker re-exports it, so an engine now needs
     `packages/machines` committed too.
+- **Any ComfyUI workflow, through the studio's tools** (ADR-0055). The
+  operator's ComfyUI server ran only speech; it now runs any graph written
+  down as a workflow — an API-format export with `{{placeholders}}`, its
+  inputs, outputs and the nodes and models it needs.
+  - `pva_comfyui_workflows` lists the built-in workflows, the operator's
+    (`library/.render/comfyui/workflows/`) and a channel's or film's own
+    (`<channel>/comfyui/workflows/`), and whether the server has each one's
+    nodes and models, read from `/object_info` without running anything.
+  - `pva_comfyui_run` runs one in an episode, a channel source or a film
+    unit: files of the workspace uploaded under their hash, what it made
+    written by kind with `<file>.comfyui.json` beside it (workflow and graph
+    by hash, values, seeds, models, server version, GPU time). $0; the GPU
+    time also goes to the unit's journal.
+  - Built in, not yet run on a real server: Z-Image Turbo (text to image),
+    FLUX.2 [klein] 4B (image edit), Wan 2.2 TI2V 5B (video), ACE-Step v1
+    (music).
+  - `pva_synthesize_speech` with `provider: "comfyui-qwen"` takes
+    `voiceDesign`: a voice made from a description, kept on the server with
+    `saveVoiceAs` (under consent bound to that name) for every later line.
+  - `pva_capability_status` says which workflows the server can run.
+  - New package `@av/comfyui`: the ComfyUI client and templates, moved out of
+    `@av/comfyui-speech`, which depends on it unchanged.
+
+- **Generated music is a source of its own.** Music composed as Strudel code
+  stays the default, no longer the only music the studio makes: a cue may
+  be generated with a model (a music workflow, `pva_comfyui_run`) as it may
+  be licensed or supplied, with its workflow, model, seed, tags and lyrics in
+  its receipt. It goes in `music/` and on the cut's music track like any
+  cue; `pva_music` lists it. ADR-0053 is amended accordingly.
 
 - **Style templates: a ready-made look, never required.** A channel, a
   series, a film or a scene may take a style — "make it in the risograph
