@@ -1,0 +1,35 @@
+{
+  "description": "Music from a description and lyrics with ACE-Step v1 3.5B: tags say the genre, instruments, voice and mood; lyrics are sung in [verse]/[chorus] sections, or \"[inst]\" for an instrumental. Core nodes only.",
+  "kind": "music",
+  "inputs": {
+    "tags": { "type": "text", "description": "Comma-separated: genre, instruments, voice, mood, tempo, e.g. \"orchestral, strings, slow, melancholic, 70 bpm\"" },
+    "lyrics": { "type": "text", "default": "[inst]", "description": "Sections in brackets ([verse], [chorus], [bridge]) with their lines; [inst] for no voice" },
+    "seconds": { "type": "number", "default": 60, "min": 1, "max": 240 },
+    "lyricsStrength": { "type": "number", "default": 0.99, "min": 0, "max": 10 },
+    "steps": { "type": "integer", "default": 50, "min": 1, "max": 200 },
+    "cfg": { "type": "number", "default": 5, "min": 1, "max": 15 },
+    "seed": { "type": "seed" }
+  },
+  "outputs": { "59": "audio" },
+  "requires": {
+    "models": [
+      { "node": "40", "input": "ckpt_name", "folder": "checkpoints", "source": "Hugging Face Comfy-Org/ACE-Step_ComfyUI_repackaged" }
+    ]
+  },
+  "prompt": {
+    "40": { "class_type": "CheckpointLoaderSimple", "inputs": { "ckpt_name": "ace_step_v1_3.5b.safetensors" } },
+    "14": { "class_type": "TextEncodeAceStepAudio", "inputs": { "clip": ["40", 1], "tags": "{{tags}}", "lyrics": "{{lyrics}}", "lyrics_strength": "{{lyricsStrength}}" } },
+    "44": { "class_type": "ConditioningZeroOut", "inputs": { "conditioning": ["14", 0] } },
+    "17": { "class_type": "EmptyAceStepLatentAudio", "inputs": { "seconds": "{{seconds}}", "batch_size": 1 } },
+    "51": { "class_type": "ModelSamplingSD3", "inputs": { "model": ["40", 0], "shift": 5 } },
+    "52": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": ["51", 0], "positive": ["14", 0], "negative": ["44", 0], "latent_image": ["17", 0],
+        "seed": "{{seed}}", "steps": "{{steps}}", "cfg": "{{cfg}}", "sampler_name": "euler", "scheduler": "simple", "denoise": 1
+      }
+    },
+    "18": { "class_type": "VAEDecodeAudio", "inputs": { "samples": ["52", 0], "vae": ["40", 2] } },
+    "59": { "class_type": "SaveAudio", "inputs": { "audio": ["18", 0], "filename_prefix": "{{outputPrefix}}" } }
+  }
+}

@@ -5,7 +5,9 @@
 // read, diffed and re-exported from ComfyUI.
 //
 // A template may name optional nodes: `optionalNodes: { <value name>: <node
-// id> }`. When that value is not given the node is left out of the graph.
+// id or ids> }`. When that value is not given the nodes are left out of the
+// graph, and an input of another node that read one of them is dropped with
+// it (it must be an optional input of that node: a start image, say).
 //
 // And nodes to bypass, as ComfyUI's own bypass does: `bypassNodes: { <flag>:
 // <node id> }`. Unless the flag is true the node is left out, and what read
@@ -18,8 +20,8 @@ import { ComfyUiError } from "./errors.js";
 /** A graph with placeholders, and the nodes a fill may leave out. */
 export interface GraphTemplate {
   prompt: ComfyUiPrompt;
-  /** Nodes left out when the value they are named after is absent: value name → node id. */
-  optionalNodes?: Record<string, string>;
+  /** Nodes left out when the value they are named after is absent: value name → node id (or ids). */
+  optionalNodes?: Record<string, string | string[]>;
   /** Nodes passed through unless their flag is true: flag → node id. */
   bypassNodes?: Record<string, string>;
 }
@@ -54,8 +56,20 @@ export function placeholdersOf(template: Pick<GraphTemplate, "prompt">): string[
  */
 export function fillWorkflow(template: GraphTemplate, values: Record<string, WorkflowValue | undefined>): ComfyUiPrompt {
   const prompt = structuredClone(template.prompt);
-  for (const [name, nodeId] of Object.entries(template.optionalNodes ?? {})) {
-    if (values[name] === undefined) delete prompt[nodeId];
+  const dropped = new Set<string>();
+  for (const [name, nodeIds] of Object.entries(template.optionalNodes ?? {})) {
+    if (values[name] !== undefined) continue;
+    for (const nodeId of typeof nodeIds === "string" ? [nodeIds] : nodeIds) {
+      delete prompt[nodeId];
+      dropped.add(nodeId);
+    }
+  }
+  if (dropped.size > 0) {
+    for (const node of Object.values(prompt)) {
+      for (const [k, v] of Object.entries(node.inputs)) {
+        if (Array.isArray(v) && typeof v[0] === "string" && dropped.has(v[0])) delete node.inputs[k];
+      }
+    }
   }
   const used = new Set<string>();
   for (const [flag, nodeId] of Object.entries(template.bypassNodes ?? {})) {

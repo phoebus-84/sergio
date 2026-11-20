@@ -1,0 +1,41 @@
+{
+  "description": "Edit a picture with FLUX.2 [klein] 4B: the picture is given as a reference latent and the prompt says what to change. Distilled: four steps at CFG 1. The output keeps the reference's size after scaling it to about one megapixel.",
+  "kind": "image-edit",
+  "inputs": {
+    "image": { "type": "image", "description": "The picture to edit" },
+    "prompt": { "type": "text", "description": "What to change, and what to keep" },
+    "megapixels": { "type": "number", "default": 1, "min": 0.25, "max": 4, "description": "The reference is scaled to about this many megapixels" },
+    "steps": { "type": "integer", "default": 4, "min": 1, "max": 50 },
+    "seed": { "type": "seed" }
+  },
+  "outputs": { "14": "image" },
+  "requires": {
+    "models": [
+      { "node": "1", "input": "unet_name", "folder": "diffusion_models" },
+      { "node": "2", "input": "clip_name", "folder": "text_encoders" },
+      { "node": "3", "input": "vae_name", "folder": "vae" }
+    ]
+  },
+  "prompt": {
+    "1": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-4b.safetensors", "weight_dtype": "default" } },
+    "2": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen_3_4b.safetensors", "type": "flux2", "device": "default" } },
+    "3": { "class_type": "VAELoader", "inputs": { "vae_name": "flux2-vae.safetensors" } },
+    "4": { "class_type": "LoadImage", "inputs": { "image": "{{image}}" } },
+    "5": { "class_type": "ImageScaleToTotalPixels", "inputs": { "image": ["4", 0], "upscale_method": "lanczos", "megapixels": "{{megapixels}}" } },
+    "6": { "class_type": "VAEEncode", "inputs": { "pixels": ["5", 0], "vae": ["3", 0] } },
+    "7": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["2", 0], "text": "{{prompt}}" } },
+    "8": { "class_type": "ReferenceLatent", "inputs": { "conditioning": ["7", 0], "latent": ["6", 0] } },
+    "9": { "class_type": "ConditioningZeroOut", "inputs": { "conditioning": ["7", 0] } },
+    "10": { "class_type": "GetImageSize", "inputs": { "image": ["5", 0] } },
+    "11": { "class_type": "EmptyFlux2LatentImage", "inputs": { "width": ["10", 0], "height": ["10", 1], "batch_size": 1 } },
+    "12": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": ["1", 0], "positive": ["8", 0], "negative": ["9", 0], "latent_image": ["11", 0],
+        "seed": "{{seed}}", "steps": "{{steps}}", "cfg": 1, "sampler_name": "euler", "scheduler": "simple", "denoise": 1
+      }
+    },
+    "13": { "class_type": "VAEDecode", "inputs": { "samples": ["12", 0], "vae": ["3", 0] } },
+    "14": { "class_type": "SaveImage", "inputs": { "images": ["13", 0], "filename_prefix": "{{outputPrefix}}" } }
+  }
+}

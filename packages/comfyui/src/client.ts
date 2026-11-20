@@ -40,6 +40,8 @@ export interface WaitOptions {
 export interface PromptOutputs {
   promptId: string;
   outputs: Record<string, Record<string, unknown>>;
+  /** The history entry's status messages, as the server sent them (execution_start, execution_cached, execution_success…). */
+  messages?: unknown[];
 }
 
 export interface ComfyUiClient {
@@ -159,7 +161,7 @@ export function createComfyUiClient(options: ComfyUiClientOptions): ComfyUiClien
         const status = entry?.status;
         if (entry && status && (status.completed === true || status.status_str === "error")) {
           if (status.status_str !== "success") throw new ComfyUiError("failed", `graph ${promptId} failed: ${executionError(status.messages)}`);
-          return { promptId, outputs: entry.outputs ?? {} };
+          return { promptId, outputs: entry.outputs ?? {}, ...(Array.isArray(status.messages) ? { messages: status.messages } : {}) };
         }
         if (Date.now() - started >= timeoutMs) throw new ComfyUiError("timeout", `graph ${promptId} did not finish in ${Math.round(timeoutMs / 1000)} s; it may still be queued or running on the server`);
         await sleep(pollIntervalMs);
