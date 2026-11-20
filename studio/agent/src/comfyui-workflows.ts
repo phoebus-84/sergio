@@ -19,17 +19,23 @@
 // receipt beside it: <file>.comfyui.json. The server is the one speech uses
 // (AVG_COMFYUI_URL, or url in the library's .render/comfyui.json). Its GPU is
 // the operator's: $0, nothing on the spend ledger, and the time the server
-// spent is in the receipt and the unit's journal.
+// spent is in the receipt and, for an episode or a film unit, its journal.
+//
+// Every server names its model files its own way. A workflow takes them as
+// `model` inputs with defaults; the library's comfyui.json may give other
+// defaults per workflow, for its server, without copying the workflow:
+//   "workflowDefaults": { "z-image-turbo": { "vae": "ae.safetensors" } }
 // ---------------------------------------------------------------------------
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative } from "node:path";
 import {
   BUILT_IN, ComfyUiError, createComfyUiClient, describeProbe, isFileInput, listWorkflows, probeWorkflow, requiredModels, runWorkflow, serverInfo,
+  withDefaults,
   type DeclaredWorkflow, type InputDeclaration, type NodeInfoCache, type WorkflowEntry, type WorkflowFile, type WorkflowProbe, type WorkflowRun,
 } from "@av/comfyui";
 import { appendJournalEvent } from "@studio/contracts/src/journal.mjs";
@@ -65,9 +71,38 @@ export function workflowFolders(libraryRoot: string, project?: string): { dir: s
   ];
 }
 
+/** The library's defaults for its server, by workflow: comfyui.json's workflowDefaults. */
+export function workflowDefaults(libraryRoot: string): Record<string, Record<string, unknown>> {
+  let config: Record<string, unknown>;
+  try {
+    config = comfyUiConfig(libraryRoot) as Record<string, unknown>;
+  } catch {
+    return {}; // the file's own error is reported where the server is needed
+  }
+  const value = config.workflowDefaults;
+  if (value === undefined) return {};
+  const where = `${posix(COMFYUI_CONFIG_RELATIVE)}: workflowDefaults`;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${where} is { "<workflow>": { "<input>": value } }`);
+  for (const [name, inputs] of Object.entries(value)) {
+    if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) throw new Error(`${where}.${name} is { "<input>": value }`);
+  }
+  return value as Record<string, Record<string, unknown>>;
+}
+
+/** Every workflow the library and the channel or film have, with the library's defaults for its server applied. */
 export function comfyUiWorkflows(libraryRoot: string, project?: string): WorkflowEntry[] {
   if (project !== undefined && (!/^[a-z0-9][a-z0-9._-]*$/i.test(project) || project.includes(".."))) throw new Error(`"${project}" is not a slug`);
-  return listWorkflows(workflowFolders(libraryRoot, project));
+  const defaults = workflowDefaults(libraryRoot);
+  return listWorkflows(workflowFolders(libraryRoot, project)).map((entry) => {
+    const own = defaults[entry.name];
+    if (!entry.workflow || !own) return entry;
+    try {
+      return { ...entry, workflow: withDefaults(entry.workflow, own), defaulted: Object.keys(own) };
+    } catch (e) {
+      const { workflow: _unusable, ...rest } = entry;
+      return { ...rest, problems: [...entry.problems, { level: "error" as const, message: `${posix(COMFYUI_CONFIG_RELATIVE)} workflowDefaults: ${e instanceof Error ? e.message : String(e)}` }] };
+    }
+  });
 }
 
 /** Where a workflow's file is, as a receipt names it: relative to the library, or built-in:<name>. */
@@ -114,13 +149,20 @@ export function describeWorkflow(entry: WorkflowEntry, probe?: WorkflowProbe | s
     const inputs = Object.entries(w.inputs).map(([n, d]) => `${n}${d.default !== undefined || d.optional || d.type === "seed" ? "?" : ""}:${d.type}`).join(", ");
     return `${head}\n    inputs ${inputs}; outputs ${Object.values(w.outputs).join(", ")}`;
   }
-  const models = requiredModels(w).map((m) => `${m.file ?? `${m.classType}.${m.input}`}${m.folder ? ` (models/${m.folder})` : ""}${m.source ? ` from ${m.source}` : ""}`);
+  const checked = probe && typeof probe !== "string" ? probe.models : [];
+  const models = requiredModels(w).map((m) => {
+    const files = checked.find((c) => c.node === m.node && c.input === m.input)?.available;
+    return `${m.inputName ? `${m.inputName} = ` : ""}${m.file ?? `${m.classType}.${m.input}`}${m.folder ? ` (models/${m.folder})` : ""}${m.source ? ` from ${m.source}` : ""}` +
+      `${files ? `; the server's ${m.classType} has ${files.slice(0, 12).join(", ") || "none"}${files.length > 12 ? `, and ${files.length - 12} more` : ""}` : ""}`;
+  });
+  const defaulted = (entry as WorkflowEntry & { defaulted?: string[] }).defaulted;
   return [
     head,
     "  inputs:",
     ...Object.entries(w.inputs).map(([n, d]) => `    - ${describeInput(n, d)}`),
     `  outputs: ${Object.entries(w.outputs).map(([node, role]) => `node ${node} → ${role}`).join(", ")}`,
-    `  models: ${models.join(", ") || "none declared"}`,
+    "  models:", ...(models.length > 0 ? models.map((m) => `    - ${m}`) : ["    none declared"]),
+    ...(defaulted ? [`  defaults from the library's ${posix(COMFYUI_CONFIG_RELATIVE)}: ${defaulted.join(", ")}`] : []),
     ...(w.requires?.packs?.length ? [`  custom node packs: ${w.requires.packs.join(", ")}`] : []),
     ...(w.verifiedOn ? [`  last run on: ${w.verifiedOn}`] : []),
     ...entry.problems.filter((p) => p.level === "warning").map((p) => `  ⚠️ ${p.message}`),
@@ -257,7 +299,11 @@ export async function runComfyUiWorkflow(r: RunRequest): Promise<RunResult> {
   for (const folder of new Set(folders.values())) {
     const guard = await guardWorkspacePath(r.libraryRoot, r.ws, `${folder}/${r.name}.x`);
     if (!guard.allowed) throw new Error(`folder ${folder}: ${guard.reason ?? "rejected"}`);
-    const taken = existsSync(join(r.ws.dir, folder)) && readdirSync(join(r.ws.dir, folder)).find((f) => f.startsWith(`${r.name}.`) || new RegExp(`^${r.name}-\\d+\\.`).test(f));
+    const ours = (f: string) => f.startsWith(`${r.name}.`) || new RegExp(`^${r.name}-\\d+\\.`).test(f);
+    const present = existsSync(join(r.ws.dir, folder)) ? readdirSync(join(r.ws.dir, folder)).filter(ours) : [];
+    // A file half-written by a run that crashed is no take: it goes, rather than block the name.
+    for (const stale of present.filter((f) => f.endsWith(".tmp"))) rmSync(join(r.ws.dir, folder, stale), { force: true });
+    const taken = present.find((f) => !f.endsWith(".tmp"));
     if (taken) throw new Error(`${folder}/${taken} already exists: generated media are not overwritten, pick another name`);
   }
 
@@ -296,6 +342,7 @@ export async function runComfyUiWorkflow(r: RunRequest): Promise<RunResult> {
     // The server's version and devices; its address is configuration, never recorded.
     server: run.server,
     inputs: Object.fromEntries(Object.entries(run.values).filter(([k]) => !(k in files))),
+    ...((entry as WorkflowEntry & { defaulted?: string[] }).defaulted ? { libraryDefaults: (entry as WorkflowEntry & { defaulted?: string[] }).defaulted } : {}),
     files: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, { ...f, uploadedAs: run.uploads[k]?.inputName }])),
     seeds: run.seeds,
     models: run.probe.models.map((m) => ({ node: m.node, classType: m.classType, input: m.input, file: m.file, ...(m.folder ? { folder: m.folder } : {}) })),
@@ -424,7 +471,9 @@ export function registerComfyUiWorkflowTools(pi: ExtensionAPI): void {
       "model is reported before anything runs. Each output is written as <folder>/<name>.<ext> (more than one: <name>-2…), by default images in " +
       "assets/images/, video in assets/video/comfyui/, music in music/, speech in artifacts/narration/, other audio in assets/audio/; never over " +
       `an existing file. Beside each, <file>${RECEIPT_SUFFIX}: the workflow and graph by hash, every value, the input files by hash, the seeds, ` +
-      "the models named, the server's version, and the GPU time. Seeds not given are picked and recorded: give the same seed to make the same take again.",
+      "the models named, the server's version, and the GPU time (also in an episode's or film unit's journal). Model files are inputs too, defaulted " +
+      "by the workflow or the library's comfyui.json (workflowDefaults): pva_comfyui_workflows shows the files the server has. " +
+      "Seeds not given are picked and recorded: give the same seed to make the same take again.",
     parameters: Type.Object({
       ...WORKSPACE_PARAMS,
       workflow: Type.String({ description: "The workflow's name" }),

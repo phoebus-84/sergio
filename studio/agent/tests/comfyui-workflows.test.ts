@@ -76,8 +76,8 @@ beforeEach(() => {
   missing = new Set();
   models = {
     UNETLoader: { unet_name: ["z_image_turbo_bf16.safetensors", "wan2.2_ti2v_5B_fp16.safetensors"] },
-    CLIPLoader: { clip_name: ["qwen_3_4b.safetensors", "umt5_xxl_fp8_e4m3fn_scaled.safetensors"] },
-    VAELoader: { vae_name: ["ae.safetensors", "wan2.2_vae.safetensors"] },
+    CLIPLoader: { clip_name: ["qwen_3_4b.safetensors", "umt5_xxl_fp16.safetensors"] },
+    VAELoader: { vae_name: ["z_image_ae.safetensors", "wan2.2_vae.safetensors"] },
     CheckpointLoaderSimple: { ckpt_name: ["ace_step_v1_3.5b.safetensors"] },
   };
   vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -157,11 +157,12 @@ describe("pva_comfyui_workflows", () => {
     expect(r.text).toContain("server: ComfyUI 9.9.9 (cuda:0 Test GPU)");
     expect(r.text).toMatch(/- z-image-turbo \(image, built-in\): .*server: ✅ runnable/);
     expect(r.text).toMatch(/- wan22-ti2v-5b \(video, built-in\): .*❌ missing nodes Wan22ImageToVideoLatent/);
-    expect(r.text).toMatch(/- flux2-klein-edit .*missing models flux-2-klein-4b\.safetensors \(models\/diffusion_models\), flux2-vae\.safetensors \(models\/vae\)/);
-    expect(r.text).toContain("never run on a real server yet");
+    expect(r.text).toMatch(/- flux2-klein-edit .*missing models flux-2-klein-4b\.safetensors \(models\/diffusion_models; input unetModel; the loader has z_image_turbo_bf16\.safetensors, wan2\.2_ti2v_5B_fp16\.safetensors\)/);
+    expect(r.text).toMatch(/- wan22-ti2v-5b .*never run on a real server yet/);
+    expect(r.text).not.toMatch(/- z-image-turbo .*never run/);
     expect(r.text).not.toContain(URL_BASE);
     expect(queued).toHaveLength(0);
-    expect(r.details.workflows.map((w: { name: string }) => w.name)).toEqual(["ace-step-music", "flux2-klein-edit", "wan22-ti2v-5b", "z-image-turbo"]);
+    expect(r.details.workflows.map((w: { name: string }) => w.name)).toEqual(["ace-step-v1-music", "flux2-klein-edit", "wan22-ti2v-5b", "z-image-turbo"]);
   });
 
   it("adds the operator's and a channel's own, a later one hiding an earlier one, and shows one in full", async () => {
@@ -176,7 +177,8 @@ describe("pva_comfyui_workflows", () => {
     const channel = await call("pva_comfyui_workflows", { channel: REF.channel, workflow: "portrait" });
     expect(channel.text).toContain(`- portrait (image, ${REF.channel}, hides library's): The channel's portrait.`);
     expect(channel.text).toContain("    - prompt: text");
-    expect(channel.text).toContain("  models: z_image_turbo_bf16.safetensors (models/diffusion_models)");
+    expect(channel.text).toContain("    - z_image_turbo_bf16.safetensors (models/diffusion_models)");
+    expect(channel.text).toContain("node 1 names its file in the graph");
     expect((await call("pva_comfyui_workflows", { workflow: "nothing" })).text).toContain('there is no workflow "nothing"');
   });
 
@@ -199,7 +201,7 @@ describe("pva_comfyui_run", () => {
     const receipt = json(join(dir, "assets/images/s1.png.comfyui.json"));
     expect(receipt).toMatchObject({
       provider: "comfyui",
-      workflow: { name: "z-image-turbo", kind: "image", origin: "built-in", file: "built-in:z-image-turbo", graphSha256: sha(JSON.stringify(queued[0])), verifiedOn: null },
+      workflow: { name: "z-image-turbo", kind: "image", origin: "built-in", file: "built-in:z-image-turbo", graphSha256: sha(JSON.stringify(queued[0])), verifiedOn: "ComfyUI 0.45.0, RX 7900 XTX (ROCm), 2026-11-20" },
       promptId: "p1",
       server: { version: "9.9.9", devices: ["cuda:0 Test GPU"] },
       inputs: { prompt: "a lighthouse at dusk", seed: 42, width: 1280, height: 1024, steps: 9 },
@@ -210,10 +212,40 @@ describe("pva_comfyui_run", () => {
       output: { node: "9", role: "image", path: "assets/images/s1.png", sha256: sha(image), bytes: image.length },
     });
     expect(receipt.workflow.sha256).toMatch(/^[0-9a-f]{64}$/);
-    expect(receipt.models.map((m: { file: string }) => m.file)).toEqual(["z_image_turbo_bf16.safetensors", "qwen_3_4b.safetensors", "ae.safetensors"]);
+    expect(receipt.models.map((m: { file: string }) => m.file)).toEqual(["z_image_turbo_bf16.safetensors", "qwen_3_4b.safetensors", "z_image_ae.safetensors"]);
+    expect(receipt.inputs).toMatchObject({ vae: "z_image_ae.safetensors", unetModel: "z_image_turbo_bf16.safetensors" });
+    expect(receipt.libraryDefaults).toBeUndefined();
     expect(JSON.stringify(receipt)).not.toContain("comfy.test");
     const journal = readFileSync(join(dir, "journal", "events.jsonl"), "utf-8").trim().split("\n").map((l) => JSON.parse(l));
     expect(journal.at(-1)).toMatchObject({ type: "artifact-written", data: { provider: "comfyui", workflow: "z-image-turbo", paths: ["assets/images/s1.png"], gpuSeconds: 42.5, cost: { amount: 0 } } });
+  });
+
+  it("takes the library's defaults for its server, so a model named otherwise needs no copy of the workflow", async () => {
+    models.VAELoader!.vae_name = ["ae.safetensors", "sdxl_vae_fp16_fix.safetensors"];
+    const before = await call("pva_comfyui_workflows", { workflow: "z-image-turbo" });
+    expect(before.text).toContain("missing models z_image_ae.safetensors (models/vae; input vae; the loader has ae.safetensors, sdxl_vae_fp16_fix.safetensors)");
+    expect(before.text).toMatch(/    - vae = z_image_ae\.safetensors \(models\/vae\) from .*; the server's VAELoader has ae\.safetensors, sdxl_vae_fp16_fix\.safetensors/);
+    mkdirSync(join(root, ".render"), { recursive: true });
+    writeFileSync(join(root, ".render", "comfyui.json"), JSON.stringify({ workflowDefaults: { "z-image-turbo": { vae: "ae.safetensors" } } }));
+    const after = await call("pva_comfyui_workflows", { workflow: "z-image-turbo" });
+    expect(after.text).toContain("server: ✅ runnable");
+    expect(after.text).toContain("defaults from the library's .render/comfyui.json: vae");
+    const r = await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "x" } });
+    expect(r.error, r.text).toBe(false);
+    expect(queued[0]!["17"]!.inputs.vae_name).toBe("ae.safetensors");
+    expect(json(join(dir, "assets/images/s1.png.comfyui.json"))).toMatchObject({ inputs: { vae: "ae.safetensors" }, libraryDefaults: ["vae"] });
+    // a default that does not fit its input makes the workflow unusable, and says why
+    writeFileSync(join(root, ".render", "comfyui.json"), JSON.stringify({ workflowDefaults: { "z-image-turbo": { steps: 500 } } }));
+    expect((await call("pva_comfyui_workflows", { probe: false })).text).toMatch(/- z-image-turbo \(built-in\): ❌ unusable — .*workflowDefaults: steps: at most 50/);
+  });
+
+  it("clears what a crashed run half-wrote, rather than refuse the name", async () => {
+    mkdirSync(join(dir, "assets/images"), { recursive: true });
+    writeFileSync(join(dir, "assets/images/s1.png.tmp"), "half a picture");
+    const r = await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "x" } });
+    expect(r.error, r.text).toBe(false);
+    expect(existsSync(join(dir, "assets/images/s1.png.tmp"))).toBe(false);
+    expect(readFileSync(join(dir, "assets/images/s1.png"), "utf-8")).toContain("pixels of");
   });
 
   it("never writes over a file, and says so before the server is asked", async () => {
@@ -226,7 +258,7 @@ describe("pva_comfyui_run", () => {
 
   it("refuses before uploading or queueing when the server lacks a model, and checks the values first", async () => {
     models.UNETLoader!.unet_name = [];
-    expect((await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "x" } })).text).toContain("missing models z_image_turbo_bf16.safetensors (models/diffusion_models)");
+    expect((await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "x" } })).text).toContain("missing models z_image_turbo_bf16.safetensors (models/diffusion_models; input unetModel; the loader has none)");
     expect((await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "x", steps: 500 } })).text).toContain("steps: at most 50");
     expect((await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { promt: "x" } })).text).toContain("takes no promt");
     expect((await runIn({ workflow: "z-image-turbo", name: "../s1", inputs: { prompt: "x" } })).text).toContain('name "../s1"');
@@ -262,7 +294,7 @@ describe("pva_comfyui_run", () => {
   });
 
   it("generates music into music/, which pva_music lists beside the pieces written as code", async () => {
-    const r = await runIn({ workflow: "ace-step-music", name: "theme", inputs: { tags: "solo cello, slow, 60 bpm", seconds: 2, seed: 9 } });
+    const r = await runIn({ workflow: "ace-step-v1-music", name: "theme", inputs: { tags: "solo cello, slow, 60 bpm", seconds: 2, seed: 9 } });
     expect(r.error, r.text).toBe(false);
     expect(readFileSync(join(dir, "music/theme.flac"))).toEqual(flac);
     const receipt = json(join(dir, "music/theme.flac.comfyui.json"));
@@ -272,7 +304,7 @@ describe("pva_comfyui_run", () => {
     expect(r.text).toContain("music track");
     const listed = await call("pva_music", REF);
     expect(listed.text).toContain("- generated (ComfyUI):");
-    expect(listed.text).toMatch(/music\/theme\.flac: ace-step-music, seed 9, 2(\.\d+)? s → music\/theme\.flac\.comfyui\.json/);
+    expect(listed.text).toMatch(/music\/theme\.flac: ace-step-v1-music, seed 9, 2(\.\d+)? s → music\/theme\.flac\.comfyui\.json/);
     writeFileSync(join(dir, "music/theme.flac"), "replaced");
     expect(listGeneratedMusic(dir)[0]!.missing).toBe(true);
   });
@@ -299,7 +331,7 @@ describe("the ComfyUI workflows in pva_capability_status", () => {
     const status = await comfyUiWorkflowsStatus(root);
     expect(status.available).toBe(true);
     expect(status.detail).toContain("ComfyUI 9.9.9 at http://comfy.test:8188: pva_comfyui_run, $0; runnable wan22-ti2v-5b, z-image-turbo");
-    expect(status.detail).toContain("ace-step-music (missing nodes TextEncodeAceStepAudio)");
+    expect(status.detail).toContain("ace-step-v1-music (missing nodes TextEncodeAceStepAudio)");
     delete process.env.AVG_COMFYUI_URL;
     expect((await comfyUiWorkflowsStatus(root)).available).toBe(false);
   });
