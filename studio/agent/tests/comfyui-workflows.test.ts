@@ -8,6 +8,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,6 +28,8 @@ let paths: string[];
 let missing: Set<string>;
 let models: Record<string, Record<string, string[]>>;
 const saved: Record<string, string | undefined> = {};
+/** Local origins a fake tunnel forwards to the stubbed server. */
+const origins = new Set<string>();
 const ENV = ["AVG_LIBRARY_ROOT", "AVG_COMFYUI_URL", "AVG_COMFYUI_CONFIG"];
 
 beforeAll(async () => {
@@ -82,7 +85,7 @@ beforeEach(() => {
   };
   vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
-    if (url.origin !== URL_BASE) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+    if (url.origin !== URL_BASE && !origins.has(url.origin)) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
     const path = url.pathname;
     paths.push(path);
     if (path === "/system_stats") return Response.json({ system: { comfyui_version: "9.9.9" }, devices: [{ name: "cuda:0 Test GPU" }] });
@@ -335,5 +338,70 @@ describe("the ComfyUI workflows in pva_capability_status", () => {
     expect(status.detail).toContain("ace-step-v1-music (missing nodes TextEncodeAceStepAudio)");
     delete process.env.AVG_COMFYUI_URL;
     expect((await comfyUiWorkflowsStatus(root)).available).toBe(false);
+  });
+});
+
+describe("pva_comfyui_run on a machine of the machines file", () => {
+  // The machine's ComfyUI listens on its own loopback: the tunnel is a fake ssh
+  // that makes the stubbed server answer on the forwarded port, and the lock a
+  // fake session that answers "locked" and holds until its stdin ends.
+  let spawned: string[][];
+  let commands: { destination: string; command: string }[];
+  const lockFile = "~/ai/generation.lock";
+
+  beforeEach(async () => {
+    delete process.env.AVG_COMFYUI_URL;
+    spawned = [];
+    commands = [];
+    mkdirSync(join(root, ".render"), { recursive: true });
+    writeFileSync(join(root, ".render", "machines.json"), JSON.stringify({
+      machines: { "gpu-box": { ssh: "gpu-box", roles: { comfyui: { port: 8188, gpuLock: lockFile } } } },
+    }));
+    writeFileSync(join(root, ".render", "comfyui.json"), JSON.stringify({ workflowTimeoutSeconds: 2400 }));
+    const { TunnelPool } = await import("@av/machines");
+    const { setMachineDeps } = await import("../src/machines.js");
+    setMachineDeps({
+      pool: new TunnelPool(),
+      spawn: (_program, args) => {
+        spawned.push(args);
+        const origin = `http://127.0.0.1:${Number(args[args.indexOf("-L") + 1]!.split(":")[1])}`;
+        const child = Object.assign(new EventEmitter(), { exitCode: null as number | null, stderr: null, kill: () => true });
+        child.kill = () => (setImmediate(() => { origins.delete(origin); child.exitCode = 143; child.emit("exit", 143, null); }), true);
+        origins.add(origin);
+        return child as never;
+      },
+      exec: async (destination, command, input = {}) => {
+        commands.push({ destination, command });
+        input.stdout?.write("locked\n");
+        for await (const _ of (input.stdin ?? []) as AsyncIterable<Buffer>) { /* held until stdin ends */ }
+        input.stdout?.end();
+        return { code: 0, stdout: "", stderr: "" };
+      },
+    });
+  });
+
+  afterEach(async () => {
+    const { machineDeps, setMachineDeps } = await import("../src/machines.js");
+    machineDeps().pool.closeAll();
+    setMachineDeps();
+    origins.clear();
+  });
+
+  it("runs through a tunnel it opens, holds the GPU lock as long as a run may take, and names the machine in the receipt", async () => {
+    const listed = await call("pva_comfyui_workflows", {});
+    expect(listed.text).toMatch(/server: ComfyUI 9\.9\.9 on gpu-box \(through a tunnel to 127\.0\.0\.1:8188, here http:\/\/127\.0\.0\.1:\d+\)/);
+    const r = await runIn({ workflow: "z-image-turbo", name: "s1", inputs: { prompt: "a lighthouse at dusk", seed: 42 } });
+    expect(r.error, r.text).toBe(false);
+    expect(spawned).toHaveLength(1);
+    expect(spawned[0]!.join(" ")).toMatch(/-L 127\.0\.0\.1:\d+:127\.0\.0\.1:8188 -- gpu-box$/);
+    // The lock waits as long as comfyui.json lets a workflow run, not speech's 900 s.
+    expect(commands.filter((c) => c.destination === "gpu-box" && c.command.includes("flock -x -w 2400 ~/ai/generation.lock"))).toHaveLength(1);
+    const receipt = json(join(dir, "assets/images/s1.png.comfyui.json"));
+    expect(receipt.machine).toEqual({ machine: "gpu-box", ssh: "gpu-box", via: "tunnel", gpuLock: lockFile });
+    expect(receipt.server).toMatchObject({ version: "9.9.9" });
+    const status = await comfyUiWorkflowsStatus(root);
+    expect(status.available).toBe(true);
+    expect(status.detail).toMatch(/^ComfyUI 9\.9\.9 on gpu-box /);
+    expect(spawned).toHaveLength(1);
   });
 });

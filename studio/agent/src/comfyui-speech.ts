@@ -67,7 +67,7 @@ export function comfyUiConfig(libraryRoot: string, env: NodeJS.ProcessEnv = proc
   return resolveComfyUiConfig({ url: env[COMFYUI_URL_ENV], file: env[COMFYUI_CONFIG_ENV] || join(libraryRoot, COMFYUI_CONFIG_RELATIVE) });
 }
 
-const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set, the library's ${MACHINES_RELATIVE.replace(/\\/g, "/")} gives no machine the comfyui role, and its ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
+export const COMFYUI_NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set, the library's ${MACHINES_RELATIVE.replace(/\\/g, "/")} gives no machine the comfyui role, and its ${COMFYUI_CONFIG_RELATIVE.replace(/\\/g, "/")} names no url`;
 
 /** Where the server was found: the variable, a machine of the machines file, or comfyui.json. */
 export interface ComfyUiEndpoint {
@@ -106,7 +106,8 @@ export async function comfyUiEndpoint(libraryRoot: string, env: NodeJS.ProcessEn
   return config.url ? { config, url: config.url, via: "file" } : null;
 }
 
-function describe(endpoint: ComfyUiEndpoint): string {
+/** Where the server is, as a line of a report says it. */
+export function describeEndpoint(endpoint: ComfyUiEndpoint): string {
   if (endpoint.via !== "machine") return endpoint.url;
   const settings = endpoint.machine!.roles.comfyui ?? {};
   return endpoint.tunnel
@@ -114,11 +115,19 @@ function describe(endpoint: ComfyUiEndpoint): string {
     : `${endpoint.machine!.name} (${endpoint.url})`;
 }
 
-/** Runs one call to the server, holding its machine's GPU lock when the machines file names one. */
-async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+/**
+ * Runs one call to the server, holding its machine's GPU lock when the
+ * machines file names one. `lockWaitSeconds` is how long to wait for a job
+ * that holds it: at least as long as such a job may run (DEFAULT_LOCK_WAIT_SECONDS
+ * otherwise, enough for speech).
+ */
+export async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, signal?: AbortSignal, lockWaitSeconds?: number): Promise<T> {
   const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
   try {
-    return await withLock(machineDeps().exec, endpoint.machine?.ssh ?? "", lock, work, signal ? { signal } : {});
+    return await withLock(machineDeps().exec, endpoint.machine?.ssh ?? "", lock, work, {
+      ...(signal ? { signal } : {}),
+      ...(lockWaitSeconds !== undefined ? { waitSeconds: lockWaitSeconds } : {}),
+    });
   } catch (e) {
     if (e instanceof ComfyUiError && e.code === "unreachable") {
       throw new Error(endpoint.via === "machine"
@@ -130,7 +139,7 @@ async function onServer<T>(endpoint: ComfyUiEndpoint, work: () => Promise<T>, si
 }
 
 /** What a receipt says about the machine that spoke, when the machines file chose it. */
-function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
+export function serverOf(endpoint: ComfyUiEndpoint): Record<string, unknown> {
   if (endpoint.via !== "machine") return {};
   const lock = gpuLockOf(endpoint.machine!, "comfyui");
   return { server: { machine: endpoint.machine!.name, ssh: endpoint.machine!.ssh, via: endpoint.tunnel ? "tunnel" : "url", ...(lock ? { gpuLock: lock } : {}) } };
@@ -153,7 +162,7 @@ export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.Proce
   } catch (e) {
     return { available: false, detail: e instanceof Error ? e.message : String(e) };
   }
-  if (!endpoint) return { available: false, detail: NOT_CONFIGURED };
+  if (!endpoint) return { available: false, detail: COMFYUI_NOT_CONFIGURED };
   let probe: SpeechProbe;
   try {
     probe = await probeSpeech(createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 5_000 }));
@@ -168,7 +177,7 @@ export async function comfyUiSpeechStatus(libraryRoot: string, env: NodeJS.Proce
   const missing = [...new Set(Object.values(probe.workflows).flatMap((w) => w.missingNodes))];
   const skipped = endpoint.skipped?.length ? `; passed over ${endpoint.skipped.map((k) => `${k.name} (${k.reason})`).join(", ")}` : "";
   const lock = endpoint.machine ? gpuLockOf(endpoint.machine, "comfyui") : undefined;
-  const what = `ComfyUI ${probe.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describe(endpoint)}${lock ? `, GPU lock ${lock}` : ""}${skipped}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
+  const what = `ComfyUI ${probe.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describeEndpoint(endpoint)}${lock ? `, GPU lock ${lock}` : ""}${skipped}${probe.devices.length > 0 ? ` (${probe.devices.join(", ")})` : ""}`;
   if (!probe.workflows.speaker.available && !probe.workflows.clone.available) {
     return { available: false, detail: `${what} answers but lacks the Qwen3-TTS nodes (${missing.join(", ")})` };
   }
@@ -332,7 +341,7 @@ export async function synthesizeWithComfyUi(r: ComfyUiSpeechRequest): Promise<Co
   const consent = cloneConsent(r, referenceBytes);
   r.signal?.throwIfAborted();
   const endpoint = await comfyUiEndpoint(r.libraryRoot);
-  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  if (!endpoint) throw new Error(COMFYUI_NOT_CONFIGURED);
   const config = endpoint.config;
   const client = createComfyUiClient({ baseUrl: endpoint.url });
   const settings = nodeSettingsOf(config);
@@ -475,7 +484,7 @@ export interface ComfyUiCleanRequest {
 
 export async function cleanVoiceWithComfyUi(r: ComfyUiCleanRequest): Promise<{ recordPath: string; durationSeconds: number; elapsedSeconds: number; record: Record<string, unknown> }> {
   const endpoint = await comfyUiEndpoint(r.libraryRoot);
-  if (!endpoint) throw new Error(NOT_CONFIGURED);
+  if (!endpoint) throw new Error(COMFYUI_NOT_CONFIGURED);
   const config = endpoint.config;
   const inputBytes = readFileSync(r.input.absolutePath);
   const cleaned = await onServer(endpoint, () => cleanVoice({

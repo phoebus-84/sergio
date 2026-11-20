@@ -16,9 +16,11 @@
 // `pva_comfyui_workflows` lists them, with whether the server can run each.
 // `pva_comfyui_run` runs one with given inputs in an episode, a channel
 // source or a film unit, and writes each output into the workspace with a
-// receipt beside it: <file>.comfyui.json. The server is the one speech uses
-// (AVG_COMFYUI_URL, or url in the library's .render/comfyui.json). Its GPU is
-// the operator's: $0, nothing on the spend ledger, and the time the server
+// receipt beside it: <file>.comfyui.json. The server is the one speech uses,
+// found in the same order (ADR-0056): AVG_COMFYUI_URL, else the machines
+// file's comfyui machines, through a tunnel opened on demand and with the
+// machine's GPU lock held for the whole run, else url in the library's
+// .render/comfyui.json. Its GPU is the operator's: $0, nothing on the spend ledger, and the time the server
 // spent is in the receipt and, for an episode or a film unit, its journal.
 //
 // Every server names its model files its own way. A workflow takes them as
@@ -39,7 +41,9 @@ import {
   type DeclaredWorkflow, type InputDeclaration, type NodeInfoCache, type WorkflowEntry, type WorkflowFile, type WorkflowProbe, type WorkflowRun,
 } from "@av/comfyui";
 import { appendJournalEvent } from "@studio/contracts/src/journal.mjs";
-import { comfyUiConfig, COMFYUI_CONFIG_RELATIVE, COMFYUI_URL_ENV } from "./comfyui-speech.js";
+import {
+  comfyUiConfig, comfyUiEndpoint, COMFYUI_CONFIG_RELATIVE, COMFYUI_NOT_CONFIGURED, describeEndpoint, onServer, serverOf, type ComfyUiEndpoint,
+} from "./comfyui-speech.js";
 import { guardWorkspacePath, workspaceOf, WORKSPACE_PARAMS, type Workspace } from "./workspace-target.js";
 
 export const COMFYUI_WORKFLOW_PROVIDER = "comfyui";
@@ -110,25 +114,37 @@ function whereFrom(libraryRoot: string, entry: WorkflowEntry): string {
   return entry.origin === BUILT_IN ? `${BUILT_IN}:${entry.name}` : posix(relative(libraryRoot, entry.path));
 }
 
-const NOT_CONFIGURED = `${COMFYUI_URL_ENV} is not set and the library's ${posix(COMFYUI_CONFIG_RELATIVE)} names no url`;
+interface WorkflowServer {
+  endpoint: ComfyUiEndpoint;
+  timeoutSeconds: number;
+  outputPrefix?: string;
+  inputSubfolder?: string;
+}
 
-function serverUrl(libraryRoot: string): { url: string; timeoutSeconds: number; outputPrefix?: string; inputSubfolder?: string } {
-  const config = comfyUiConfig(libraryRoot) as ReturnType<typeof comfyUiConfig> & { workflowTimeoutSeconds?: unknown; workflowOutputPrefix?: unknown; workflowInputSubfolder?: unknown };
-  if (!config.url) throw new Error(NOT_CONFIGURED);
+/** The server and the library's settings for running workflows on it; a machine's tunnel is opened here when needed. */
+async function workflowServer(libraryRoot: string): Promise<WorkflowServer> {
+  const endpoint = await comfyUiEndpoint(libraryRoot);
+  if (!endpoint) throw new Error(COMFYUI_NOT_CONFIGURED);
+  const config = endpoint.config as typeof endpoint.config & { workflowTimeoutSeconds?: unknown; workflowOutputPrefix?: unknown; workflowInputSubfolder?: unknown };
   const t = config.workflowTimeoutSeconds;
   if (t !== undefined && !(typeof t === "number" && t > 0)) throw new Error(`${posix(COMFYUI_CONFIG_RELATIVE)}: workflowTimeoutSeconds is not a positive number`);
   for (const k of ["workflowOutputPrefix", "workflowInputSubfolder"] as const) {
     if (config[k] !== undefined && typeof config[k] !== "string") throw new Error(`${posix(COMFYUI_CONFIG_RELATIVE)}: ${k} is not a string`);
   }
   return {
-    url: config.url,
+    endpoint,
     timeoutSeconds: (t as number | undefined) ?? DEFAULT_RUN_TIMEOUT_SECONDS,
     ...(typeof config.workflowOutputPrefix === "string" ? { outputPrefix: config.workflowOutputPrefix } : {}),
     ...(typeof config.workflowInputSubfolder === "string" ? { inputSubfolder: config.workflowInputSubfolder } : {}),
   };
 }
 
-const unreachable = (e: unknown) => (e instanceof ComfyUiError && e.code === "unreachable" ? new Error(`${e.message}: is the server running, and the operator's tunnel to it open?`) : e);
+/** A server that stopped answering, said as the place it was found asks. */
+const unreachable = (e: unknown, endpoint?: ComfyUiEndpoint) => {
+  if (!(e instanceof ComfyUiError && e.code === "unreachable")) return e;
+  if (endpoint?.via === "machine") return new Error(`${e.message}: is ComfyUI running on ${endpoint.machine!.name}?`);
+  return new Error(`${e.message}: is the server running${endpoint?.via === "env" ? ", and the tunnel to it open" : ""}?`);
+};
 
 // ── Describing a workflow ──────────────────────────────────────────────────
 
@@ -172,15 +188,15 @@ export function describeWorkflow(entry: WorkflowEntry, probe?: WorkflowProbe | s
 
 /** Whether the server answers and which workflows it can run, for pva_capability_status. */
 export async function comfyUiWorkflowsStatus(libraryRoot: string): Promise<{ available: boolean; detail: string }> {
-  let url: string;
+  let endpoint: ComfyUiEndpoint;
   try {
-    url = serverUrl(libraryRoot).url;
+    endpoint = (await workflowServer(libraryRoot)).endpoint;
   } catch (e) {
     return { available: false, detail: e instanceof Error ? e.message : String(e) };
   }
   const entries = comfyUiWorkflows(libraryRoot).filter((e) => e.workflow);
   try {
-    const client = createComfyUiClient({ baseUrl: url, requestTimeoutMs: 5_000 });
+    const client = createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 5_000 });
     const server = await serverInfo(client);
     const cache: NodeInfoCache = new Map();
     const probes = await Promise.all(entries.map(async (e) => [e.name, await probeWorkflow(client, e.workflow!, { cache })] as const));
@@ -188,10 +204,10 @@ export async function comfyUiWorkflowsStatus(libraryRoot: string): Promise<{ ava
     const not = probes.filter(([, p]) => !p.runnable).map(([n, p]) => `${n} (${describeProbe(p)})`);
     return {
       available: runnable.length > 0,
-      detail: `ComfyUI ${server.version ?? "?"} at ${url}: pva_comfyui_run, $0; runnable ${runnable.join(", ") || "none"}${not.length > 0 ? `; not runnable: ${not.join("; ")}` : ""}`,
+      detail: `ComfyUI ${server.version ?? "?"} ${endpoint.via === "machine" ? "on" : "at"} ${describeEndpoint(endpoint)}: pva_comfyui_run, $0; runnable ${runnable.join(", ") || "none"}${not.length > 0 ? `; not runnable: ${not.join("; ")}` : ""}`,
     };
   } catch (e) {
-    return { available: false, detail: `${e instanceof Error ? e.message : String(e)}; a server that listens on its own loopback needs the operator's tunnel open` };
+    return { available: false, detail: `${(unreachable(e, endpoint) as Error).message ?? String(e)}` };
   }
 }
 
@@ -307,11 +323,10 @@ export async function runComfyUiWorkflow(r: RunRequest): Promise<RunResult> {
     if (taken) throw new Error(`${folder}/${taken} already exists: generated media are not overwritten, pick another name`);
   }
 
-  const server = serverUrl(r.libraryRoot);
-  let run: WorkflowRun;
-  try {
-    run = await runWorkflow({
-      client: createComfyUiClient({ baseUrl: server.url }),
+  const server = await workflowServer(r.libraryRoot);
+  // The machine's GPU lock is held for the whole run, and waited for as long as a run may take.
+  const run: WorkflowRun = await onServer(server.endpoint, () => runWorkflow({
+      client: createComfyUiClient({ baseUrl: server.endpoint.url }),
       workflow,
       values,
       timeoutMs: server.timeoutSeconds * 1000,
@@ -319,10 +334,7 @@ export async function runComfyUiWorkflow(r: RunRequest): Promise<RunResult> {
       ...(server.inputSubfolder ? { inputSubfolder: server.inputSubfolder } : {}),
       ...(r.signal ? { signal: r.signal } : {}),
       ...(r.requestId ? { requestId: r.requestId } : {}),
-    });
-  } catch (e) {
-    throw unreachable(e);
-  }
+    }), r.signal, server.timeoutSeconds);
   r.signal?.throwIfAborted();
 
   const written: RunResult["files"] = [];
@@ -341,6 +353,8 @@ export async function runComfyUiWorkflow(r: RunRequest): Promise<RunResult> {
     promptId: run.promptId,
     // The server's version and devices; its address is configuration, never recorded.
     server: run.server,
+    // The machine of the machines file it ran on, when that file chose it.
+    ...(serverOf(server.endpoint).server ? { machine: serverOf(server.endpoint).server } : {}),
     inputs: Object.fromEntries(Object.entries(run.values).filter(([k]) => !(k in files))),
     ...((entry as WorkflowEntry & { defaulted?: string[] }).defaulted ? { libraryDefaults: (entry as WorkflowEntry & { defaulted?: string[] }).defaulted } : {}),
     files: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, { ...f, uploadedAs: run.uploads[k]?.inputName }])),
@@ -430,19 +444,20 @@ export function registerComfyUiWorkflowTools(pi: ExtensionAPI): void {
       const lines: string[] = [];
       const probes = new Map<string, WorkflowProbe | string>();
       let server: string;
+      let endpoint: ComfyUiEndpoint | undefined;
       if (params.probe === false) server = "server not asked";
       else {
         try {
-          const { url } = serverUrl(root);
-          const client = createComfyUiClient({ baseUrl: url, requestTimeoutMs: 10_000 });
+          endpoint = (await workflowServer(root)).endpoint;
+          const client = createComfyUiClient({ baseUrl: endpoint.url, requestTimeoutMs: 10_000 });
           const info = await serverInfo(client, signal);
-          server = `ComfyUI ${info.version ?? "?"}${info.devices.length > 0 ? ` (${info.devices.join(", ")})` : ""}`;
+          server = `ComfyUI ${info.version ?? "?"}${endpoint.via === "machine" ? ` on ${describeEndpoint(endpoint)}` : ""}${info.devices.length > 0 ? ` (${info.devices.join(", ")})` : ""}`;
           const cache: NodeInfoCache = new Map();
           await Promise.all(entries.filter((e) => e.workflow).map(async (e) => {
             probes.set(e.name, await probeWorkflow(client, e.workflow!, { cache, ...(signal ? { signal } : {}) }).catch((err: unknown) => `not probed: ${err instanceof Error ? err.message : String(err)}`));
           }));
         } catch (e) {
-          server = `not asked: ${(unreachable(e) as Error).message ?? String(e)}`;
+          server = `not asked: ${(unreachable(e, endpoint) as Error).message ?? String(e)}`;
         }
       }
       lines.push(`ComfyUI workflows — server: ${server}`);
