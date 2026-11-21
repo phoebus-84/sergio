@@ -249,6 +249,17 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 - **A fal call that runs out of time names the request it left.** The job
   may still finish and be charged; the message says which one it was.
 
+### Fixed
+
+- **`vpr doctor` no longer calls a library restored from git broken.** It
+  demanded every folder `init` makes in an episode (`prompts/`, `attempts/`,
+  `assets/graphics/`, …) and a series' `episodes/` folder, but git keeps no
+  empty folder, so every produced episode of a channel repository counted as
+  errors (143 on the operator's library) and the gateway's health said so. An
+  episode now needs its `episode.yaml` and contract, a series its own files;
+  the tools create the working folders when they write. Files beside the
+  channels (`README.md`, `index.json`) are no longer taken for channels.
+
 ### Documentation
 
 - **The README opens with what the studio is for, and what it is not.** The

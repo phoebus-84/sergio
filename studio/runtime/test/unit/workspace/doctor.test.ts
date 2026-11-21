@@ -96,6 +96,42 @@ describe("doctor", () => {
     expect(invalidJsonl[0]!.path).toContain("events.jsonl");
   });
 
+  it("takes a channel as git keeps it: no empty working folders, a series with no episodes yet", async () => {
+    // A channel is a git repository (ADR-0045), and git keeps no empty
+    // folder: a produced episode comes back without prompts/, attempts/,
+    // assets/graphics/…, and a series with no episode without episodes/.
+    const opts = makeOpts(fs);
+    const chR = await initChannel("/library", "ch", {}, opts);
+    if (!chR.ok) throw new Error("channel failed");
+    const srR = await initSeries(chR.value.path, "s1", {}, opts);
+    if (!srR.ok) throw new Error("series failed");
+    const empty = await initSeries(chR.value.path, "s2", {}, opts);
+    if (!empty.ok) throw new Error("series failed");
+    await initEpisode(srR.value.path, "ep-01", {}, opts);
+    const ep = "/library/ch/series/s1/episodes/ep-01";
+    for (const folder of ["source", "prompts", "assets/images", "assets/graphics", "assets/audio", "attempts", "output"]) {
+      await fs.remove(`${ep}/${folder}`).catch(() => undefined);
+    }
+    for (const file of ["assets/manifest.json", "reviews/threads.jsonl", "journal/events.jsonl", "output/current.json"]) {
+      await fs.remove(`${ep}/${file}`).catch(() => undefined);
+    }
+    await fs.remove("/library/ch/series/s2/episodes").catch(() => undefined);
+
+    const report = await doctor({ fs, libraryRoot: "/library" });
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(true);
+  });
+
+  it("looks at directories only, and skips what is set aside with _", async () => {
+    fs.seed({
+      "/library/README.md": "# a library\n",
+      "/library/index.json": "{}",
+      "/library/_archive/old/README.md": "an old channel, no contract",
+    });
+    const report = await doctor({ fs, libraryRoot: "/library" });
+    expect(report.findings).toEqual([]);
+  });
+
   it("filters by channel/series/episode", async () => {
     const opts = makeOpts(fs);
     const chR = await initChannel("/library", "ch", {}, opts);
