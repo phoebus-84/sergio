@@ -1,8 +1,13 @@
 // ---------------------------------------------------------------------------
-// Canonical workspace tree — shared definition
+// What a workspace must have — the doctor's required tree
 // ---------------------------------------------------------------------------
-// Consumed by both workspace init (src/workspace/init.ts) and the doctor
-// command (src/workspace/doctor.ts).
+// Read by the doctor command (src/workspace/doctor.ts). Workspace init
+// (src/workspace/init.ts) creates more than this: working folders that the
+// tools fill, and create again when they write into them.
+//
+// A required path is one the contract depends on, never an empty folder: a
+// channel is a git repository (ADR-0045), git keeps no empty folder, and a
+// channel cloned or restored without them is whole.
 //
 // Every path is relative to the workspace root at its level.
 // ---------------------------------------------------------------------------
@@ -25,31 +30,29 @@ export const CHANNEL_TREE = [
   ".workspace/metadata.json",
 ] as const;
 
-/** What a series must have to be a series. See CHANNEL_TREE on knowledge folders. */
+/**
+ * What a series must have to be a series. See CHANNEL_TREE on knowledge
+ * folders. Its episodes live in `episodes/`, the explicit container the
+ * doctor descends into; a series with none yet has no such folder in git,
+ * and is not broken for it.
+ */
 export const SERIES_TREE = [
   "series.md",
   "settings.yaml",
-  // Explicit container: a directory in here is an episode.
-  "episodes",
   ".workspace/contract.json",
   ".workspace/metadata.json",
 ] as const;
 
-/** Files and directories created at the episode level. */
+/**
+ * What an episode must have to be an episode. Init also makes its working
+ * folders (source/, prompts/, assets/…, attempts/, output/), an empty asset
+ * manifest, review threads and journal: the tools write into them and create
+ * them when they are missing, and their readers take a missing file for an
+ * empty one. Demanding them reported every episode of a channel restored from
+ * git as broken. When present, the JSON and JSONL files are still checked.
+ */
 export const EPISODE_TREE = [
   "episode.yaml",
-  "source",
-  "artifacts",
-  "prompts",
-  "assets/images",
-  "assets/graphics",
-  "assets/audio",
-  "assets/manifest.json",
-  "attempts",
-  "reviews/threads.jsonl",
-  "journal/events.jsonl",
-  "output",
-  "output/current.json",
   ".workspace/contract.json",
   ".workspace/metadata.json",
 ] as const;

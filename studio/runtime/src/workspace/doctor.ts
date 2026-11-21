@@ -264,6 +264,14 @@ async function validateJsonFiles(
 async function listDirs(fs: FileSystem, parentPath: string): Promise<string[]> {
   const readR = await fs.readDir(parentPath);
   if (!readR.ok) return [];
-  // Return subdirectory names that look like workspace slugs (not hidden)
-  return readR.value.filter((name) => !name.startsWith(".") && !name.startsWith("_"));
+  // Subdirectories that look like workspace slugs: not hidden, not set aside
+  // with "_" (_archive, _demos), and not files (a README.md beside the
+  // channels is not a channel).
+  const names = readR.value.filter((name) => !name.startsWith(".") && !name.startsWith("_"));
+  const dirs: string[] = [];
+  for (const name of names) {
+    const statR = await fs.stat(`${parentPath}/${name}`);
+    if (statR.ok && statR.value.isDirectory) dirs.push(name);
+  }
+  return dirs;
 }
