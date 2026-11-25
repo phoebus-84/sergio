@@ -20,6 +20,9 @@
         "model.generate",
         "rig.create",
         "motion.generate",
+        "world.reconstruct",
+        "world.mesh",
+        "world.render",
         "video.compose",
         "media.probe"
       ]
