@@ -44,6 +44,7 @@ Reusable outside this project. They know nothing about episodes or pipelines.
 | [render-worker](./packages/render-worker) | renders on other machines |
 | [voice](./packages/voice) | `speech.synthesize`, `speech.align` |
 | [fal-media](./packages/fal-media) | `image.generate`, `image.edit`, `video.generate` |
+| [worldlabs-atlas](./packages/worldlabs-atlas) | `world.reconstruct`, `world.mesh`, `world.render` (not yet run against the real service) |
 | [codex-image](./packages/codex-image) | `image.generate`, `image.edit` |
 | [graphics](./packages/graphics) | `graphics.render` |
 | [infographics](./packages/infographics) | `graphics.animate` |
