@@ -5,7 +5,8 @@
 // the picture with more than one thing in it: several characters, each a
 // role of the cast or a rig of the episode, standing on marks, turned to
 // each other, each doing one thing after another — and, when a set is
-// named, in a place. A set is a .blend of the episode, made as any Blender
+// named, in a place. A set is a film location's 3D set (a .glb, ADR-0057), a
+// .glb of the episode, or a .blend of the episode, made as any Blender
 // scene is; an object in it named `mark.<name>` is a place by that name.
 //
 // Free. Blender runs where the library's machines file prefers (prefer.blender,
@@ -31,10 +32,10 @@ import {
   STAGE_FRAMINGS, STAGE_SHOT_LIMITS, stageSettings, stageShot,
   type StageAct, type StageFraming, type StagePlace, type StagePlayer, type StageShotReport, type StageShotRequest,
 } from "@av/blender/stage-shot";
-import { episodePath } from "@studio/contracts/src/layout.mjs";
+import { channelPath, episodePath, projectKind } from "@studio/contracts/src/layout.mjs";
 import { CLIP_NAME, resolveRig } from "./rig-source.js";
 import { THROUGH_MARK, throughText } from "./rig-sheet-tools.js";
-import { guardEpisodePath } from "./trust-guards.js";
+import { guardEpisodePath, guardPath } from "./trust-guards.js";
 import { blenderKey, MACHINE_PARAM, placeBlender, placeLines, runBlenderAt } from "./blender-place.js";
 
 export const STAGE_SHOT_TOOL = "pva_stage_shot";
@@ -69,10 +70,13 @@ export interface StagedPlayer {
 /** What was filmed and what was measured, as lines the agent reads before it looks at the film. */
 export function describeStageShot(report: StageShotReport, staged: readonly StagedPlayer[], file: string, megabytes: number, setShown: string | null): string[] {
   const lines = [`✅ ${file} — ${secs(report.seconds)}, ${report.width}×${report.height} at ${report.fps} fps, ${megabytes.toFixed(1)}MB, no sound`];
+  // A model of a place has no marks: where it lies on the stage is what a place in metres is chosen from.
+  const box = report.setBounds;
+  const lies = box ? ` (a model of a place: it fills x ${box.min[0]} to ${box.max[0]}, y ${box.min[1]} to ${box.max[1]}, z ${box.min[2]} to ${box.max[2]} m on the stage)` : null;
   const camera = report.camera.kind === "set"
     ? "the set's own camera"
     : `camera ${report.camera.view}, ${report.camera.framing}, on ${report.camera.on?.join(" and ") ?? (report.players.length > 1 ? "everyone" : report.players[0]!.name)}, ${report.camera.follow ? "going with them" : "staying where it is"}`;
-  lines.push(`   ${setShown ? `on the set ${setShown}${report.marks.length ? ` (marks: ${report.marks.join(", ")})` : " (it has no marks)"}` : "on an empty stage"}; ${camera}`);
+  lines.push(`   ${setShown ? `on the set ${setShown}${lies ?? (report.marks.length ? ` (marks: ${report.marks.join(", ")})` : " (it has no marks)")}` : "on an empty stage"}; ${camera}`);
   const warnings: string[] = [];
   report.players.forEach((player, index) => {
     const asked = staged[index]!;
@@ -137,7 +141,9 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       "A walk takes as long as its clip's own pace says — the pace is read from the foot that carries the body — unless `seconds` is given; a body moved faster or slower than that slides, and the tool says so. " +
       "A place is a mark of the set by name, or \"x, y\" in metres on the floor as seen from the front: x to the right, y away from the audience. " +
       "`set` is a .blend of the episode (pva_blender_create_scene), in metres, z up, its front towards -y: an object named mark.<name> is a place called <name>, turned the way its -y points; a place in metres stands on the set's floor there. " +
-      "The set brings its light and its world; `setCamera: true` films with its own camera. Otherwise the camera is asked for in words — `view` front, three-quarter, side or back, seen from the audience; `framing` wide, full, medium or close; `on` the players it is about — and goes with them unless `follow` is false. " +
+      "In a film, `locationSet` names a location's 3D set in its place (pva_location_mesh): a .glb, as is a `set` ending in .glb. A .glb is only a mesh: the stage lights it, it has no marks, and its size and origin are its maker's — " +
+      "`setScale` (metres to one of its units), `setTurn` and `setMove` put it right, and the report says the box it then fills, to choose places in. " +
+      "A .blend brings its light and its world; `setCamera: true` films with the set's own camera. Otherwise the camera is asked for in words — `view` front, three-quarter, side or back, seen from the audience; `framing` wide, full, medium or close; `on` the players it is about — and goes with them unless `follow` is false. " +
       "A two-legged character that plays no clip — before its first, between two, after its last — stands with its arms beside it, not in its rig's rest pose. " +
       "It reports for each player the share of the shot it was in the picture and the share the set hid it, pairs that came to stand in one place, and a part of a body that went into another of it (a hand into the head), how deep and when. " +
       "Release each character at its own height first (pva_release_model): two in one picture are in proportion only then. Saves assets/video/<shotId>.mp4 and <shotId>.provenance.json. Look at the result before it is used: pva_inspect_media.",
@@ -146,7 +152,15 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       series: Type.String({ description: "Series slug" }),
       episode: Type.String({ description: "Episode slug" }),
       shotId: Type.String({ description: "Safe name (letters, digits, _ and -) for the clip of video" }),
-      set: Type.Optional(Type.String({ description: "The set, episode-relative: a .blend made with pva_blender_create_scene. Without it, an empty stage of one colour with a floor" })),
+      set: Type.Optional(Type.String({ description: "The set, episode-relative: a .blend made with pva_blender_create_scene, or a .glb of a place. Without it and locationSet, an empty stage of one colour with a floor" })),
+      locationSet: Type.Optional(Type.Object({
+        location: Type.String({ description: "The location's slug" }),
+        set: Type.String({ description: "The set's name: locations/<location>/sets/<set>/" }),
+        mesh: Type.Optional(Type.String({ description: "Which mesh of the set. Default: refined when it has one, else draft" })),
+      }, { description: "In a film, in place of set: a location's 3D set (pva_location_mesh). channel is the film" })),
+      setScale: Type.Optional(Type.Number({ minimum: STAGE_SHOT_LIMITS.setScale[0], maximum: STAGE_SHOT_LIMITS.setScale[1], description: "For a .glb set: metres to one of its units. Default 1" })),
+      setTurn: Type.Optional(Type.Number({ minimum: -360, maximum: 360, description: "For a .glb set: degrees about the vertical. Default 0" })),
+      setMove: Type.Optional(Type.String({ description: "For a .glb set: where its origin goes on the stage, \"x, y, z\" in metres (z up). Default 0, 0, 0" })),
       players: Type.Array(Type.Object({
         name: Type.Optional(Type.String({ description: "How the player is called in towards, on and the report. Default: its role, or its rig's file name" })),
         role: Type.Optional(Type.String({ description: "A role of the series' cast (pva_cast): the released form the role pins" })),
@@ -180,13 +194,43 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       if (!SAFE_NAME.test(params.shotId)) throw new Error("shotId must contain only letters, numbers, underscores and hyphens (max 64)");
       const dir = episodePath(LIBRARY_ROOT, params.channel, params.series, params.episode);
       let setFull: string | undefined;
+      /** The set as it is shown and recorded: episode-relative, or film-relative for a location's. */
+      let setShown: string | undefined;
+      if (params.set !== undefined && params.locationSet !== undefined) throw new Error("give set or locationSet, not both");
       if (params.set !== undefined) {
         const guard = await guardEpisodePath(LIBRARY_ROOT, params.channel, params.series, params.episode, params.set);
         if (!guard.allowed) throw new Error(guard.reason ?? `Set path rejected: ${params.set}`);
         setFull = join(dir, params.set);
+        setShown = params.set;
         if (!existsSync(setFull) || !statSync(setFull).isFile()) throw new Error(`Set not found: ${params.set}`);
-        if (!/\.blend$/i.test(setFull)) throw new Error(`a set is a .blend file: ${params.set}. Make one with pva_blender_create_scene`);
+        if (!/\.(blend|glb)$/i.test(setFull)) throw new Error(`a set is a .blend file or a .glb of a place: ${params.set}. Make a .blend with pva_blender_create_scene, or a location's set with pva_location_mesh`);
       }
+      if (params.locationSet !== undefined) {
+        const { location, set } = params.locationSet;
+        if (projectKind(LIBRARY_ROOT, params.channel) !== "film") throw new Error(`a location's set belongs to a film, and ${params.channel} is not one: give the set as a file of the episode (set)`);
+        if (![location, set, params.locationSet.mesh ?? "draft"].every((name) => SAFE_NAME.test(name))) throw new Error("locationSet: location, set and mesh are names in letters, digits, underscores and hyphens");
+        const filmDir = channelPath(LIBRARY_ROOT, params.channel);
+        const setDir = join("locations", location, "sets", set);
+        const mesh = params.locationSet.mesh ?? (existsSync(join(filmDir, setDir, "refined.glb")) ? "refined" : "draft");
+        setShown = join(setDir, `${mesh}.glb`);
+        const guard = await guardPath(filmDir, setShown);
+        if (!guard.allowed) throw new Error(guard.reason ?? `Set path rejected: ${setShown}`);
+        setFull = join(filmDir, setShown);
+        if (!existsSync(setFull) || !statSync(setFull).isFile()) throw new Error(`the film has no ${setShown}: make the set's mesh with pva_location_mesh { film: "${params.channel}", location: "${location}", set: "${set}" }`);
+      }
+      const modelSet = setFull !== undefined && /\.glb$/i.test(setFull);
+      if (!modelSet && (params.setScale !== undefined || params.setTurn !== undefined || params.setMove !== undefined)) {
+        throw new Error("setScale, setTurn and setMove put a .glb set on the stage: a .blend is placed by whoever made it, and an empty stage has nothing to place");
+      }
+      let setMove: [number, number, number] | undefined;
+      if (params.setMove !== undefined) {
+        const parts = params.setMove.split(",").map((part) => Number(part.trim()));
+        if (parts.length !== 3 || !parts.every(Number.isFinite)) throw new Error('setMove is "x, y, z" in metres');
+        setMove = parts as [number, number, number];
+      }
+      const setPlacement = modelSet && (params.setScale !== undefined || params.setTurn !== undefined || setMove !== undefined)
+        ? { ...(params.setScale !== undefined ? { scale: params.setScale } : {}), ...(params.setTurn !== undefined ? { turn: params.setTurn } : {}), ...(setMove ? { move: setMove } : {}) }
+        : undefined;
       if (params.setCamera && (params.view !== undefined || params.framing !== undefined || params.on !== undefined || params.follow !== undefined)) {
         throw new Error("the set's own camera is not asked for in words: leave view, framing, on and follow out, or setCamera");
       }
@@ -226,7 +270,7 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
       const videoFull = join(videoDir, `${params.shotId}.mp4`);
       if (existsSync(videoFull) && !params.overwrite) throw new Error(`assets/video/${params.shotId}.mp4 already exists: pick another shotId, or pass overwrite: true`);
       const request: Omit<StageShotRequest, "outputDir"> = {
-        ...(setFull ? { set: setFull } : {}), players,
+        ...(setFull ? { set: setFull } : {}), ...(setPlacement ? { setPlacement } : {}), players,
         camera: params.setCamera ? "set" : {
           ...(params.view ? { view: params.view } : {}), ...(params.framing ? { framing: params.framing } : {}), ...(params.on ? { on: params.on } : {}), ...(params.follow !== undefined ? { follow: params.follow } : {}),
         },
@@ -238,7 +282,7 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
 
       const where = await placeBlender(LIBRARY_ROOT, params.machine, signal);
       const say = (text: string) => onUpdate?.({ content: [{ type: "text" as const, text }], details: { shotId: params.shotId } });
-      say(`Staging ${players.map((player) => player.name).join(", ")}${params.set ? ` on ${params.set}` : ""} in Blender${where.kind === "machine" ? ` on ${where.machine.name}` : ""}…`);
+      say(`Staging ${players.map((player) => player.name).join(", ")}${setShown ? ` on ${setShown}` : ""} in Blender${where.kind === "machine" ? ` on ${where.machine.name}` : ""}…`);
       const work = mkdtempSync(join(tmpdir(), "stage-shot-"));
       try {
         const shot = { ...request, outputDir: join(work, "shot") };
@@ -255,13 +299,13 @@ export function registerStageShotTools(pi: ExtensionAPI): void {
           staged: kept,
           ...report,
           // The place, by its file; null for an empty stage.
-          set: setFull ? { file: params.set, sha256: fileSha(setFull) } : null,
+          set: setFull ? { file: setShown, sha256: fileSha(setFull), ...(params.locationSet ? { locationSet: params.locationSet } : {}), ...(setPlacement ? { placement: setPlacement } : {}) } : null,
           // The machine Blender ran on, when not this one.
           ...(machine ? { machine } : {}),
           madeAt: new Date().toISOString(),
         }, null, 2)}\n`);
         return {
-          content: [{ type: "text" as const, text: [...describeStageShot(report, staged, `assets/video/${params.shotId}.mp4`, bytes.length / 1024 / 1024, params.set ?? null), ...placeLines(where, machine)].join("\n") }],
+          content: [{ type: "text" as const, text: [...describeStageShot(report, staged, `assets/video/${params.shotId}.mp4`, bytes.length / 1024 / 1024, setShown ?? null), ...placeLines(where, machine)].join("\n") }],
           details: { outputPath: videoFull, provenancePath, report } as unknown as Record<string, unknown>,
         };
       } finally {

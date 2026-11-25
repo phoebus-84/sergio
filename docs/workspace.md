@@ -67,7 +67,7 @@ library/
     ├── settings.yaml                   # `budget:` covers every scene and shot under it
     ├── bible/                          # film knowledge: the look and sound every shot is held to
     ├── characters/
-    ├── locations/
+    ├── locations/                      # <name>.md · <name>/sets/<set>/: a location's 3D set (ADR-0057)
     ├── references/
     ├── skills/
     ├── sources/

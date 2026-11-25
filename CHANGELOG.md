@@ -23,6 +23,22 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 
 ### Added
 
+- **A film's location in three dimensions.** A place many shots return to
+  can be made once, from pictures of it, and every angle taken from it
+  (ADR-0057). `pva_location_set` poses the pictures, `pva_location_views`
+  renders the place from other sides (stills, and a plate), `pva_location_splat`
+  makes a Gaussian splat — a draft first, the refined one only on your word —
+  and `pva_location_mesh` a GLB. `pva_stage_shot` takes that GLB as its set
+  (`locationSet`, or any `.glb` of a place as `set`), with `setScale`,
+  `setTurn` and `setMove`. It is World Labs Atlas, paid, on the film's
+  budget: set `WLT_API_KEY` (the name Atlas's own tools read), and say your
+  plan and your rate card's prices in `library/.render/worldlabs-atlas.json`.
+  Views are 720p at most: references and plates, not final picture. **It is
+  written from Atlas's documentation and has not yet run against the real
+  service**: its first paid step on your account is its test, so make it a
+  draft ([running](docs/running.md#a-location-s-3d-set)).
+  `@av/worldlabs-atlas` is the reusable client; the capabilities are
+  `world.reconstruct`, `world.mesh` and `world.render`.
 - **Your other machines, declared once.** `library/.render/machines.json`
   (`AVG_MACHINES` names another file) says which machines you have, how SSH
   reaches each (an alias of your SSH config), what each is for (`remotion`,

@@ -35,6 +35,7 @@ import { registerMotionTools } from "../src/motion-tools.js";
 import { registerRigShotTools } from "../src/rig-shot-tools.js";
 import { registerReleaseTools } from "../src/release-tools.js";
 import { registerStageShotTools } from "../src/stage-shot-tools.js";
+import { registerLocationTools } from "../src/location-tools.js";
 import { registerSkillTools } from "../src/skill-tools.js";
 import { registerSlashCommands } from "../src/slash-commands.js";
 import { registerTuiComponents } from "../src/tui-status.js";
@@ -338,6 +339,7 @@ export default function (pi: ExtensionAPI): void {
   registerRigShotTools(pi);
   registerReleaseTools(pi);
   registerStageShotTools(pi);
+  registerLocationTools(pi);
 
   // --- Register skill and context tools ---------------------------------
 

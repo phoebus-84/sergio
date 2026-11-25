@@ -128,6 +128,7 @@ narrate episodes is the studio's business, not the tool's.
 | `packages/render-worker` | Renders that timeline on other machines over SSH, or shares it among several |
 | `packages/voice` | Speech synthesis, voice cloning, forced alignment and transcription on MLX |
 | `packages/fal-media` | Tracked image, video and 3D model generation, and rigging, against fal.ai, with provenance and cost |
+| `packages/worldlabs-atlas` | A place in three dimensions from pictures of it, through World Labs Atlas: a splat, a mesh, views along a camera path. Written from its documentation, not yet run against the real service |
 | `packages/codex-image` | Image generation and editing through an OpenAI subscription or the Images API |
 | `packages/elevenlabs` | ElevenLabs client: forced alignment, with rate and retry rules |
 | `packages/archive-media` | Free archive and stock media with verifiable licences |

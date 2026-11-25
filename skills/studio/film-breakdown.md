@@ -44,7 +44,7 @@ points at filed where the tools look for them:
 | Look | Aspect and frame, palette, light, lens character, grain, what the camera never does. If generated: the model and the words every prompt carries. If graded: the grade, as effects from `pva_cut_effects`. | `bible/`, `references/` |
 | Characters | One entry each: who they are, what they look like in words a model can hold to, what they wear, how they speak. | `characters/<name>.md` and reference images |
 | Voices | Which voice speaks each character and the narration: a speaker or a clone from `pva_voices`, with the direction for the read. | `voices/` |
-| Locations | Each place: what it is, its light at each time of day, what is always in frame. | `locations/<name>.md` and reference images |
+| Locations | Each place: what it is, its light at each time of day, what is always in frame. | `locations/<name>.md` and reference images; for a place many shots return to, a 3D set in `locations/<name>/sets/` |
 | Sound | The sound world: how dialogue sits, what the ambience of each location is, what the music is and is not, the delivery loudness. | — |
 
 **When the film has a style** (`pva_style { film }` says so), the *Look*
@@ -62,6 +62,84 @@ When reference images are needed and do not exist, making them is part of
 this stage — a character sheet, a location still — with the image tools on
 the film's unit (`channel: <film>, series: _, episode: _`), filed under
 `characters/` and `locations/`. `pva_budget_status` first.
+
+### A location's 3D set
+
+Pictures hold one angle each. A place that shots return to from several
+sides — a room, a yard, a street corner — drifts between them: the door
+moves, the window changes wall. A *set* is that place in three dimensions,
+made once from its pictures, and every angle is then taken from it: stills
+to hold a generated shot to, a mesh for Blender's camera, a plate.
+
+Make one when a location has **three or more shots from different sides**,
+or characters are **staged** in it (`source: animation`). A place seen once,
+or always from the same side, needs its reference picture and nothing more.
+
+It is made by World Labs Atlas, paid, on the film's budget
+(`pva_capability_status` says whether it is wired, and `pva_location_sets
+{ film }` what each step costs). In this order, looking after each step:
+
+1. **Pictures.** One can start a set; 8–16 frames make a room, and the
+   views of step 3 count among them. Photographs of the real place if the
+   film has them (footage stills count), otherwise reference pictures
+   generated to the location's entry — the same place, from positions that
+   differ, not turned on the spot. Wide or medium, overlapping, nobody and
+   nothing moving in them. They need not be one size: the set puts them on
+   its own (`size`, 1280x720 unless the film is upright), cropping what
+   does not fit, so keep what matters away from the edges. File them under
+   `locations/<name>/`.
+2. **`pva_location_set { film, location, set, pictures }`** estimates each
+   picture's camera and depth. With several photographs of a real place
+   that is going to a refined splat, `refinePoses: true` tightens the
+   cameras.
+3. **`pva_location_views { …, viewsId, path: "orbit" }`** renders the place
+   from the sides no picture showed — six to twelve views, all round by
+   default, each with its depth. Open every still: this is where a set that
+   will not hold together shows, for the price of a few views. What no
+   picture showed is invented, and you are looking at the invention; views
+   that contradict each other are made again (another `viewsId`), not sent
+   on. From one picture, expect less the further the camera goes from it.
+4. **`pva_location_splat { …, withViews: [viewsId] }`** makes the splat
+   from the posed frames and the views that held. **The first is always a
+   draft** — a tenth of the price, half a minute, not a quarter of an hour
+   or two — and it answers the only question that matters yet: do the
+   frames make one place? If they do not, the fix is better pictures or
+   better views in another set, never a refined pass over the same ones.
+5. **The refined splat is the operator's decision, not yours.** When the
+   draft holds and the film needs more than a draft gives, write the
+   proposal into the location's entry in the bible — what the draft and
+   its views showed, what refining costs and how long it takes — and ask:
+   in `film-project`, the bible's own approval is the question
+   (`pva_request_approval { channel: <film>, series: _, episode: _,
+   stageId: "bible", note }`); otherwise ask in words. Then stop. Only
+   when they have said yes: `pva_location_splat { quality: "refined",
+   approvedBy: "<who, and how they said it>" }`. `film-project-auto` does
+   not change this: unattended is not approved, and a film made that way
+   keeps its drafts.
+6. **`pva_location_mesh { … }`** when a shot is staged in the place: a GLB
+   for `pva_stage_shot`.
+
+A step whose wait runs out is not lost and must not be asked for again
+under another name: call the same tool with the same arguments, and it
+waits for the job it already paid for.
+
+Three limits to write into the bible's entry for the location, so that no
+shot plan forgets them:
+
+- **720p at most.** A view or a plate from a set is a *reference* and a
+  *background to build on*. It is never the film's final picture: a shot
+  that shows the place is generated or rendered at the film's frame, held to
+  the set's stills.
+- **The licence follows the account's plan**, and every set records it
+  (`licence.json`). A set made under a free or an unstated plan is not for
+  a film that will be sold or monetised: say so to the operator before
+  building shots on it.
+- **Reconstructions invent.** A wall nobody photographed is a guess. A set
+  is evidence of the place only where the pictures looked.
+
+What the sets cost is part of what the film costs: `artifacts/breakdown.json`
+lists them beside the scenes — `"sets": [{ "location": "yard", "set": "a",
+"spentUsd": 1.6 }]` — and counts them in `totals.estimatedCostUsd`.
 
 ## The breakdown
 

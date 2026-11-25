@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { runBlender } from "../src/index.js";
 import { stageShot } from "../src/stage-shot.js";
 import { stickFigure } from "./fixtures/stick-figure.js";
+import { floorGlb } from "./fixtures/floor.js";
 
 const live = { skip: process.env.BLENDER_LIVE !== "1", timeout: 600_000 };
 const small = { width: 128, height: 72, fps: 12, samples: 1 };
@@ -151,4 +152,32 @@ test("LIVE: on a set, players stand on its marks and its floors, are filmed by i
   // A walk onto the platform: the floor is followed on the way, and the body ends half a metre up.
   const climbed = await stageShot({ outputDir: join(root, "climbed"), set, ...small, camera: { view: "front", framing: "wide", follow: false }, players: [{ name: "up", path, at: [1, 0], does: [{ clip: path, to: "platform" }] }] });
   assert.deepEqual(climbed.report.players[0]!.does[0]!.to, [3, 0, 0.5]);
+});
+
+test("LIVE: a .glb of a place is a set: players stand on its floor where it was put, it is lit by the stage, and its box is reported", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stage-glb-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, "figure.glb");
+  await writeFile(path, stickFigure());
+  // A floor six across, half a unit above its origin; one unit of it is two metres, and it is lifted a metre.
+  const set = join(root, "yard.glb");
+  await writeFile(set, floorGlb(6, 0.5));
+
+  const { report } = await stageShot({
+    outputDir: join(root, "shot"), set, setPlacement: { scale: 2, move: [0, 0, 1] }, ...small, seconds: 0.5,
+    players: [{ name: "on", path, at: [2, -1] }, { name: "off", path, at: [20, 0] }],
+  });
+  assert.deepEqual({ set: report.set, setFormat: report.setFormat, marks: report.marks, fps: report.fps, frames: report.frames }, { set: true, setFormat: "glb", marks: [], fps: 12, frames: 6 });
+  assert.deepEqual(report.setBounds, { min: [-6, -6, 2], max: [6, 6, 2] });
+  const [on, off] = report.players as [typeof report.players[0], typeof report.players[0]];
+  // On the floor where the floor is; beyond its edge there is nothing under a player, and it stands at 0.
+  assert.deepEqual([on.at, off.at], [[2, -1, 2], [20, 0, 0]]);
+  assert.equal(on.inFrame, 1);
+  // A mesh brings no light: the stage's sun, and it says so.
+  assert.match(report.notes.join(" "), /the set has no light of its own: a sun was added from beside the camera/);
+
+  await assert.rejects(
+    stageShot({ outputDir: join(root, "cam"), set, camera: "set", ...small, players: [{ name: "on", path }] }),
+    /^Error: the set has no camera of its own: ask for one in words \(view, framing\)$/,
+  );
 });

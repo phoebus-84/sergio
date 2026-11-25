@@ -66,6 +66,21 @@
       "model": "fal-ai/hunyuan-motion"
     },
     {
+      "capability": "world.reconstruct",
+      "provider": "worldlabs-atlas",
+      "model": "posedImages2Splats"
+    },
+    {
+      "capability": "world.mesh",
+      "provider": "worldlabs-atlas",
+      "model": "splats2Mesh"
+    },
+    {
+      "capability": "world.render",
+      "provider": "worldlabs-atlas",
+      "model": "atlasGenerate"
+    },
+    {
       "capability": "video.compose",
       "provider": "ffmpeg-video-composer",
       "model": "v1"

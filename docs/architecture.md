@@ -54,6 +54,11 @@ Stages request provider-neutral capabilities (`studio/contracts/src/vocabulary.m
 - `media.probe`: FFmpeg probes;
 - `scene.create` and `scene.render`: Blender editable 3D scenes and background
   Eevee/Cycles previews/animation, with a Pi-directed artist-handoff workflow.
+- `world.reconstruct`, `world.mesh` and `world.render`: World Labs Atlas
+  (`@av/worldlabs-atlas`) — a film location in three dimensions from pictures
+  of it, a mesh of it, and views of it along a camera path at 720p. Written
+  from Atlas's documentation and not yet run against the real service
+  (ADR-0057).
 
 Archive and stock media (`@av/archive-media`) and audio edits (`@av/audio-edit`)
 are tools rather than stage capabilities.

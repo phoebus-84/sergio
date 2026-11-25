@@ -48,7 +48,10 @@ const players = cfg.players.map((player) => {
 const frames = Math.round((cfg.seconds ?? (longest || 2)) * fps);
 mkdirSync(join(cfg.outputDir, 'frames'));
 for (const frame of [1, frames]) writeFileSync(join(cfg.outputDir, 'frames', String(frame).padStart(6, '0') + '.png'), 'png');
-writeFileSync(join(cfg.outputDir, 'shot.json'), JSON.stringify({ frames, fps, seconds: frames / fps, width: cfg.width, height: cfg.height, set: !!cfg.set, marks: cfg.set ? ['door', 'lamp'] : [],
+const model = !!cfg.set && cfg.set.endsWith('.glb');
+const scale = cfg.setPlacement?.scale ?? 1;
+writeFileSync(join(cfg.outputDir, 'shot.json'), JSON.stringify({ frames, fps, seconds: frames / fps, width: cfg.width, height: cfg.height, set: !!cfg.set, marks: cfg.set && !model ? ['door', 'lamp'] : [],
+  ...(cfg.set ? { setFormat: model ? 'glb' : 'blend' } : {}), ...(model ? { setBounds: { min: [-3 * scale, -2 * scale, 0], max: [3 * scale, 2 * scale, 2.5 * scale] } } : {}),
   camera: cfg.camera, players, tooClose: [], notes: [], engine: 'BLENDER_EEVEE', blender: '5.2.1 LTS' }));
 `;
 const FAKE_FFMPEG = `#!/usr/bin/env node
@@ -155,7 +158,11 @@ describe("pva_stage_shot", () => {
     const fresh = (params: Record<string, unknown>) => stage({ shotId: "b", ...params });
     await expect(fresh({ shotId: "bad name" })).rejects.toThrow("shotId must contain only letters");
     await expect(fresh({ set: "assets/blender/none.blend" })).rejects.toThrow("Set not found: assets/blender/none.blend");
-    await expect(fresh({ set: "assets/models/child.glb" })).rejects.toThrow("a set is a .blend file: assets/models/child.glb. Make one with pva_blender_create_scene");
+    writeFileSync(join(dir, "assets", "blender", "street", "scene.fbx"), "a street, in another format");
+    await expect(fresh({ set: "assets/blender/street/scene.fbx" })).rejects.toThrow("a set is a .blend file or a .glb of a place: assets/blender/street/scene.fbx");
+    await expect(fresh({ setScale: 2 })).rejects.toThrow("setScale, setTurn and setMove put a .glb set on the stage: a .blend is placed by whoever made it");
+    await expect(fresh({ locationSet: { location: "yard", set: "a" } })).rejects.toThrow("give set or locationSet, not both");
+    await expect(fresh({ set: undefined, setCamera: undefined, locationSet: { location: "yard", set: "a" } })).rejects.toThrow("a location's set belongs to a film, and sample-channel is not one");
     await expect(fresh({ view: "front" })).rejects.toThrow("the set's own camera is not asked for in words");
     await expect(fresh({ set: undefined })).rejects.toThrow("the set's own camera was asked for, and there is no set");
     await expect(fresh({ players: [{ role: "host", rigPath: "assets/models/child.glb" }] })).rejects.toThrow("say which character is filmed: a rig of the episode (rigPath) or a role of the series' cast (role), one or the other");
@@ -216,3 +223,77 @@ describe("pva_stage_shot", () => {
     ]);
   });
 });
+
+describe("pva_stage_shot on a .glb of a place", () => {
+  const FILM = "night-shift";
+  const SHOT = { channel: FILM, series: "010-yard", episode: "020-two" };
+  let root: string;
+  let shotDir: string;
+  let tool: Tool;
+  const saved = { library: process.env.AVG_LIBRARY_ROOT, blender: process.env.BLENDER_BIN, ffmpeg: process.env.FFMPEG_BIN };
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "pva-stage-set-"));
+    writeFileSync(join(mkdirOf(root, FILM), "film.yaml"), "title: Night Shift\n");
+    shotDir = mkdirOf(root, FILM, "scenes", SHOT.series, "shots", SHOT.episode);
+    writeFileSync(join(mkdirOf(shotDir, "assets", "models"), "guard.glb"), "the guard, at rest");
+    writeFileSync(join(shotDir, "assets", "models", "yard.glb"), "a yard, modelled for this shot");
+    writeFileSync(join(mkdirOf(root, FILM, "locations", "yard", "sets", "a"), "draft.glb"), "the yard, a draft mesh");
+    for (const [name, body] of [["blender.mjs", FAKE_BLENDER], ["ffmpeg.mjs", FAKE_FFMPEG]] as const) {
+      writeFileSync(join(root, name), body);
+      chmodSync(join(root, name), 0o755);
+    }
+    process.env.AVG_LIBRARY_ROOT = root;
+    process.env.BLENDER_BIN = join(root, "blender.mjs");
+    process.env.FFMPEG_BIN = join(root, "ffmpeg.mjs");
+    const tools: Tool[] = [];
+    registerStageShotTools({ registerTool: (one: Tool) => tools.push(one) } as never);
+    tool = tools[0]!;
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+    for (const [key, value] of [["AVG_LIBRARY_ROOT", saved.library], ["BLENDER_BIN", saved.blender], ["FFMPEG_BIN", saved.ffmpeg]] as const) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+
+  const stage = (params: Record<string, unknown>) => tool.execute("call", { ...SHOT, shotId: "take", players: [{ rigPath: "assets/models/guard.glb", at: "1, -1" }], ...params }, undefined, undefined);
+  const provenance = () => JSON.parse(readFileSync(join(shotDir, "assets", "video", "take.provenance.json"), "utf8"));
+
+  it("stages in a film location's 3D set, placed as asked, and says the box it fills in place of marks", async () => {
+    const result = await stage({ locationSet: { location: "yard", set: "a" }, setScale: 2, setTurn: 90, setMove: "0, 1, -0.5" });
+    const lines = result.content[0]!.text.split("\n");
+    expect(lines[1]).toBe("   on the set locations/yard/sets/a/draft.glb (a model of a place: it fills x -6 to 6, y -4 to 4, z 0 to 5 m on the stage); camera three-quarter, full, on guard, going with them");
+    expect(provenance()).toMatchObject({
+      set: { file: "locations/yard/sets/a/draft.glb", locationSet: { location: "yard", set: "a" }, placement: { scale: 2, turn: 90, move: [0, 1, -0.5] } },
+      setFormat: "glb", setBounds: { min: [-6, -4, 0], max: [6, 4, 5] }, marks: [],
+    });
+    expect(provenance().set.sha256).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("takes the refined mesh when the set has one, another when it is named, and a .glb of the shot itself", async () => {
+    const setDir = join(root, FILM, "locations", "yard", "sets", "a");
+    writeFileSync(join(setDir, "refined.glb"), "the yard, refined");
+    await stage({ locationSet: { location: "yard", set: "a" } });
+    expect(provenance().set.file).toBe("locations/yard/sets/a/refined.glb");
+    await stage({ shotId: "take", overwrite: true, locationSet: { location: "yard", set: "a", mesh: "draft" } });
+    expect(provenance().set).toMatchObject({ file: "locations/yard/sets/a/draft.glb" });
+    expect(provenance().set).not.toHaveProperty("placement");
+    await stage({ shotId: "take", overwrite: true, set: "assets/models/yard.glb", setScale: 0.5 });
+    expect(provenance().set).toEqual({ file: "assets/models/yard.glb", sha256: expect.any(String), placement: { scale: 0.5 } });
+  });
+
+  it("says what to make when the set has no mesh, and stays inside the film", async () => {
+    await expect(stage({ locationSet: { location: "yard", set: "b" } })).rejects.toThrow('the film has no locations/yard/sets/b/draft.glb: make the set\'s mesh with pva_location_mesh { film: "night-shift", location: "yard", set: "b" }');
+    await expect(stage({ locationSet: { location: "..", set: "a" } })).rejects.toThrow("locationSet: location, set and mesh are names");
+    await expect(stage({ locationSet: { location: "yard", set: "a" }, setMove: "1, 2" })).rejects.toThrow('setMove is "x, y, z" in metres');
+    await expect(stage({ locationSet: { location: "yard", set: "a" }, setCamera: true })).resolves.toBeDefined();
+  });
+});
+
+function mkdirOf(...parts: string[]): string {
+  const path = join(...parts);
+  mkdirSync(path, { recursive: true });
+  return path;
+}

@@ -8,12 +8,18 @@
 //
 // A stage is laid out as it is seen from the front: x to the right, y away
 // from the audience, in metres on the floor. A player turned 0 faces the
-// audience. A set is a .blend; an object in it named `mark.<name>` is a
-// place a player can be sent to by that name.
+// audience. A set is a .blend, or a binary glTF of a place (a scan, a
+// reconstruction, a model made elsewhere); an object in it named
+// `mark.<name>` is a place a player can be sent to by that name.
 //
 // A two-legged body stands with its arms beside it whenever it plays no
 // clip, and is watched in every frame for a part passing into another: a
 // hand into its head, its body or its other hand, a leg through the other.
+//
+// A .blend brings its light, its world, its frame rate and its camera. A
+// .glb is only a mesh: the stage lights it as it lights an empty stage, it
+// is its own ground, and `setPlacement` puts right a size and an origin that
+// nobody chose.
 //
 // No script comes with a request, and the set's own Python is not run.
 // python/stage-shot.py does the staging; the frames are joined here.
@@ -65,6 +71,16 @@ export interface StagePlayer {
   does?: StageAct[];
 }
 
+/** How a model of a place is put on the stage: scaled about its origin, then turned, then moved. */
+export interface StageSetPlacement {
+  /** Metres to one of its units. Default 1. */
+  scale?: number;
+  /** Degrees about the vertical. Default 0. */
+  turn?: number;
+  /** Where its origin goes on the stage: x to the right, y away from the audience, z up, in metres. Default [0, 0, 0]. */
+  move?: readonly [number, number, number];
+}
+
 /** The set's own camera, or one asked for in a shot's words. */
 export type StageCamera = "set" | {
   /** Where it stands, seen from the stage: front is the audience's side. */
@@ -79,8 +95,10 @@ export type StageCamera = "set" | {
 export interface StageShotRequest {
   /** A new directory. */
   outputDir: string;
-  /** The place: a .blend. Without it, an empty stage of one colour with a floor. */
+  /** The place: a .blend, or a .glb of a place. Without it, an empty stage of one colour with a floor. */
   set?: string;
+  /** For a .glb set only: how it is put on the stage. A .blend is placed by whoever made it. */
+  setPlacement?: StageSetPlacement;
   players: StagePlayer[];
   camera?: StageCamera;
   /** How long. Default: until the last player has done all it does, or two seconds when nobody does anything. */
@@ -148,6 +166,10 @@ export interface StageShotReport {
   width: number;
   height: number;
   set: boolean;
+  /** What kind of file the set is. Absent on an empty stage, and in reports made before a .glb could be a set. */
+  setFormat?: "blend" | "glb";
+  /** For a .glb set: the box it fills on the stage once placed, in metres (x right, y away, z up). */
+  setBounds?: { min: [number, number, number]; max: [number, number, number] };
   /** The marks the set has, by name. */
   marks: string[];
   camera: { kind: "set" } | { kind: "words"; view: ShotCamera; framing: StageFraming; on?: string[]; follow: boolean };
@@ -165,7 +187,7 @@ export interface StageShotResult {
   report: StageShotReport;
 }
 
-export const STAGE_SHOT_LIMITS = { players: 8, acts: 12, stage: 1000 };
+export const STAGE_SHOT_LIMITS = { players: 8, acts: 12, stage: 1000, setScale: [0.001, 1000] as const };
 const NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const MARK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
@@ -190,7 +212,17 @@ function checkTurn(holder: { turn?: number; towards?: string }, names: ReadonlyS
 
 /** The request with its defaults, refused before Blender is started when it cannot be made. */
 export function stageSettings(request: StageShotRequest) {
-  if (request.set !== undefined && !/\.blend$/i.test(request.set)) throw new Error("a set is a .blend file");
+  if (request.set !== undefined && !/\.(blend|glb)$/i.test(request.set)) throw new Error("a set is a .blend file, or a binary glTF (.glb) of a place");
+  const placement = request.setPlacement;
+  if (placement !== undefined) {
+    if (request.set === undefined || !/\.glb$/i.test(request.set)) throw new Error("setPlacement puts a .glb set on the stage: a .blend is placed by whoever made it, and an empty stage has nothing to place");
+    const [least, most] = STAGE_SHOT_LIMITS.setScale;
+    if (placement.scale !== undefined && !(Number.isFinite(placement.scale) && placement.scale >= least && placement.scale <= most)) throw new Error(`setPlacement: scale is from ${least} to ${most}`);
+    if (placement.turn !== undefined && !(Number.isFinite(placement.turn) && Math.abs(placement.turn) <= 360)) throw new Error("setPlacement: turn is in degrees, from -360 to 360");
+    if (placement.move !== undefined && !(Array.isArray(placement.move) && placement.move.length === 3 && placement.move.every((value) => Number.isFinite(value) && Math.abs(value) <= STAGE_SHOT_LIMITS.stage))) {
+      throw new Error("setPlacement: move is [x, y, z] in metres");
+    }
+  }
   if (!Array.isArray(request.players) || request.players.length === 0) throw new Error("a shot needs at least one player");
   if (request.players.length > STAGE_SHOT_LIMITS.players) throw new Error(`at most ${STAGE_SHOT_LIMITS.players} players in one shot`);
   const names = new Set<string>();
@@ -249,6 +281,7 @@ export function stageSettings(request: StageShotRequest) {
 
   const settings = {
     ...(request.set !== undefined ? { set: resolve(request.set) } : {}),
+    ...(placement !== undefined ? { setPlacement: { scale: placement.scale ?? 1, turn: placement.turn ?? 0, move: [...(placement.move ?? [0, 0, 0])] } } : {}),
     players, camera,
     width: request.width ?? RIG_SHOT_DEFAULTS.width, height: request.height ?? RIG_SHOT_DEFAULTS.height,
     ...(request.fps !== undefined ? { fps: request.fps } : {}),

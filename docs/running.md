@@ -722,9 +722,83 @@ video like any other: one character on an empty stage. `pva_stage_shot`
 films several in one picture, on a set (a `.blend` with marks) or on an
 empty stage: each stands on a mark and does one thing after another, a walk
 goes at the pace read from its clip, and the tool says who was out of the
-picture, hidden by the set, in another's place, or sliding.
+picture, hidden by the set, in another's place, or sliding. The set may
+also be a `.glb` of a place, which the stage lights and `setScale`,
+`setTurn` and `setMove` put right; in a film, `locationSet` names a
+location's 3D set.
 Motion from a video, a face, and contact between a character and anything
 else are not built. The browser studio has no view of a cast.
+
+### A location's 3D set
+
+A film's location can be made once in three dimensions and every angle
+taken from it ([ADR-0057](adr/0057-atlas-builds-location-sets-behind-world-capabilities.md)):
+World Labs Atlas turns pictures of the place into estimated cameras and
+depth, a Gaussian splat, a GLB mesh, and views along a camera path.
+
+> **Written from Atlas's documentation, not yet run against the service.**
+> Every request follows the documentation as read on 2026-11-25; no call has
+> been made. Its first paid step on your account is its test: make it a
+> draft, and read [the notes](notes/worldlabs-atlas-api.md) first.
+
+| | |
+|---|---|
+| `pva_location_set` | pictures of the film (1–64) → posed frames: a camera and a depth map each, on one `size` |
+| `pva_location_views` | an orbit, a push or cameras given in full → stills, with their depth so they can join the splat; `plate` joins them into a clip instead |
+| `pva_location_splat` | the frames, and `withViews` → `draft.spz`; `refined.spz` only after a draft and with the operator's go-ahead |
+| `pva_location_mesh` | a splat → a GLB for `pva_stage_shot { locationSet }` |
+| `pva_location_sets` | what the sets hold and cost, their licence, their running jobs, the prices; `cancel` stops a job |
+
+Everything lands in `library/<film>/locations/<name>/sets/<set>/`, with a
+provenance record per operation and `licence.json`. Nothing there is
+committed to this repository.
+
+- **The key** is `WLT_API_KEY`, in the environment only: the name Atlas's
+  own CLI and client read. Make it in the Atlas platform, for one project,
+  with the scopes `tasks.create`, `operations.read`, `assets.create` and
+  `assets.read`, and `operations.cancel` if `cancel` is to work.
+- **Your account**, as far as it is not a secret, is
+  `library/.render/worldlabs-atlas.json`:
+
+  ```json
+  {
+    "plan": "paid",
+    "credits": { "images2PosedRGBD": 100, "splats2Mesh": 1000, "atlasGenerate.perView": 50 },
+    "maxWaitMinutes": 45
+  }
+  ```
+
+  - `credits` are the prices of your rate card, in credits (1,000 to the
+    dollar). Atlas's documentation prices only a splat: 500 for a draft,
+    5,000 refined; for the rest it sends you to the rate card in the
+    platform. The numbers above are placeholders, not prices. A step with no
+    price is refused by a film that has a budget, and recorded as unpriced
+    by one that has none.
+  - `plan` is `paid` or `free`. A key does not say which, and the licence of
+    what it makes depends on it: Atlas's Terms give you what paid access
+    makes, and keep what free, trial or promotional access makes, licensed
+    for personal, non-commercial use. A set made under a free or an unstated
+    plan is marked as not for commercial use.
+- **Money.** Every step reserves its price on the film's ledger
+  (`pva_budget_status { channel: <film>, series: _, episode: _ }`) and
+  settles at that price: an Atlas operation does not say what it was
+  charged, so the ledger holds the estimate and your account's Usage page
+  holds the truth. A splat that fails is free, and is released; so is a
+  step Atlas refuses.
+- **One size.** A set is on one of four grids (1280×720, 960×720, 528×704,
+  720×1280; `size`, default 1280×720): its pictures are cropped to it, and
+  every frame of its splat must be on it.
+- **Long jobs.** A draft splat takes about half a minute, a refined one
+  15–30 minutes. A step that outlasts `maxWaitMinutes` stays written in the
+  set (`jobs/<step>.json`), already settled at its estimate; calling the
+  same tool again with the same arguments waits for it and pays nothing
+  more. The same step asked twice is one job at Atlas too: it carries the
+  same idempotency key.
+- **720p.** Views and plates are references and backgrounds, not a film's
+  final picture.
+- **By hand**: `npm run cli --workspace @av/worldlabs-atlas -- health`
+  (no key, no charge), `prices`, `operations`, `operation <id>`, `wait
+  <id>`, `cancel <id>`, `trace <id>`.
 
 ### Style templates
 
@@ -1468,6 +1542,8 @@ the same absolute path for every process that needs to be the operator.
 | `AVG_BUILTIN_PIPELINES` | `@studio/pipelines`' `pipelines/` | Where `vpr` finds the built-in pipelines |
 | `AVG_HEADLESS` | unset (the gateway sets `1` for Pi) | Any value but empty or `0` makes `vpr` an agent without reading the operator key |
 | `FAL_KEY` | — | Required for `image.generate` / `image.edit` |
+| `WLT_API_KEY` | — | World Labs Atlas, for a film location's 3D set (`world.reconstruct`, `world.mesh`, `world.render`). See [A location's 3D set](#a-location-s-3d-set) |
+| `WLT_API_BASE_URL` | `https://api.atlas.worldlabs.ai/api/v2` | Another Atlas API root, with its `/api/v2` |
 | `AVG_TTS_WORKER_URL` | local worker | Speech synthesis endpoint |
 | `AVG_MACHINES` | `library/.render/machines.json` | The machines file ([Your other machines](#your-other-machines)); a file named here must exist |
 | `STRUDEL_CHROME_PATH` | Remotion's Chrome, else Playwright's or the machine's | The Chrome music is rendered with |

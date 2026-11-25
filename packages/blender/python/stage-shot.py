@@ -19,7 +19,9 @@ before its first, between two, after its last. It is watched in every frame
 for a part passing into another it is not joined to: a hand into the head.
 
 No script comes with the request. The set is a .blend whose own Python is
-not run (--disable-autoexec).
+not run (--disable-autoexec), or a binary glTF of a place: a mesh with no
+light, world or frame rate of its own, which the stage then supplies as it
+does when there is no set, and which is scaled, turned and moved as asked.
 """
 import json
 import math
@@ -89,20 +91,49 @@ def shortest_of(quaternion):
 
 def main():
     notes = []
-    if cfg.get("set"):
+    # A set is a scene (.blend) or a model of a place (.glb). Only a scene has a rate, a world and a first frame of its own.
+    scene_set = bool(cfg.get("set")) and cfg["set"].lower().endswith(".blend")
+    model_set = bool(cfg.get("set")) and not scene_set
+    if scene_set:
         bpy.ops.wm.open_mainfile(filepath=cfg["set"], load_ui=False, use_scripts=False)
     else:
         bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     set_fps = scene.render.fps / scene.render.fps_base
-    fps = cfg.get("fps") or (round(set_fps) if cfg.get("set") else 24)
-    if cfg.get("set") and abs(set_fps - fps) > 0.01:
+    fps = cfg.get("fps") or (round(set_fps) if scene_set else 24)
+    if scene_set and abs(set_fps - fps) > 0.01:
         notes.append(f"the set was made at {set_fps:g} frames a second and is filmed at {fps}: what moves in it moves at another speed")
     # Before anything is brought in: a clip's seconds become frames at the scene's rate.
     scene.render.fps, scene.render.fps_base = fps, 1.0
+    set_bounds = None
+    if model_set:
+        # Brought in under one handle, so that a place whose size and origin are a reconstruction's can be put right in one go.
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=cfg["set"])
+        brought = [o for o in bpy.data.objects if o not in before]
+        if not any(o.type == "MESH" for o in brought):
+            fail("the set's file holds no mesh: there is no place to stand in")
+        placement = cfg.get("setPlacement") or {}
+        handle = bpy.data.objects.new("set", None)
+        scene.collection.objects.link(handle)
+        for o in brought:
+            if o.parent is None:
+                o.parent = handle
+        size = placement.get("scale", 1.0)
+        handle.scale = (size, size, size)
+        handle.rotation_euler = (0, 0, math.radians(placement.get("turn", 0.0)))
+        handle.location = placement.get("move", (0.0, 0.0, 0.0))
+        bpy.context.view_layer.update()
+        if scene.camera is None:
+            scene.camera = next((o for o in brought if o.type == "CAMERA"), None)
+        corners = [o.matrix_world @ mathutils.Vector(c) for o in brought if o.type == "MESH" for c in o.bound_box]
+        set_bounds = {
+            "min": [round(min(c[axis] for c in corners), 3) for axis in range(3)],
+            "max": [round(max(c[axis] for c in corners), 3) for axis in range(3)],
+        }
     set_objects = set(scene.objects)
     set_meshes = {o for o in set_objects if o.type == "MESH"}
-    first_frame = scene.frame_start if cfg.get("set") else 1
+    first_frame = scene.frame_start if scene_set else 1
     marks = {o.name[len(MARK):]: o for o in scene.objects if o.name.startswith(MARK)}
     depsgraph = bpy.context.evaluated_depsgraph_get()
 
@@ -524,9 +555,10 @@ def main():
         everywhere = [(plan, spot) for plan in watched for spot in ([plan["start"]] + [entry["to"] for entry in plan["acts"] if entry["to"] is not None])]
         place(everywhere if not follows else [(plan, plan["start"]) for plan in watched])
 
-    # ── Light and ground. A set brings its own; an empty stage is lit as one character's is ──
+    # ── Light and ground. A scene brings its own; an empty stage is lit as one character's is, ──
+    # ── and a model of a place gets the stage's world and light, and is its own ground.       ──
     ground = None
-    if not cfg.get("set"):
+    if not scene_set:
         back = colour(cfg["background"])
         world = bpy.data.worlds.new("world")
         world.use_nodes = True
@@ -535,7 +567,7 @@ def main():
         shade.inputs[1].default_value = 1.0
         scene.world = world
         scene.view_settings.view_transform = "Standard"
-        if cfg["ground"]:
+        if cfg["ground"] and not model_set:
             tallest = max(plan["tall"] for plan in plans)
             bpy.ops.mesh.primitive_circle_add(vertices=96, radius=max(tallest * 8, 20), fill_type="NGON", location=(0, 0, 0))
             ground = bpy.context.active_object
@@ -628,6 +660,8 @@ def main():
     (OUT / "shot.json").write_text(json.dumps({
         "frames": frames, "fps": fps, "seconds": round(frames / fps, 3), "width": width, "height": height,
         "set": bool(cfg.get("set")), "marks": sorted(marks),
+        # For a model of a place: the box it fills on the stage once placed, so that a place in metres can be chosen in it.
+        **({"setFormat": "glb", "setBounds": set_bounds} if model_set else {"setFormat": "blend"} if scene_set else {}),
         "camera": {**asked, "follow": follows} if asked["kind"] != "set" else asked,
         "players": [{
             "name": plan["player"]["name"],

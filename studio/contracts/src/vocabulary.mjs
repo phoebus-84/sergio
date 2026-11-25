@@ -33,6 +33,14 @@ export const CAPABILITIES = Object.freeze([
   // A motion for a rig, made from words: what a body does, not the body.
   // Carrying a clip from one skeleton to another is local and is no capability.
   "motion.generate",
+  // A place in three dimensions, estimated from pictures of it: posed views
+  // and a splat (ADR-0057). Not a scene: it is reconstructed, not authored.
+  "world.reconstruct",
+  // A polygon mesh of a reconstructed place, for tools that take meshes.
+  "world.mesh",
+  // A reconstructed place seen from cameras it is given. A model answers,
+  // and may show what no picture did: a reference, not `scene.render`.
+  "world.render",
   "video.compose",
   "media.probe",
 ]);
