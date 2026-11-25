@@ -7,8 +7,8 @@ service** (no key existed, and no paid call was made):
 - the capabilities `world.reconstruct`, `world.mesh` and `world.render`;
 - `@av/worldlabs-atlas`: a client for Atlas's assets, operations and six
   tasks, with a fake provider, a price list and a small command line;
-- the tools `pva_location_set`, `pva_location_mesh`, `pva_location_views` and
-  `pva_location_sets`, on a film's spend ledger;
+- the tools `pva_location_set`, `pva_location_views`, `pva_location_splat`,
+  `pva_location_mesh` and `pva_location_sets`, on a film's spend ledger;
 - a GLB as the set of `stageShot` in `@av/blender`, and `locationSet` in
   `pva_stage_shot`;
 - sets in the skills `film-breakdown` and `shot-production`.
@@ -77,9 +77,14 @@ neither.
 - **A task is submitted once.** A submission whose answer is lost may be a
   job accepted and charged; only requests that read are retried.
 - **A wait that ends leaves the job running.** Jobs take a quarter of an
-  hour and more. The operation's id is written down before the wait begins;
-  a wait that times out, or a session that dies, is taken up again on the
-  same operation, never by asking again.
+  hour and more. The operation's id is written into the set before the wait
+  begins and stays there until what the job made is on disk; a wait that
+  times out, a session that dies, a download that fails, is taken up again
+  on the same operation, never by asking again.
+- **Giving up is not cancelling.** Interrupting a tool call stops the
+  waiting. A job is stopped by name (`pva_location_sets { cancel }`),
+  because what a job stopped part-way is charged is not known. The client
+  can cancel on interruption (`cancelOnAbort`); the studio does not ask it to.
 - **Every operation's `:trace` is kept** with its request, its result and
   what it cost, beside what it made, with signed URLs cut back to what they
   point at.
@@ -127,8 +132,15 @@ In the film, with the location it is of, never in git (ADR-0021):
   draft.glb    refined.glb                 the mesh of each
   views/<id>/000001.png …  views.json  plate.mp4
   provenance/<operation>.json              one per operation
-  jobs/<operation>.json                    a job submitted and not yet collected
+  jobs/<step>.json                         a job submitted and not yet collected
 ```
+
+It is made in steps, each its own tool, each looked at before the next:
+`pva_location_set` poses the pictures; `pva_location_views` renders the
+place from other sides; `pva_location_splat` makes the splat, from the posed
+frames and from the views that held up; `pva_location_mesh` makes the GLB.
+This is the order World Labs' own agent skills follow: a few views to look
+at *before* the long step.
 
 A set is immutable in each of its parts: a quality's splat is made once, a
 views id is used once, and a retake is another set. Location sets are a
@@ -138,15 +150,21 @@ film's because locations are (ADR-0050); a channel has no `locations/`.
 
 Every paid step reserves its estimate on the film's ledger before the
 request leaves and settles after (`paidCall`), under the capability it
-serves. Posing and the splat are two reservations of one tool call, so a
-budget that covers the first and not the second stops between them with the
-posed frames kept. A job whose wait ran out was settled at its estimate when
-the wait ended; taking it up again reserves nothing.
+serves, at what the operation says it charged when it says.
+
+- A request Atlas refuses is released: nothing ran.
+- A job whose wait ran out is settled at its estimate when the wait ends,
+  because it may still finish and be charged; taking it up again reserves
+  nothing.
+- A run that fails at Atlas is reported to be free. That is a third party's
+  word, so unless the failed operation itself states its charge the
+  reservation is settled at the estimate: a budget that overcounts by one
+  failed run is the safer mistake.
 
 ### A draft first, and the refined one by the operator's word
 
-- The first reconstruction of a set is always a **draft**. The tool refuses
-  a refined splat for a set that has no draft.
+- The first splat of a set is always a **draft**. The tool refuses a
+  refined splat for a set that has no draft.
 - A **refined** splat is asked for only with the operator's go-ahead, which
   the call must carry (`approvedBy`) and the set records. This is a
   statement the agent makes and the record keeps, not a signature: the tools
