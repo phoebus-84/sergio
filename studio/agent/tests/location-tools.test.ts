@@ -445,6 +445,17 @@ describe("a location's set", () => {
       expect(existsSync(join(setDir, "jobs", "splat-draft.json"))).toBe(true);
     });
 
+    it("does not hand a running job to a call that asks for something else", async () => {
+      account({ plan: "paid", credits: OWN_CREDITS, maxWaitMinutes: 1 });
+      atlas({ looksUntilDone: 50 });
+      await run(LOCATION_VIEWS_TOOL, { viewsId: "around", path: "orbit", count: 3 }).catch(() => undefined);
+      expect(existsSync(join(setDir, "jobs", "views-around.json"))).toBe(true);
+      const failure = await failed(run(LOCATION_VIEWS_TOOL, { viewsId: "around", path: "orbit", count: 5 }));
+      expect(failure.message).toContain("already has a job for this step (views-around, Atlas operation op-0001");
+      expect(failure.message).toContain("it was asked for something else");
+      expect(fake.submitted("atlasGenerate")).toHaveLength(1);
+    });
+
     it("stops a job at Atlas when told to, and forgets it", async () => {
       account({ plan: "paid", credits: OWN_CREDITS, maxWaitMinutes: 1 });
       atlas({ looksUntilDone: 50 });

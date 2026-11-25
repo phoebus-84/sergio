@@ -170,6 +170,8 @@ interface PendingJob {
   step: string;
   task: AtlasTask;
   operationId: string;
+  /** What was asked, as its hash: a call for something else must not collect this job as its own. */
+  asked: string;
   submittedAt: string;
   price: AtlasEstimate;
   request: Record<string, unknown>;
@@ -260,6 +262,8 @@ interface Step {
   capability: "world.reconstruct" | "world.mesh" | "world.render";
   purpose: string;
   price: AtlasEstimate;
+  /** What decides the result, as the caller asked for it: two calls that differ here are two jobs. */
+  asked: unknown;
   /** The request's body. What it needs uploaded is uploaded here: free, and before anything is sent. */
   prepare: (client: AtlasClient) => Promise<Record<string, unknown>>;
 }
@@ -296,8 +300,15 @@ async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
   /** A job that ended there, or that Atlas was asked to stop, is not one to take up again. */
   const over = (e: unknown) => e instanceof AtlasOperationError || (e instanceof AtlasCancelledError && e.cancelledThere);
 
+  const asked = sha256(JSON.stringify(step.asked));
   if (existsSync(pending)) {
     const job = JSON.parse(readFileSync(pending, "utf-8")) as PendingJob;
+    if (job.asked !== asked) {
+      throw new Error(
+        `${ctx.place.shown} already has a job for this step (${step.step}, Atlas operation ${job.operationId}, submitted ${job.submittedAt}), and it was asked for something else. ` +
+          `Call this tool with the arguments it was started with to collect it, or stop it with ${LOCATION_SETS_TOOL} { cancel }: nothing was submitted now`,
+      );
+    }
     ctx.say(`Taking up Atlas operation ${job.operationId} again (${step.step}, submitted ${job.submittedAt}): nothing is submitted, nothing more is reserved`);
     try {
       const run = await ctx.client().resume(job.task, job.operationId, wait);
@@ -329,7 +340,7 @@ async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
             onSubmitted: (operation) => {
               accepted = true;
               mkdirSync(join(ctx.place.dir, "jobs"), { recursive: true });
-              writeFileSync(pending, json({ step: step.step, task: step.task, operationId: operation.id, submittedAt: new Date().toISOString(), price: step.price, request } satisfies PendingJob));
+              writeFileSync(pending, json({ step: step.step, task: step.task, operationId: operation.id, asked, submittedAt: new Date().toISOString(), price: step.price, request } satisfies PendingJob));
             },
           });
           return { value: { run }, cost: run.cost ? { currency: "USD", micros: toMicros(run.cost.usd) } : null, providerRequestId: run.operation.id };
@@ -475,6 +486,7 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
       const step: Step = {
         step: "pose", task: "images2PosedRGBD", capability: "world.reconstruct", purpose: `location ${params.location}, set ${params.set}: pose ${pictures.length} pictures`,
         price: estimate("images2PosedRGBD", {}, ctx.settings.credits),
+        asked: pictures.map((picture) => picture.sha256),
         prepare: async (client) => {
           // The set begins here: once the step is reserved, and before anything is sent, so a job taken up later finds what it was for.
           mkdirSync(ctx.place.dir, { recursive: true });
@@ -593,6 +605,7 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         step: `views-${params.viewsId}`, task: "atlasGenerate", capability: "world.render",
         purpose: `location ${params.location}, set ${params.set}: views ${params.viewsId} (${targets.length})`,
         price: estimate("atlasGenerate", { views: targets.length }, ctx.settings.credits),
+        asked: { cameras: targets, prompt: params.prompt ?? null },
         prepare: async () => atlasGenerateBody({ contextFrames: frames, targetCameras: targets, ...(params.prompt ? { prompt: params.prompt } : {}) }),
       };
       const done = await paidStep(ctx, step);
@@ -685,6 +698,7 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         step: `splat-${quality}`, task: "posedImages2Splats", capability: "world.reconstruct",
         purpose: `location ${params.location}, set ${params.set}: ${quality} splat from ${frames.length} frames`,
         price: estimate("posedImages2Splats", { refine: quality === "refined" }, ctx.settings.credits),
+        asked: { quality, withViews },
         prepare: async () => posedImages2SplatsBody({ posedFrames: frames, refine: quality === "refined" }),
       };
       const done = await paidStep(ctx, step);
@@ -748,6 +762,7 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         step: `mesh-${meshId}`, task: "splats2Mesh", capability: "world.mesh",
         purpose: `location ${params.location}, set ${params.set}: mesh ${meshId} from the ${from} splat`,
         price: estimate("splats2Mesh", {}, ctx.settings.credits),
+        asked: { from, texture: params.texture ?? null, targetFaces: params.targetFaces ?? null },
         prepare: async (client) => {
           let asset = splat.assetId;
           if (params.reupload || !asset) {
