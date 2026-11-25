@@ -186,6 +186,27 @@ const { mediaPath, report } = await stageShot({
   other (`through`, in metres, as the rig sheet measures them); and the
   pairs that came to stand in one place.
 
+- **A set is a `.blend`, or a `.glb` of a place.** A `.blend` brings its
+  light, its world, its frame rate, its camera and its marks. A `.glb` — a
+  scan, a reconstruction from photographs, a model made elsewhere — is only
+  a mesh: the stage lights it as it lights an empty stage, it is its own
+  ground, it is filmed at 24 frames a second unless `fps` says otherwise,
+  and the camera is asked for in words unless the file holds one. Its size
+  and origin are whatever its maker left, so `setPlacement` puts it right:
+
+  ```ts
+  await stageShot({
+    outputDir: "/tmp/yard-001",
+    set: "yard.glb",
+    setPlacement: { scale: 2.4, turn: 90, move: [0, 0, -0.3] },  // metres to a unit; degrees about the vertical; where its origin goes
+    players: [{ name: "guide", path: "guide.glb", at: [1.5, -2] }],
+  });
+  ```
+
+  The report gives `setFormat` and, for a `.glb`, `setBounds`: the box the
+  set fills on the stage once placed, to choose places in. A player sent
+  where there is no floor under it stands at height 0.
+
 The set's own Python is not run, and no script comes with a request. Nobody
 touches anything: there is no contact between a body and the set, or
 another body.

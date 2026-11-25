@@ -23,7 +23,9 @@ for (const player of cfg.players) for (const act of player.does) {
 const fps = cfg.fps ?? 24, frames = Math.round((cfg.seconds ?? 2) * fps);
 mkdirSync(join(cfg.outputDir, 'frames'));
 for (const frame of [1, frames]) writeFileSync(join(cfg.outputDir, 'frames', String(frame).padStart(6, '0') + '.png'), 'png');
-writeFileSync(join(cfg.outputDir, 'shot.json'), JSON.stringify({ frames, fps, seconds: frames / fps, width: cfg.width, height: cfg.height, set: !!cfg.set, marks: cfg.set ? ['door'] : [],
+const model = !!cfg.set && cfg.set.endsWith('.glb');
+writeFileSync(join(cfg.outputDir, 'shot.json'), JSON.stringify({ frames, fps, seconds: frames / fps, width: cfg.width, height: cfg.height, set: !!cfg.set, marks: cfg.set && !model ? ['door'] : [],
+  ...(cfg.set ? { setFormat: model ? 'glb' : 'blend' } : {}), ...(model ? { setBounds: { min: [-3, -3, 0], max: [3, 3, 0] } } : {}),
   camera: cfg.camera, players: cfg.players.map(p => ({ name: p.name, skeleton: true, at: [0, 0, 0], turn: 0, tall: 1, does: [], ends: 0, travel: 0, inFrame: 1, hidden: 0 })),
   tooClose: [], notes: [], engine: 'BLENDER_EEVEE', blender: '5.2.1 LTS' }));
 `);
@@ -35,7 +37,7 @@ writeFileSync(process.argv.at(-1), 'mp4 ' + process.argv.slice(2).join(' '));
 `);
   await chmod(ffmpeg, 0o755);
   const files: Record<string, string> = {};
-  for (const name of ["guide.glb", "guide.walk.glb", "child.glb", "street.blend"]) {
+  for (const name of ["guide.glb", "guide.walk.glb", "child.glb", "street.blend", "courtyard.glb"]) {
     files[name] = join(root, name);
     await writeFile(files[name]!, "a file");
   }
@@ -76,7 +78,12 @@ test("a request that cannot be staged is refused before Blender is started, and 
     [{ ...base, players: [guide, guide] }, /two players are named guide/],
     [{ ...base, players: [{ name: "the guide", path: "g.glb" }] }, /a player's name is letters, digits, underscores and hyphens/],
     [{ ...base, players: [{ name: "guide", path: "guide.fbx" }] }, /guide: a player is filmed from a binary glTF/],
-    [{ ...base, set: "street.glb", players: [guide] }, /a set is a \.blend file/],
+    [{ ...base, set: "street.fbx", players: [guide] }, /a set is a \.blend file, or a binary glTF \(\.glb\) of a place/],
+    [{ ...base, set: "street.blend", setPlacement: { scale: 2 }, players: [guide] }, /setPlacement puts a \.glb set on the stage: a \.blend is placed by whoever made it/],
+    [{ ...base, setPlacement: { scale: 2 }, players: [guide] }, /setPlacement puts a \.glb set on the stage/],
+    [{ ...base, set: "yard.glb", setPlacement: { scale: 0 }, players: [guide] }, /setPlacement: scale is from 0\.001 to 1000/],
+    [{ ...base, set: "yard.glb", setPlacement: { turn: 720 }, players: [guide] }, /setPlacement: turn is in degrees/],
+    [{ ...base, set: "yard.glb", setPlacement: { move: [0, 0] as never }, players: [guide] }, /setPlacement: move is \[x, y, z\] in metres/],
     [{ ...base, players: [guide], camera: "set" as const }, /the set's own camera was asked for, and there is no set/],
     [{ ...base, players: [guide], camera: { on: ["nobody"] } }, /the camera is on nobody, and there is no player of that name/],
     [{ ...base, players: [guide], camera: { framing: "tight" as never } }, /camera framing is one of wide, full, medium, close/],
@@ -116,6 +123,27 @@ test("the script is given the set, the players and what they do, and its frames 
   const sent = JSON.parse(await readFile(join(outputDir, "request.json"), "utf8"));
   assert.deepEqual({ set: sent.set, camera: sent.camera, maxFrames: sent.maxFrames }, { set: f.files["street.blend"], camera: { kind: "set" }, maxFrames: 1800 });
   assert.deepEqual(sent.players[0], { name: "guide", path: f.files["guide.glb"], faces: "+z", at: "door", does: [{ clip: f.files["guide.walk.glb"], to: "door" }] });
+});
+
+test("a .glb of a place is a set too: it is placed as asked, the script is told, and a .blend goes as it always did", async (t) => {
+  const f = await fixture(t);
+  const players = [{ name: "guide", path: f.files["guide.glb"]!, at: [1, -2] as const }];
+  // Defaults are written out for the script; a camera in words, since a model of a place rarely has one.
+  assert.deepEqual(stageSettings({ outputDir: "out", set: "yard.glb", players: [guide] }).camera, { kind: "words", view: "three-quarter", framing: "full", follow: true });
+  assert.equal("setPlacement" in stageSettings({ outputDir: "out", set: "yard.glb", players: [guide] }), false);
+  assert.deepEqual(stageSettings({ outputDir: "out", set: "yard.GLB", setPlacement: { scale: 2.5 }, players: [guide] }).setPlacement, { scale: 2.5, turn: 0, move: [0, 0, 0] });
+
+  const placed = await stageShot({ outputDir: join(f.root, "yard"), set: f.files["courtyard.glb"], setPlacement: { scale: 2, turn: 90, move: [0, 1, -0.5] }, players, seconds: 1 }, f.options);
+  assert.deepEqual({ set: placed.report.set, setFormat: placed.report.setFormat, setBounds: placed.report.setBounds, marks: placed.report.marks }, { set: true, setFormat: "glb", setBounds: { min: [-3, -3, 0], max: [3, 3, 0] }, marks: [] });
+  const sent = JSON.parse(await readFile(join(placed.outputDir, "request.json"), "utf8"));
+  assert.deepEqual({ set: sent.set, setPlacement: sent.setPlacement, at: sent.players[0].at }, { set: f.files["courtyard.glb"], setPlacement: { scale: 2, turn: 90, move: [0, 1, -0.5] }, at: [1, -2] });
+  await assert.rejects(stageShot({ outputDir: join(f.root, "none"), set: join(f.root, "none.glb"), players }, f.options), /Missing or empty output: .*none\.glb/);
+
+  // What a .blend set is sent as has not changed: no placement, the same keys.
+  const before = await stageShot({ outputDir: join(f.root, "street"), set: f.files["street.blend"], players: [{ name: "guide", path: f.files["guide.glb"]! }], seconds: 1 }, f.options);
+  const sentBefore = JSON.parse(await readFile(join(before.outputDir, "request.json"), "utf8"));
+  assert.deepEqual(Object.keys(sentBefore).sort(), ["background", "camera", "ground", "height", "maxFrames", "outputDir", "players", "samples", "seconds", "set", "width"]);
+  assert.deepEqual({ set: before.report.set, setFormat: before.report.setFormat, marks: before.report.marks }, { set: true, setFormat: "blend", marks: ["door"] });
 });
 
 test("an attempt is never written over, a missing file is named, and what the script found wrong is what the caller is told", async (t) => {
