@@ -79,23 +79,32 @@ It is made by World Labs Atlas, paid, on the film's budget
 (`pva_capability_status` says whether it is wired, and `pva_location_sets
 { film }` what each step costs). In this order, looking after each step:
 
-1. **Pictures.** Two or three can do; 8–16 make a room. Photographs of the
-   real place if the film has them (footage stills count), otherwise
-   reference pictures generated to the location's entry — the same place,
-   from positions that differ, not turned on the spot. Wide or medium,
-   overlapping, all one size, nobody and nothing moving in them. File them
-   under `locations/<name>/`.
+1. **Pictures.** One can start a set; 8–16 frames make a room, and the
+   views of step 3 count among them. Photographs of the real place if the
+   film has them (footage stills count), otherwise reference pictures
+   generated to the location's entry — the same place, from positions that
+   differ, not turned on the spot. Wide or medium, overlapping, nobody and
+   nothing moving in them. They need not be one size: the set puts them on
+   its own (`size`, 1280x720 unless the film is upright), cropping what
+   does not fit, so keep what matters away from the edges. File them under
+   `locations/<name>/`.
 2. **`pva_location_set { film, location, set, pictures }`** estimates each
-   picture's camera and depth.
+   picture's camera and depth. With several photographs of a real place
+   that is going to a refined splat, `refinePoses: true` tightens the
+   cameras.
 3. **`pva_location_views { …, viewsId, path: "orbit" }`** renders the place
-   from a few other sides. Open every still: this is where a set that will
-   not hold together shows, for the price of a few views. What no picture
-   showed is invented, and you are looking at the invention.
-4. **`pva_location_splat { … }`** makes the splat. **The first is always a
-   draft** — a tenth of the price, minutes not a quarter of an hour — and it
-   answers the only question that matters yet: do the pictures make one
-   place? If they do not, the fix is better pictures in another set, never a
-   refined pass over the same ones.
+   from the sides no picture showed — six to twelve views, all round by
+   default, each with its depth. Open every still: this is where a set that
+   will not hold together shows, for the price of a few views. What no
+   picture showed is invented, and you are looking at the invention; views
+   that contradict each other are made again (another `viewsId`), not sent
+   on. From one picture, expect less the further the camera goes from it.
+4. **`pva_location_splat { …, withViews: [viewsId] }`** makes the splat
+   from the posed frames and the views that held. **The first is always a
+   draft** — a tenth of the price, half a minute, not a quarter of an hour
+   or two — and it answers the only question that matters yet: do the
+   frames make one place? If they do not, the fix is better pictures or
+   better views in another set, never a refined pass over the same ones.
 5. **The refined splat is the operator's decision, not yours.** When the
    draft holds and the film needs more than a draft gives, write the
    proposal into the location's entry in the bible — what the draft and

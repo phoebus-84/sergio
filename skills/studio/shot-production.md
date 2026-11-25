@@ -140,14 +140,18 @@ from the set*.
   the generator as a reference image with the character sheet.
 - **A plate.** `plate: true` joins a path's views into a clip: a moving
   background for a composite, or a previsualisation of a camera move to
-  show the operator before the shot is generated for real.
+  show the operator before the shot is generated for real. One view per
+  frame, each paid: seconds × the film's frame rate, so price it first
+  (`pva_location_sets`) and keep it short. A plate's views carry no depth
+  and do not join the splat.
 - **Staged in the place.** `pva_stage_shot { locationSet: { location, set
   }, setScale, players: [...] }` puts the cast's rigs in the set's mesh
   (`pva_location_mesh` makes it). A set has no marks: places are "x, y" in
   metres, and the tool's answer says the box the set fills on the stage, to
-  choose them in. Its units are the reconstruction's — give `setScale` from
-  something in it whose size you know — and the stage lights it: match the
-  bible's light in the cut, or build the light in a `.blend`.
+  choose them in. Its units are the reconstruction's: about metres, by
+  estimate. Check them against something in the set whose size you know —
+  a door, a table — and give `setScale` when they are off. The stage lights
+  it: match the bible's light in the cut, or build the light in a `.blend`.
 
 **720p is the ceiling of everything a set gives.** A view is a reference;
 a plate is a background to build on or a previs. Neither is the take of a

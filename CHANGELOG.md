@@ -31,11 +31,12 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   and `pva_location_mesh` a GLB. `pva_stage_shot` takes that GLB as its set
   (`locationSet`, or any `.glb` of a place as `set`), with `setScale`,
   `setTurn` and `setMove`. It is World Labs Atlas, paid, on the film's
-  budget: set `WORLDLABS_API_KEY`, and say your plan and your rate card's
-  prices in `library/.render/worldlabs-atlas.json`. Views are 720p at most:
-  references and plates, not final picture. **It has not yet run against
-  the real service**: its first paid step on your account is its test, so
-  make it a draft ([running](docs/running.md#a-location-s-3d-set)).
+  budget: set `WLT_API_KEY` (the name Atlas's own tools read), and say your
+  plan and your rate card's prices in `library/.render/worldlabs-atlas.json`.
+  Views are 720p at most: references and plates, not final picture. **It is
+  written from Atlas's documentation and has not yet run against the real
+  service**: its first paid step on your account is its test, so make it a
+  draft ([running](docs/running.md#a-location-s-3d-set)).
   `@av/worldlabs-atlas` is the reusable client; the capabilities are
   `world.reconstruct`, `world.mesh` and `world.render`.
 - **Your other machines, declared once.** `library/.render/machines.json`
