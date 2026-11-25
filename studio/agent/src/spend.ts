@@ -20,7 +20,7 @@
 import { load as loadYaml } from "js-yaml";
 import { listProfiles } from "@av/fal-media";
 import {
-  withSpend, resolveBudgetEnvelope, toMicros,
+  withSpend, resolveBudgetEnvelope, settleSpend, toMicros,
   type Money, type SpendCall,
 } from "@studio/contracts/src/budget.mjs";
 
@@ -87,4 +87,25 @@ export async function paidCall<T>(
 export function providerCost(cost: { amount: number; currency: string } | null | undefined): Money | null {
   if (!cost || typeof cost.amount !== "number" || !Number.isFinite(cost.amount) || cost.amount < 0) return null;
   return { currency: cost.currency, micros: toMicros(cost.amount) };
+}
+
+/**
+ * Settle a reservation that a call left open: its process ended while it
+ * waited on a long job, so nothing closed it, and the budget went on counting
+ * it. Whoever collects that job later closes it here, at what it cost.
+ *
+ * True when it was open and is now settled; false when it had been closed
+ * already, which is the ordinary case and no error.
+ */
+export async function settleLeftOpen(
+  target: PaidCallTarget,
+  reserveId: string,
+  cost: Money,
+  basis: "provider" | "estimate",
+  providerRequestId?: string,
+): Promise<boolean> {
+  const ref = { channel: target.channel, series: target.series, episode: target.episode };
+  const { ledgerDir } = await resolveBudgetEnvelope(target.libraryRoot, ref, (text) => loadYaml(text));
+  const result = await settleSpend(ledgerDir, { episode: ref, actor: "pi", reserveId, cost, basis, ...(providerRequestId ? { providerRequestId } : {}) });
+  return result.ok;
 }

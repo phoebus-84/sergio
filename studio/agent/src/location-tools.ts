@@ -51,7 +51,7 @@ import {
 import { toMicros } from "@studio/contracts/src/budget.mjs";
 import { SELF, channelPath, projectKind } from "@studio/contracts/src/layout.mjs";
 import { describeModel, pictureExtension, summarizeModel, type ModelSummary } from "./model-tools.js";
-import { paidCall } from "./spend.js";
+import { paidCall, settleLeftOpen } from "./spend.js";
 import { guardPath } from "./trust-guards.js";
 
 export const LOCATION_SET_TOOL = "pva_location_set";
@@ -172,6 +172,8 @@ interface PendingJob {
   operationId: string;
   /** What was asked, as its hash: a call for something else must not collect this job as its own. */
   asked: string;
+  /** Its reservation on the film's ledger: closed by the call that made it, or by whoever collects the job if that call never returned. */
+  reserveId?: string;
   submittedAt: string;
   price: AtlasEstimate;
   request: Record<string, unknown>;
@@ -209,6 +211,18 @@ function requireRecord(place: SetPlace): LocationSetRecord {
 }
 
 const writeRecord = (place: SetPlace, record: LocationSetRecord) => writeFileSync(recordPath(place), json(record));
+
+/**
+ * Add one step's result to the set's record as it is on disk now, not as it
+ * was when the step began: a step waits for minutes, and another may have
+ * written its own result meanwhile.
+ */
+function updateRecord(place: SetPlace, started: LocationSetRecord, change: (record: LocationSetRecord) => void): LocationSetRecord {
+  const record = readRecord(place) ?? started;
+  change(record);
+  writeRecord(place, record);
+  return record;
+}
 const jobPath = (place: SetPlace, step: string) => join(place.dir, "jobs", `${step}.json`);
 
 /** A job that is over, one way or another: its note goes, and the folder with the last of them. */
@@ -295,6 +309,7 @@ interface StepDone {
  */
 async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
   const pending = jobPath(ctx.place, step.step);
+  const target = { libraryRoot: ctx.libraryRoot, channel: ctx.film, series: SELF, episode: SELF };
   const collected = () => forgetJob(ctx.place, step.step);
   const wait = { maxWaitMs: ctx.settings.maxWaitMinutes * 60_000, ...(ctx.signal ? { signal: ctx.signal } : {}) };
   /** A job that ended there, or that Atlas was asked to stop, is not one to take up again. */
@@ -310,10 +325,20 @@ async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
       );
     }
     ctx.say(`Taking up Atlas operation ${job.operationId} again (${step.step}, submitted ${job.submittedAt}): nothing is submitted, nothing more is reserved`);
+    // The call that made the job closed its reservation when its wait ended. One that never returned
+    // (its session ended) left it open: it is closed here, at what the job cost. Closed already: nothing changes.
+    const close = async (credits: number | null) => {
+      if (!job.reserveId) return;
+      const known = credits !== null;
+      await settleLeftOpen(target, job.reserveId, { currency: "USD", micros: toMicros(known ? creditsToUsd(credits) : job.price.usd) }, known ? "provider" : "estimate", job.operationId)
+        .catch(() => false);
+    };
     try {
       const run = await ctx.client().resume(job.task, job.operationId, wait);
+      await close(run.cost?.credits ?? null);
       return { run, request: job.request, resumed: true, collected };
     } catch (e) {
+      if (e instanceof AtlasOperationError) await close(e.credits);
       if (over(e)) forgetJob(ctx.place, step.step);
       throw e;
     }
@@ -324,7 +349,7 @@ async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
   let outcome: { run: TaskRun } | { failed: AtlasOperationError };
   try {
     outcome = await paidCall<{ run: TaskRun } | { failed: AtlasOperationError }>(
-      { libraryRoot: ctx.libraryRoot, channel: ctx.film, series: SELF, episode: SELF },
+      target,
       {
         capability: step.capability, provider: ATLAS_PROVIDER, model: `${ATLAS_PROVIDER}/${step.price.key}`, purpose: step.purpose,
         estimate: { estimate: { currency: "USD", micros: toMicros(step.price.usd) }, priced: step.price.priced, profile: `${ATLAS_PROVIDER}/${step.price.key}` },
@@ -334,25 +359,28 @@ async function paidStep(ctx: StepContext, step: Step): Promise<StepDone> {
           request = await step.prepare(ctx.client());
           // Said here, after the reservation: a step the budget refuses was never submitted.
           ctx.say(`Submitting ${step.purpose} to Atlas (tasks:${step.task}, ${priceText(step.price)})…`);
+          // The last moment nothing has been sent: from here the request is seen through, and the job is named.
+          if (ctx.signal?.aborted) throw new Error("interrupted before anything was sent to Atlas: nothing was submitted or spent");
           spend.sending();
           const run = await ctx.client().run(step.task, request, {
             ...wait,
             onSubmitted: (operation) => {
               accepted = true;
               mkdirSync(join(ctx.place.dir, "jobs"), { recursive: true });
-              writeFileSync(pending, json({ step: step.step, task: step.task, operationId: operation.id, asked, submittedAt: new Date().toISOString(), price: step.price, request } satisfies PendingJob));
+              writeFileSync(pending, json({ step: step.step, task: step.task, operationId: operation.id, asked, reserveId: spend.reserveId, submittedAt: new Date().toISOString(), price: step.price, request } satisfies PendingJob));
             },
           });
           return { value: { run }, cost: run.cost ? { currency: "USD", micros: toMicros(run.cost.usd) } : null, providerRequestId: run.operation.id };
         } catch (e) {
-          // Refused before it left, or by Atlas when it arrived: nothing ran.
-          if (e instanceof AtlasValidationError || (e instanceof AtlasHttpError && e.refused && !accepted)) spend.refused();
+          // Refused before it left, or turned away by Atlas when it arrived (a refusal, or "too many requests"): nothing ran.
+          if (e instanceof AtlasValidationError || (e instanceof AtlasHttpError && e.notAccepted && !accepted)) spend.refused();
           if (over(e)) forgetJob(ctx.place, step.step);
           // A run that failed there and says what it was charged is settled at that, not at the estimate.
           if (e instanceof AtlasOperationError && e.credits !== null) {
             return { value: { failed: e }, cost: { currency: "USD", micros: toMicros(creditsToUsd(e.credits)) }, providerRequestId: e.operationId };
           }
-          // Anything else after it left — a wait that ran out, a failure with no charge stated — stays reserved at the estimate.
+          // Anything else after it left — a wait that ran out, a failure with no charge stated, an answer lost on
+          // the way — is settled at the estimate: it may have been charged, and a budget that overcounts is the safer mistake.
           throw e;
         }
       },
@@ -512,15 +540,15 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         } catch { /* a depth map that cannot be fetched is not the set */ }
       }
       const camerasRead = frames.filter((frame) => frameCamera(frame) !== null).length;
-      record.posed = { ...keepProvenance(ctx, step, done, LOCATION_SET_TOOL), frames: frames.length, camerasRead, kept };
-      writeRecord(ctx.place, record);
+      const posed = { ...keepProvenance(ctx, step, done, LOCATION_SET_TOOL), frames: frames.length, camerasRead, kept };
+      updateRecord(ctx.place, record, (now) => { now.posed = posed; });
       done.collected();
 
       return {
         content: [{
           type: "text" as const,
           text: tail(ctx,
-            `✅ ${ctx.place.shown} — ${frames.length} posed frame${frames.length === 1 ? "" : "s"} from ${pictures.length} picture${pictures.length === 1 ? "" : "s"}, ${costText(record.posed)}, ${Math.round((done.run.finishedAtMs - done.run.startedAtMs) / 1000)}s${done.resumed ? " (a job taken up again)" : ""}`,
+            `✅ ${ctx.place.shown} — ${frames.length} posed frame${frames.length === 1 ? "" : "s"} from ${pictures.length} picture${pictures.length === 1 ? "" : "s"}, ${costText(posed)}, ${Math.round((done.run.finishedAtMs - done.run.startedAtMs) / 1000)}s${done.resumed ? " (a job taken up again)" : ""}`,
             `   posed.json holds the frames as Atlas returned them; ${kept.length} depth map${kept.length === 1 ? "" : "s"} kept in posed/`,
             sizes.size > 1 ? `   ⚠️ the pictures are of ${sizes.size} sizes (${[...sizes].join(", ")}): Atlas is reported to want one size for a splat` : null,
             camerasRead === frames.length ? null : `   ⚠️ the cameras of ${frames.length - camerasRead} frame${frames.length - camerasRead === 1 ? "" : "s"} could not be read here: ${LOCATION_VIEWS_TOOL} can then only take cameras given in full (path "cameras")`,
@@ -610,6 +638,7 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
       };
       const done = await paidStep(ctx, step);
       const generated = readGeneratedFrames(done.run.operation.response);
+      if (generated.length !== targets.length) notes.push(`${targets.length} views were asked and paid for, and ${generated.length} came back: read provenance/${done.run.operation.id}.json`);
       const viewsDir = join(ctx.place.dir, "views", params.viewsId);
       const stills: FileRecord[] = [];
       for (const [index, frame] of generated.entries()) {
@@ -635,8 +664,9 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         }
       }
       const kept = keepProvenance(ctx, step, done, LOCATION_VIEWS_TOOL);
-      record.views[params.viewsId] = { ...kept, dir: `views/${params.viewsId}`, frames: stills.length, width, height, path: described, ...(plate ? { plate } : {}) };
-      writeRecord(ctx.place, record);
+      updateRecord(ctx.place, record, (now) => {
+        now.views[params.viewsId] = { ...kept, dir: `views/${params.viewsId}`, frames: stills.length, width, height, path: described, ...(plate ? { plate } : {}) };
+      });
       done.collected();
 
       return {
@@ -706,8 +736,9 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
       if (!splat) throw new Error(`Atlas operation ${done.run.operation.id} finished without a splat this studio can find in its result: it was paid for; read ${ctx.place.shown}/provenance/ after correcting packages/worldlabs-atlas/src/wire.ts`);
       const file = await keep(ctx, splat, ctx.place.dir, quality, ".spz");
       const kept = keepProvenance(ctx, step, done, LOCATION_SPLAT_TOOL);
-      record.splats[quality] = { ...kept, ...file, assetId: splat.assetId ?? null, frames: frames.length, withViews, ...(quality === "refined" ? { approvedBy: params.approvedBy!.trim() } : {}) };
-      writeRecord(ctx.place, record);
+      updateRecord(ctx.place, record, (now) => {
+        now.splats[quality] = { ...kept, ...file, assetId: splat.assetId ?? null, frames: frames.length, withViews, ...(quality === "refined" ? { approvedBy: params.approvedBy!.trim() } : {}) };
+      });
       done.collected();
 
       return {
@@ -780,11 +811,12 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
       if (holds.format !== "glb") throw new Error(`what Atlas returned for ${done.run.operation.id} is not a binary glTF: it was paid for and is not kept as a set's mesh; read ${ctx.place.shown}/provenance/`);
       writeFileSync(join(ctx.place.dir, `${meshId}.glb`), bytes);
       const kept = keepProvenance(ctx, step, done, LOCATION_MESH_TOOL);
-      record.meshes[meshId] = {
-        ...kept, file: `${meshId}.glb`, sha256: sha256(bytes), bytes: bytes.byteLength, from, holds,
-        ...(params.texture ? { texture: params.texture } : {}), ...(params.targetFaces !== undefined ? { targetFaces: params.targetFaces } : {}),
-      };
-      writeRecord(ctx.place, record);
+      updateRecord(ctx.place, record, (now) => {
+        now.meshes[meshId] = {
+          ...kept, file: `${meshId}.glb`, sha256: sha256(bytes), bytes: bytes.byteLength, from, holds,
+          ...(params.texture ? { texture: params.texture } : {}), ...(params.targetFaces !== undefined ? { targetFaces: params.targetFaces } : {}),
+        };
+      });
       done.collected();
 
       return {
@@ -832,9 +864,15 @@ export function registerLocationTools(pi: ExtensionAPI, deps: LocationToolDeps =
         const file = jobPath(place, params.cancel.step);
         if (!/^[a-z0-9][a-z0-9_-]{0,80}$/.test(params.cancel.step) || !existsSync(file)) throw new Error(`${place.shown} has no job named ${params.cancel.step}: its jobs are ${pendingJobs(place).map((job) => job.step).join(", ") || "none"}`);
         const job = JSON.parse(readFileSync(file, "utf-8")) as PendingJob;
-        const after = await atlas().cancelOperation(job.operationId, signal);
+        try {
+          const after = await atlas().cancelOperation(job.operationId, signal);
+          lines.push(`🛑 asked Atlas to stop ${job.operationId} (${place.shown}, ${job.step})${after ? `: it is now ${after.state}` : ""}. It was reserved at ${priceText(job.price)}; what Atlas charged for it, if anything, is on the account`);
+        } catch (e) {
+          // Atlas will not stop it — it is over, or gone. The note is dropped all the same, or the step could never be asked for again.
+          if (!(e instanceof AtlasHttpError && e.refused)) throw e;
+          lines.push(`🛑 Atlas would not stop ${job.operationId} (HTTP ${e.status}: it is over, or it is gone). Its note is dropped from ${place.shown}, so the step can be asked for again; it was reserved at ${priceText(job.price)}, and what Atlas charged is on the account`);
+        }
         forgetJob(place, params.cancel.step);
-        lines.push(`🛑 asked Atlas to stop ${job.operationId} (${place.shown}, ${job.step})${after ? `: it is now ${after.state}` : ""}. It was reserved at ${priceText(job.price)}; what Atlas charged for it, if anything, is on the account`);
       }
 
       const locationsDir = join(channelPath(LIBRARY_ROOT, params.film), "locations");

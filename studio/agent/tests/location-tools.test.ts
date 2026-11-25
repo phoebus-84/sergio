@@ -16,7 +16,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AtlasClient, FAKE_HOST, FakeAtlas, NoopSleeper, WIRE, estimate, type FakeAtlasOptions } from "@av/worldlabs-atlas";
-import { toMicros } from "@studio/contracts/src/budget.mjs";
+import { createHash } from "node:crypto";
+import { reserveSpend, toMicros } from "@studio/contracts/src/budget.mjs";
 import { parseJournal, JOURNAL_RELATIVE_PATH } from "@studio/contracts/src/journal.mjs";
 import {
   ATLAS_SETTINGS_RELATIVE, LOCATION_MESH_TOOL, LOCATION_SETS_TOOL, LOCATION_SET_TOOL, LOCATION_SPLAT_TOOL, LOCATION_VIEWS_TOOL,
@@ -454,6 +455,72 @@ describe("a location's set", () => {
       expect(failure.message).toContain("already has a job for this step (views-around, Atlas operation op-0001");
       expect(failure.message).toContain("it was asked for something else");
       expect(fake.submitted("atlasGenerate")).toHaveLength(1);
+    });
+
+    it("closes the reservation of a job whose session ended while it waited, when the job is collected", async () => {
+      // What a session that died mid-wait leaves: a reservation nobody closed, and the job's note with its id.
+      atlas({ looksUntilDone: 3 });
+      const ref = { channel: FILM, series: "_", episode: "_" };
+      const open = await reserveSpend(filmDir, { episode: ref, capability: "world.reconstruct", provider: "worldlabs-atlas", profile: "worldlabs-atlas/posedImages2Splats.draft", purpose: "a draft, by a session that ended", estimate: { currency: "USD", micros: toMicros(0.5) } });
+      if (!open.ok) throw new Error(open.reason);
+      const { frames } = JSON.parse(readFileSync(join(setDir, "posed.json"), "utf-8"));
+      const operation = await new AtlasClient({ config: { apiKey: "k", baseUrl: FAKE_HOST, maxRetries: 0 }, transport: fake.transport }).submit("posedImages2Splats", { posedFrames: frames, refine: false });
+      mkdirSync(join(setDir, "jobs"), { recursive: true });
+      writeFileSync(join(setDir, "jobs", "splat-draft.json"), JSON.stringify({
+        step: "splat-draft", task: "posedImages2Splats", operationId: operation.id, reserveId: open.reserveId, submittedAt: "2026-11-25T10:00:00.000Z",
+        asked: createHash("sha256").update(JSON.stringify({ quality: "draft", withViews: [] })).digest("hex"),
+        price: estimate("posedImages2Splats", { refine: false }), request: { posedFrames: frames, refine: false },
+      }));
+      expect(ledger().at(-1)).toBe("spend-reserved");
+
+      await run(LOCATION_SPLAT_TOOL);
+      expect(ledger().slice(-2)).toEqual(["spend-reserved", "spend-settled"]);
+      expect(settled().at(-1)).toMatchObject({ cost: { micros: toMicros(0.5) }, basis: "provider", providerRequestId: operation.id });
+      expect(readFileSync(join(setDir, "draft.spz"), "utf-8")).toBe("a draft splat");
+      expect(fake.submitted("posedImages2Splats")).toHaveLength(1);
+    });
+
+    it("writes its own step into the set's record as the record is by then, not as it was when the step began", async () => {
+      // While the views are being made, another step finishes and writes its result.
+      const original = fake.fetchBytes;
+      let once = true;
+      Object.defineProperty(fake, "fetchBytes", { get: () => (async (url: string) => {
+        if (once) {
+          once = false;
+          const now = record();
+          now.splats.draft = { file: "draft.spz", written: "by another step, meanwhile" };
+          writeFileSync(join(setDir, "set.json"), JSON.stringify(now));
+        }
+        return original(url);
+      }) });
+      atlasWith(fake);
+      await run(LOCATION_VIEWS_TOOL, { viewsId: "around", path: "orbit", count: 2 });
+      expect(record().views.around).toMatchObject({ frames: 2 });
+      expect(record().splats.draft).toEqual({ file: "draft.spz", written: "by another step, meanwhile" });
+    });
+
+    it("spends nothing on a request Atlas turns away as one too many, or on a call interrupted before it left", async () => {
+      atlas({ refusing: { posedImages2Splats: 429 } });
+      await expect(run(LOCATION_SPLAT_TOOL)).rejects.toThrow(/HTTP 429/);
+      expect(ledger().slice(-2)).toEqual(["spend-reserved", "spend-released"]);
+
+      atlas();
+      const controller = new AbortController();
+      controller.abort();
+      await expect(tools[LOCATION_SPLAT_TOOL]!.execute("call", WHERE, controller.signal, undefined, {})).rejects.toThrow("interrupted before anything was sent to Atlas: nothing was submitted or spent");
+      expect(ledger().slice(-2)).toEqual(["spend-reserved", "spend-released"]);
+      expect(fake.requests).toEqual([]);
+      expect(existsSync(join(setDir, "jobs"))).toBe(false);
+    });
+
+    it("drops the note of a job Atlas will not stop, so the step is not stuck behind it", async () => {
+      account({ plan: "paid", credits: OWN_CREDITS, maxWaitMinutes: 1 });
+      atlas({ looksUntilDone: 50 });
+      await run(LOCATION_SPLAT_TOOL).catch(() => undefined);
+      fake.interruptions.push({ status: 404 });
+      const text = said(await run(LOCATION_SETS_TOOL, { cancel: { location: "yard", set: "a", step: "splat-draft" } }));
+      expect(text).toContain("🛑 Atlas would not stop op-0001 (HTTP 404: it is over, or it is gone). Its note is dropped");
+      expect(existsSync(join(setDir, "jobs"))).toBe(false);
     });
 
     it("stops a job at Atlas when told to, and forgets it", async () => {

@@ -152,10 +152,16 @@ Every paid step reserves its estimate on the film's ledger before the
 request leaves and settles after (`paidCall`), under the capability it
 serves, at what the operation says it charged when it says.
 
-- A request Atlas refuses is released: nothing ran.
+- A request Atlas turns away — refused, or one too many (429) — is
+  released: nothing ran. So is a call interrupted before it left.
+- From the moment a task is sent it is seen through: an interruption does
+  not abandon the request half-way, so the job always has a name.
 - A job whose wait ran out is settled at its estimate when the wait ends,
   because it may still finish and be charged; taking it up again reserves
-  nothing.
+  nothing, and does not correct that figure if the job then cost otherwise.
+- A job whose session ended mid-wait leaves its reservation open, which the
+  budget goes on counting. Its id is in the job's note, and whoever collects
+  the job closes it, at what the job cost.
 - A run that fails at Atlas is reported to be free. That is a third party's
   word, so unless the failed operation itself states its charge the
   reservation is settled at the estimate: a budget that overcounts by one
