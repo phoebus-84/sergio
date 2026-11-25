@@ -226,6 +226,28 @@ describe("failures on the way", () => {
     expect(events.filter((event) => event.kind === "retrying")).toHaveLength(2);
   });
 
+  it("does not sleep for as long as it is told when that is longer than anyone would wait", async () => {
+    const { client, fake, sleeper } = setup();
+    fake.interruptions.push({ status: 429, headers: { "retry-after": "86400" } });
+    await expect(client.getOperation("op-x")).rejects.toMatchObject({ status: 429, retryAfterSeconds: 86400, notAccepted: true, refused: false });
+    expect(sleeper.slept).toEqual([]);
+  });
+
+  it("sees a submission through once it has left, whoever gives up meanwhile", async () => {
+    const { fake } = setup({ looksUntilDone: 50 });
+    const controller = new AbortController();
+    const request = fake.transport.request.bind(fake.transport);
+    // The caller gives up while the task's request is on its way.
+    Object.defineProperty(fake, "transport", { value: { request: async (req: HttpRequest, signal?: AbortSignal) => { if (req.url.includes("tasks:")) controller.abort(); return request(req, signal); } } });
+    const leaving = new AtlasClient({ config: { apiKey: KEY, baseUrl: FAKE_HOST, maxRetries: 0 }, transport: fake.transport, sleeper: new NoopSleeper() });
+    let named: string | undefined;
+    const failure = await leaving.poseImages({ images: ["x"] }, { signal: controller.signal, onSubmitted: (operation) => { named = operation.id; } }).catch((e) => e);
+    // The job was accepted and is named, to the caller and in the error: it can be taken up or stopped.
+    expect(named).toBe("op-0001");
+    expect(failure).toBeInstanceOf(AtlasCancelledError);
+    expect(failure.operationId).toBe("op-0001");
+  });
+
   it("stops asking after its retries, and never repeats a refusal", async () => {
     const { client, fake } = setup();
     fake.interruptions.push({ status: 503 }, { status: 503 }, { status: 503 }, { status: 503 });

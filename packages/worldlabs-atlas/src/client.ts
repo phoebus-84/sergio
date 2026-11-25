@@ -84,6 +84,8 @@ export type RunOptions = SubmitOptions & WaitOptions;
 export const DEFAULT_MAX_WAIT_MS = 45 * 60_000;
 const RETRY_BASE_MS = 1_000;
 const RETRY_MAX_MS = 30_000;
+/** The longest a provider's Retry-After is obeyed: a longer one is a refusal, and is thrown. */
+const RETRY_AFTER_MAX_MS = 120_000;
 
 /** A client from the environment (`WORLDLABS_API_KEY`). Throws AtlasUnavailableError without a key. */
 export function createAtlasClient(options: Omit<AtlasClientOptions, "config"> & { env?: NodeJS.ProcessEnv } = {}): AtlasClient {
@@ -199,7 +201,8 @@ export class AtlasClient {
   /** Submit a task with a body already built. Sent once: see the note at the top. */
   async submit(task: AtlasTask, body: Json, options: SubmitOptions = {}): Promise<AtlasOperation> {
     if (options.signal?.aborted) throw new AtlasCancelledError("cancelled before the task was submitted");
-    const operation = readOperation(await this.call("POST", paths.task(task), withWebhook(body, options.webhookUrl), `tasks:${task}`, { signal: options.signal, retry: false }));
+    // Once it leaves, the request is seen through: a submission abandoned half-way is a job nobody can name.
+    const operation = readOperation(await this.call("POST", paths.task(task), withWebhook(body, options.webhookUrl), `tasks:${task}`, { retry: false }));
     this._tasksSubmitted++;
     this.onEvent({ kind: "submitted", task, operationId: operation.id, state: operation.state });
     await options.onSubmitted?.(operation);
@@ -349,9 +352,9 @@ export class AtlasClient {
         if (!(err instanceof AtlasNetworkError)) throw err;
         failure = err;
       }
-      if (!failure.retryable || attempt >= attempts) throw failure;
       const asked = failure instanceof AtlasHttpError && failure.retryAfterSeconds !== null ? failure.retryAfterSeconds * 1000 : 0;
-      const pause = Math.min(Math.max(pauseMs, asked), Math.max(RETRY_MAX_MS, asked));
+      if (!failure.retryable || attempt >= attempts || asked > RETRY_AFTER_MAX_MS) throw failure;
+      const pause = Math.max(Math.min(pauseMs, RETRY_MAX_MS), asked);
       this.onEvent({ kind: "retrying", note: `${what}: ${failure.message.slice(0, 120)}; again in ${Math.round(pause / 1000)}s (${attempt}/${attempts - 1})` });
       await this.sleeper.sleep(pause, options.signal);
       pauseMs = Math.min(pauseMs * 2, RETRY_MAX_MS);

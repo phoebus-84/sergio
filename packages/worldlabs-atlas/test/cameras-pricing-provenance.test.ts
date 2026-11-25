@@ -54,6 +54,8 @@ describe("cameras", () => {
     const path = push({ from, distance: 2, count: 3, width: 1280, height: 720 });
     near(path.map((camera) => cameraPosition(camera)[2]), [5, 4, 3]);
     for (const camera of path) near(cameraForward(camera), [0, 0, -1]);
+    // One view alone is taken from where the push ends, not from where a picture already stands.
+    near(cameraPosition(push({ from, distance: 2, count: 1, width: 1280, height: 720 })[0]!), [0, 1, 3]);
   });
 
   it("find what a set of cameras is looking at, and say when that is a guess", () => {

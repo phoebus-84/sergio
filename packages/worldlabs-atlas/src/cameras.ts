@@ -159,7 +159,8 @@ export function push(path: PushPath): AtlasCamera[] {
   const lens = pinhole(path.width, path.height, fovYDegrees(path.from));
   const way = cameraForward(path.from), start = cameraPosition(path.from);
   return Array.from({ length: path.count }, (_, index) => {
-    const eye = add(start, scale(way, path.count === 1 ? 0 : (path.distance * index) / (path.count - 1)));
+    // One camera alone stands where the push ends: a view from where it starts is a picture already taken.
+    const eye = add(start, scale(way, path.count === 1 ? path.distance : (path.distance * index) / (path.count - 1)));
     const m = [...path.from.cameraToWorld];
     m[3] = eye[0]; m[7] = eye[1]; m[11] = eye[2];
     return { ...lens, cameraToWorld: m };

@@ -206,11 +206,17 @@ function extensionOf(name: string | undefined): string | undefined {
   return /\.([a-z0-9]{2,6})$/i.exec(path)?.[1]?.toLowerCase();
 }
 
-/** What a file is: by its name first, then its type, then where it sat in the result. */
+/**
+ * What a file is: by its name first, then its type, then where it sat in the
+ * result. One exception: a picture file sitting where a depth map goes is a
+ * depth map, whatever it is stored as.
+ */
 export function kindOf(file: { fileName?: string; url?: string; contentType?: string; path: string }): OutputKind {
   const byName = EXTENSION_KINDS[extensionOf(file.fileName) ?? ""] ?? EXTENSION_KINDS[extensionOf(file.url) ?? ""];
-  if (byName) return byName;
   const type = file.contentType?.toLowerCase() ?? "";
+  const place = file.path.split(".").pop()?.replace(/\[\d+\]$/, "").toLowerCase() ?? "";
+  if (place.includes("depth") && (byName === "image" || (!byName && type.startsWith("image/")))) return "depth";
+  if (byName) return byName;
   if (type.includes("exr")) return "depth";
   if (type.startsWith("model/")) return "mesh";
   if (type.startsWith("image/")) return "image";

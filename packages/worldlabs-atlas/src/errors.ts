@@ -53,9 +53,14 @@ export class AtlasHttpError extends AtlasError {
     this.retryAfterSeconds = retryAfterSeconds;
   }
 
-  /** The provider refused the request as it was: it did no work. */
+  /** The provider refused the request as it was: it did no work, and asking again unchanged will not help. */
   get refused(): boolean {
     return this.status >= 400 && this.status < 500 && this.status !== 408 && this.status !== 429;
+  }
+
+  /** The provider turned the request away without taking it: refused, or told to come back later (429). Nothing was started. */
+  get notAccepted(): boolean {
+    return this.refused || this.status === 429;
   }
 }
 

@@ -79,6 +79,10 @@ describe("the files of a result", () => {
     expect(kindOf({ path: "frames[3].rgb" })).toBe("image");
     expect(kindOf({ path: "result.video", url: "https://x/y" })).toBe("video");
     expect(kindOf({ path: "thing" })).toBe("other");
+    // A depth map stored as a picture is still the depth map.
+    expect(kindOf({ path: "frames[0].depth", fileName: "d.png" })).toBe("depth");
+    expect(kindOf({ path: "frames[0].depth", contentType: "image/png" })).toBe("depth");
+    expect(kindOf({ path: "frames[0].image", fileName: "depth-of-field.png" })).toBe("image");
   });
 });
 
