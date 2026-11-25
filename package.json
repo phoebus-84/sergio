@@ -26,6 +26,7 @@
     "packages/machines",
     "packages/render-worker",
     "packages/strudel",
+    "packages/worldlabs-atlas",
     "studio/contracts",
     "studio/series",
     "studio/episode",
