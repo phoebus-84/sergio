@@ -67,10 +67,16 @@ export class AtlasNetworkError extends AtlasError {
 }
 
 export class AtlasCancelledError extends AtlasError {
-  /** `operationId` names a job that was running when the caller gave up. */
-  constructor(reason = "cancelled", operationId?: string) {
+  /** The job that was running when the caller gave up, if one was. */
+  public readonly operationId: string | null;
+  /** Whether the provider was asked to stop that job, and took the request. */
+  public readonly cancelledThere: boolean;
+
+  constructor(reason = "cancelled", operationId?: string, cancelledThere = false) {
     super(reason, "ATLAS_CANCELLED", false, operationId ? { operationId } : {});
     this.name = "AtlasCancelledError";
+    this.operationId = operationId ?? null;
+    this.cancelledThere = cancelledThere;
   }
 }
 
@@ -94,11 +100,14 @@ export class AtlasTimeoutError extends AtlasError {
 /** The operation ended, and not well. */
 export class AtlasOperationError extends AtlasError {
   public readonly operationId: string;
+  /** What the provider says the run was charged, in credits; null when it does not say. */
+  public readonly credits: number | null;
 
-  constructor(operationId: string, state: "failed" | "cancelled", providerCode: string | null, providerMessage: string) {
+  constructor(operationId: string, state: "failed" | "cancelled", providerCode: string | null, providerMessage: string, credits: number | null = null) {
     super(`Atlas operation ${operationId} ${state}: ${providerMessage}`, state === "failed" ? "ATLAS_OPERATION_FAILED" : "ATLAS_OPERATION_CANCELLED", false, { operationId, providerCode });
     this.name = "AtlasOperationError";
     this.operationId = operationId;
+    this.credits = credits;
   }
 }
 

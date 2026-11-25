@@ -236,7 +236,7 @@ export class AtlasClient {
       if (operation.done) {
         this.onEvent({ kind: "done", operationId, state: operation.state, waitedMs: waited() });
         if (operation.state === "succeeded") return operation;
-        throw new AtlasOperationError(operationId, operation.state === "cancelled" ? "cancelled" : "failed", operation.error?.code ?? null, operation.error?.message ?? "no reason given");
+        throw new AtlasOperationError(operationId, operation.state === "cancelled" ? "cancelled" : "failed", operation.error?.code ?? null, operation.error?.message ?? "no reason given", operation.credits);
       }
       this.onEvent({ kind: "waiting", operationId, state: operation.state, progress: operation.progress, waitedMs: waited() });
       if (waited() >= maxWaitMs) throw new AtlasTimeoutError(operationId, waited());
@@ -261,7 +261,7 @@ export class AtlasClient {
     } catch (err) {
       throw new AtlasCancelledError(`stopped waiting for Atlas operation ${operationId}, and could not cancel it there (${err instanceof Error ? err.message : String(err)}): it may still run, and be charged`, operationId);
     }
-    throw new AtlasCancelledError(`stopped waiting for Atlas operation ${operationId} and asked Atlas to cancel it`, operationId);
+    throw new AtlasCancelledError(`stopped waiting for Atlas operation ${operationId} and asked Atlas to cancel it`, operationId, true);
   }
 
   /** What a finished operation left: its files, its trace, what it says it cost. */

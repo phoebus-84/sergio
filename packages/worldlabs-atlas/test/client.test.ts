@@ -175,6 +175,7 @@ describe("waiting", () => {
       expect(failure).toBeInstanceOf(AtlasCancelledError);
       expect(failure.details).toEqual({ operationId: "op-0001" });
       expect(fake.operations.get("op-0001")!.state).toBe(cancelOnAbort ? "cancelled" : "running");
+      expect(failure).toMatchObject({ operationId: "op-0001", cancelledThere: cancelOnAbort });
       expect(failure.message).toMatch(cancelOnAbort ? /asked Atlas to cancel it/ : /still running there, and may be charged/);
     }
   });
@@ -193,6 +194,8 @@ describe("waiting", () => {
     expect(failure).toBeInstanceOf(AtlasOperationError);
     expect(failure.message).toBe("Atlas operation op-0001 failed: the frames do not overlap");
     expect(failure.details).toMatchObject({ operationId: "op-0001", providerCode: "INVALID_FRAMES" });
+    // The fake says nothing of a failed run's charge, so neither does the error.
+    expect(failure.credits).toBeNull();
   });
 
   it("can let the server hold the connection", async () => {
