@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ATLAS_TARGET_SIZES, PUBLISHED_CREDITS, WIRE, cameraForward, cameraPosition, describePrices, estimate, fovYDegrees, invertRigid, isTargetSize, lookAt, orbit,
-  pinhole, placed, provenanceOf, push, redactKey, sceneFocus, withoutSignatures, type AtlasOperation, type TaskRun,
+  ATLAS_TARGET_SIZES, FAILED_RUNS_FREE, PUBLISHED_CREDITS, WIRE, cameraForward, cameraPosition, describePrices, estimate, fovYDegrees, invertRigid, isTargetSize, lookAt,
+  matrixOf, orbit, pinhole, placed, provenanceOf, push, quaternionOf, redactKey, sceneFocus, withoutSignatures, type AtlasOperation, type TaskRun,
 } from "../src/index.js";
 
 const near = (a: readonly number[], b: readonly number[], digits = 9) => {
@@ -19,6 +19,20 @@ describe("cameras", () => {
     near(invertRigid(invertRigid(lookAt([3, 2, 1], [0, 0, 0]))), lookAt([3, 2, 1], [0, 0, 0]));
     expect(() => lookAt([0, 0, 0], [0, 0, 0])).toThrow(/cannot look at the place it stands on/);
     expect(() => lookAt([0, 0, 0], [0, 5, 0])).toThrow();
+  });
+
+  it("are turned as a quaternion says, and say their turn as one", () => {
+    // No rotation is the identity; a quarter turn about +Y sends the camera's -Z to the world's -X.
+    near(matrixOf([1, 2, 3], [0, 0, 0, 1]), [1, 0, 0, 1, 0, 1, 0, 2, 0, 0, 1, 3, 0, 0, 0, 1]);
+    const quarter = matrixOf([0, 0, 0], [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+    near(cameraForward({ cameraToWorld: quarter }), [-1, 0, 0]);
+    near(quaternionOf(quarter), [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+    // A quaternion that is not of length 1 is taken for the turn it points at; w is given at or above 0.
+    near(matrixOf([0, 0, 0], [0, 2, 0, 2]), quarter);
+    near(quaternionOf(matrixOf([0, 0, 0], [0, -Math.SQRT1_2, 0, -Math.SQRT1_2])), [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+    // Half a turn, where w is 0 and the largest diagonal entry has to be found.
+    for (const q of [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0.5, 0.5, 0.5, 0.5]] as const) near(quaternionOf(matrixOf([0, 0, 0], q)), q);
+    expect(() => matrixOf([0, 0, 0], [0, 0, 0, 0])).toThrow(/length 0/);
   });
 
   it("have a lens from a field of view, and give it back", () => {
@@ -79,6 +93,10 @@ describe("cameras", () => {
 });
 
 describe("prices", () => {
+  it("say a failed run is free only where the documentation says so", () => {
+    expect(FAILED_RUNS_FREE).toEqual(["posedImages2Splats"]);
+  });
+
   it("are the published ones for a splat, by quality", () => {
     expect(estimate("posedImages2Splats", { refine: false })).toEqual({ key: "posedImages2Splats.draft", units: 1, credits: 500, usd: 0.5, priced: true, basis: "published" });
     expect(estimate("posedImages2Splats", { refine: true })).toMatchObject({ credits: 5000, usd: 5 });
@@ -106,35 +124,37 @@ describe("prices", () => {
 
 describe("provenance", () => {
   const operation: AtlasOperation = {
-    id: "op-9", done: true, state: "succeeded", progress: 1, error: null, credits: 500,
-    response: { splat: { url: "https://cdn.example/a/draft.spz?X-Signature=secret&Expires=1" } }, raw: {},
+    id: "op_9", done: true, state: "succeeded", task: "posedImages2Splats", phase: null, progress: null, error: null, createdAtSecs: 1, expiresAtSecs: null,
+    response: { refinedSplats: {}, draftSplat: { assetId: "asset_draft", url: "https://cdn.example/a/draft.spz?X-Signature=secret&Expires=1" } }, raw: {},
   };
   const run: TaskRun = {
-    task: "posedImages2Splats", operation, cost: { credits: 500, usd: 0.5, basis: "provider" }, startedAtMs: 0, finishedAtMs: 61_240,
-    files: [{ path: "splat", kind: "splat", url: "https://cdn.example/a/draft.spz?X-Signature=secret&Expires=1" }],
-    trace: { request: { posedFrames: [{ image: { url: "https://cdn.example/in.png?token=t" } }] } },
+    task: "posedImages2Splats", operation, startedAtMs: 0, finishedAtMs: 61_240,
+    files: [{ path: "draftSplat", kind: "splat", assetId: "asset_draft", url: "https://cdn.example/a/draft.spz?X-Signature=secret&Expires=1" }],
+    trace: { operationId: "op_9", taskName: "posedImages2Splats", request: { posedFrames: [{ imageAsset: { url: "https://cdn.example/in.png?token=t" } }] } },
   };
 
-  it("keeps what was asked, what came back and what it cost, and no URL that still opens anything", () => {
-    const request = { posedFrames: [{ image: { assetId: "a" } }, { image: { assetId: "b" } }], refine: false };
+  it("keeps what was asked, what came back and what it was priced at, and no URL that still opens anything", () => {
+    const request = { posedFrames: [{ imageAsset: { assetId: "a" } }, { imageAsset: { assetId: "b" } }], refine: false };
     const record = provenanceOf(run, request, estimate("posedImages2Splats", { refine: false }));
     expect(record).toMatchObject({
-      version: 1, provider: "worldlabs-atlas", task: "posedImages2Splats", operationId: "op-9", state: "succeeded", request,
-      wire: WIRE, cost: { credits: 500, usd: 0.5, basis: "provider" }, estimate: { credits: 500, basis: "published" },
+      version: 1, provider: "worldlabs-atlas", task: "posedImages2Splats", operationId: "op_9", state: "succeeded", request,
+      wire: WIRE, estimate: { credits: 500, basis: "published" },
       startedAt: "1970-01-01T00:00:00.000Z", seconds: 61.2,
     });
+    // An operation does not say what it was charged, so the record does not pretend to know.
+    expect(record).not.toHaveProperty("cost");
     expect(record.requestSha256).toMatch(/^[0-9a-f]{64}$/);
     const text = JSON.stringify(record);
     expect(text).not.toMatch(/secret|token=|Expires/);
     expect(text).toContain("https://cdn.example/a/draft.spz");
-    // The record says these shapes never ran against the real service.
-    expect(record.wire.verifiedLive).toBeNull();
+    // The record says which documentation the shapes came from, and that they never ran against the real service.
+    expect(record.wire).toMatchObject({ documentation: expect.stringContaining("docs.atlas.worldlabs.ai"), verifiedLive: null });
   });
 
   it("cuts a signature off a URL and leaves everything else as it is", () => {
     expect(withoutSignatures({ a: "https://x/y.png?sig=1", b: ["plain", 3, null, "https://x/z#frag"], c: "not a url ? really" }))
       .toEqual({ a: "https://x/y.png", b: ["plain", 3, null, "https://x/z"], c: "not a url ? really" });
-    expect(redactKey("wl-0123456789abcdef")).toBe("…cdef");
+    expect(redactKey("wl_live_0123456789abcdef")).toBe("…cdef");
     expect(redactKey("short")).toBe("****");
   });
 });

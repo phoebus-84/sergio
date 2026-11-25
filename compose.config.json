@@ -49,7 +49,7 @@
       "path": "packages/worldlabs-atlas",
       "kind": "node",
       "standalone": true,
-      "summary": "A place in three dimensions from pictures of it, through World Labs Atlas: estimated cameras and depth, a Gaussian splat (draft or refined), a GLB mesh, and views along a camera path at 720p. Tracked operations that outlast a wait, with provenance and cost in credits. Not yet run against the real service (ADR-0057).",
+      "summary": "A place in three dimensions from pictures of it, through World Labs Atlas: estimated cameras and depth, a Gaussian splat (draft or refined), a GLB mesh, and views along a camera path at 720p. Tracked operations that outlast a wait and are never paid twice, with provenance and a price in credits. Written from the documentation, not yet run against the real service (ADR-0057).",
       "capabilities": [
         "world.reconstruct",
         "world.mesh",
@@ -57,7 +57,7 @@
       ],
       "requires": {
         "env": [
-          "WORLDLABS_API_KEY"
+          "WLT_API_KEY"
         ]
       },
       "docs": "docs/packages/worldlabs-atlas.md"

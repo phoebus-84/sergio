@@ -4,8 +4,7 @@
 // What a caller passes and gets back, and the few things that are injected
 // so that no test reaches the network or waits a real second.
 //
-// Nothing here is a shape of the provider's JSON: those live in wire.ts, the
-// one file to correct when the live API disagrees.
+// The shapes of the provider's own JSON are in wire.ts.
 // ---------------------------------------------------------------------------
 
 // ── Injected ────────────────────────────────────────────────────────────────
@@ -45,9 +44,9 @@ export interface Sleeper {
 
 export interface AtlasConfig {
   readonly apiKey: string;
-  /** Scheme and host, no path: the client adds /api/v2. */
+  /** The API root, version included: https://api.atlas.worldlabs.ai/api/v2. */
   readonly baseUrl: string;
-  /** How many times a request that only reads is asked again after a 429, a 5xx or no answer. */
+  /** How many times a request is asked again after a 429, a 5xx or no answer. */
   readonly maxRetries: number;
 }
 
@@ -63,30 +62,47 @@ export const ATLAS_TASKS = [
 ] as const;
 export type AtlasTask = (typeof ATLAS_TASKS)[number];
 
-export type OperationState = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+export type OperationState = "running" | "succeeded" | "failed" | "cancelled";
 
-/** An operation as the client understands it, whatever spelling the provider used. */
+export interface OperationFailure {
+  /** A google.rpc.Code number: broad. */
+  readonly code: number | null;
+  /** The specific reason: EXECUTION_FAILED, EXECUTION_TIMEOUT, THROTTLED, CONTENT_POLICY. */
+  readonly reason: string | null;
+  readonly message: string;
+}
+
+/** An operation: the envelope round every task's result. */
 export interface AtlasOperation {
   readonly id: string;
+  /** The only terminal signal. */
   readonly done: boolean;
   readonly state: OperationState;
-  /** 0–1, when the provider says. */
+  readonly task: string | null;
+  /** What the task says it is doing, when it says: for showing only. */
+  readonly phase: string | null;
+  /** 0–1, when the task says: for showing only. */
   readonly progress: number | null;
-  readonly error: { readonly code: string | null; readonly message: string } | null;
+  readonly error: OperationFailure | null;
   /** The task's result, once done and not failed. */
   readonly response: Record<string, unknown> | null;
-  /** What the provider says it charged, in credits; null when it does not say. */
-  readonly credits: number | null;
+  readonly createdAtSecs: number | null;
+  /** The task's deadline, when it has one. */
+  readonly expiresAtSecs: number | null;
   /** The answer as it came. */
   readonly raw: Record<string, unknown>;
 }
 
-/** A file kept by the provider, named by its id. */
+/** A file kept in the project, named by its id. */
 export interface AtlasAsset {
   readonly id: string;
+  /** CREATED, UPLOADING, READY: only a READY asset can be read or used. */
+  readonly state?: string;
   readonly fileName?: string;
   readonly contentType?: string;
   readonly bytes?: number;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 /** A local file to hand to a task. */
@@ -96,29 +112,15 @@ export interface AtlasUpload {
   readonly contentType: string;
 }
 
-export type OutputKind = "splat" | "mesh" | "image" | "depth" | "video" | "other";
+export type OutputKind = "splat" | "mesh" | "collider" | "image" | "depth" | "confidence" | "mask" | "other";
 
-/** A file a task's result names: by URL, by asset, or both. */
+/** A file a task's result names: by an asset's id, and by a URL that expires. */
 export interface OutputFile {
-  /** Where it was in the result: "splat", "frames[2].depth". */
+  /** Where it was in the result: "draftSplat", "frames[2].depth.depthAsset". */
   readonly path: string;
   readonly kind: OutputKind;
-  readonly url?: string;
   readonly assetId?: string;
-  readonly fileName?: string;
-  readonly contentType?: string;
-}
-
-/** A frame with its camera and depth, as `images2PosedRGBD` returned it: handed back untouched. */
-export type PosedFrame = Record<string, unknown>;
-
-// ── Money ───────────────────────────────────────────────────────────────────
-
-export interface AtlasCost {
-  readonly credits: number;
-  readonly usd: number;
-  /** provider: the operation said so. published / operator: a price list. */
-  readonly basis: "provider" | "published" | "operator";
+  readonly url?: string;
 }
 
 /** A finished task: its operation, what it left, and how it was made. */
@@ -128,8 +130,6 @@ export interface TaskRun {
   readonly files: readonly OutputFile[];
   /** The provider's own account of the request and its result (`:trace`), or null when it could not be read. */
   readonly trace: Record<string, unknown> | null;
-  /** What the operation says it cost; null when it does not say. */
-  readonly cost: AtlasCost | null;
   readonly startedAtMs: number;
   readonly finishedAtMs: number;
 }

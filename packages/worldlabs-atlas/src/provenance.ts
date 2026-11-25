@@ -2,9 +2,10 @@
 // How a file was made
 // ---------------------------------------------------------------------------
 // One record per operation, kept beside what it made: what was asked, what
-// the provider says it did (its `:trace`), what it cost, and which reading of
-// its API was used. No key is in it, and no URL that still opens something:
-// a signed URL is cut back to the address it signs.
+// the provider says it did (its `:trace`, which it keeps for 30 days), what
+// it was priced at, and which reading of its API was used. No key is in it,
+// and no URL that still opens something: a signed URL is cut back to the
+// address it signs.
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";
@@ -29,8 +30,8 @@ export interface AtlasProvenance {
   /** The provider's own account of the operation; null when it could not be read. */
   readonly trace: Record<string, unknown> | null;
   readonly files: readonly OutputFile[];
+  /** What it was priced at when it was asked for. The operation does not say what it was charged: the account's Usage page does. */
   readonly estimate: AtlasEstimate | null;
-  readonly cost: TaskRun["cost"];
   readonly startedAt: string;
   readonly finishedAt: string;
   readonly seconds: number;
@@ -64,7 +65,6 @@ export function provenanceOf(run: TaskRun, request: Record<string, unknown>, est
     trace: withoutSignatures(run.trace),
     files: withoutSignatures(run.files),
     estimate,
-    cost: run.cost,
     startedAt: new Date(run.startedAtMs).toISOString(),
     finishedAt: new Date(run.finishedAtMs).toISOString(),
     seconds: Math.round((run.finishedAtMs - run.startedAtMs) / 100) / 10,

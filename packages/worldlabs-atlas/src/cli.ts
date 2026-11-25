@@ -8,10 +8,11 @@
 // real service; it spends, so it asks for --paid.
 // ---------------------------------------------------------------------------
 
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { AtlasClient, createAtlasClient } from "./client.js";
-import { API_KEY_ENV, BASE_URL_ENV, DEFAULT_BASE_URL, redactKey, resolveConfig } from "./config.js";
+import { API_KEY_ENV, BASE_URL_ENV, DEFAULT_BASE_URL, KEY_SCOPES, redactKey, resolveConfig } from "./config.js";
 import { AtlasUnavailableError } from "./errors.js";
 import { describePrices } from "./pricing.js";
 import { provenanceOf } from "./provenance.js";
@@ -25,14 +26,16 @@ const HELP = `npm run cli --workspace @av/worldlabs-atlas -- <command>
   operations                     the account's operations
   operation <id>                 one operation
   wait <id> [minutes]            wait for an operation (default 45)
-  cancel <id>                    ask Atlas to stop an operation
+  cancel <id> [reason]           ask Atlas to stop an operation (the key needs operations.cancel)
   trace <id> [file]              the provider's account of an operation
   upload <file> <content-type>   hand a file to Atlas; prints its asset id
-  task <name> <body.json> --paid [--out <file>]
+  task <name> <body.json> --paid [--key <idempotency-key>] [--out <file>]
                                  submit a task as written and wait: THIS SPENDS CREDITS
                                  names: ${ATLAS_TASKS.join(", ")}
+                                 the same --key with the same body returns the first operation: use it to retry
 
-The key is read from ${API_KEY_ENV}; ${BASE_URL_ENV} names another host than ${DEFAULT_BASE_URL}.`;
+The key is read from ${API_KEY_ENV} and needs ${KEY_SCOPES.join(", ")}; ${BASE_URL_ENV} names another API root than ${DEFAULT_BASE_URL}.
+World Labs' own CLI (@worldlabsai/cli) reads the same variables and does more: this one is what the package needs to look after its jobs.`;
 
 const print = (value: unknown) => console.log(typeof value === "string" ? value : JSON.stringify(value, null, 2));
 
@@ -72,7 +75,7 @@ async function main(argv: string[]): Promise<number> {
 
   switch (command) {
     case "operations":
-      print((await client.listOperations(controller.signal)).map(({ raw: _raw, ...operation }) => operation));
+      print((await client.listOperations({ pageSize: 50 }, controller.signal)).operations.map(({ raw: _raw, response: _response, ...operation }) => operation));
       return 0;
     case "operation":
       print((await client.getOperation(need(args[0], "an operation id"), controller.signal)).raw);
@@ -84,7 +87,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "cancel":
-      print((await client.cancelOperation(need(args[0], "an operation id"), controller.signal))?.raw ?? "asked");
+      print((await client.cancelOperation(need(args[0], "an operation id"), args[1] ? { reason: args.slice(1).join(" ") } : {}, controller.signal)).raw);
       return 0;
     case "trace": {
       const trace = await client.traceOperation(need(args[0], "an operation id"), controller.signal);
@@ -102,11 +105,14 @@ async function main(argv: string[]): Promise<number> {
       if (!ATLAS_TASKS.includes(task)) throw new Error(`${task} is not a task: ${ATLAS_TASKS.join(", ")}`);
       const body = JSON.parse(await readFile(need(args[1], "a body file"), "utf8")) as Record<string, unknown>;
       if (!args.includes("--paid")) throw new Error(`tasks:${task} spends credits. Read the body once more, then add --paid`);
-      const run = await client.run(task, body, { signal: controller.signal });
+      const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+      const key = flag("--key") ?? `cli-${randomUUID()}`;
+      console.error(`[atlas] idempotency key ${key}: pass it as --key to ask for this same task again`);
+      const run = await client.run(task, body, { signal: controller.signal, idempotencyKey: key });
       const record = provenanceOf(run, body);
-      const out = args[args.indexOf("--out") + 1];
-      if (args.includes("--out") && out) await writeFile(out, `${JSON.stringify(record, null, 2)}\n`);
-      print(args.includes("--out") && out ? { operationId: run.operation.id, cost: run.cost, files: run.files, written: out } : record);
+      const out = flag("--out");
+      if (out) await writeFile(out, `${JSON.stringify(record, null, 2)}\n`);
+      print(out ? { operationId: run.operation.id, files: run.files, written: out } : record);
       return 0;
     }
     default:

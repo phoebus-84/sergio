@@ -1,26 +1,30 @@
 // ---------------------------------------------------------------------------
 // What a task costs
 // ---------------------------------------------------------------------------
-// Atlas is paid in credits. Only one task's price was public when this was
-// written; the rest of the rate card is shown to a signed-in account. So a
-// price is one of three things, and says which:
+// Atlas is paid in credits, 1,000 to the dollar. Its documentation prices
+// one task, a splat; for the rest it says to "use the current rate card
+// shown in the platform … rather than embedding model prices in client
+// code". So a price is one of three things, and says which:
 //
-// - published: in PUBLISHED_CREDITS below, with where it was read;
-// - operator:  given by whoever holds the account, from its rate card;
+// - published: in the documentation, below, with the page it is on;
+// - operator:  given by whoever holds the account, from its rate card, and
+//              used before a published one, since the card can change;
 // - unknown:   nobody said. An unknown price is never guessed: a caller with
 //              a budget must refuse the call.
 //
-// What an operation says it charged, when it says, replaces any of these.
+// An operation does not say what it was charged. What a run cost is its
+// price here, or the account's Usage page.
 // ---------------------------------------------------------------------------
 
-import type { AtlasCost, AtlasOperation, AtlasTask } from "./types.js";
+import type { AtlasTask } from "./types.js";
 
-/** "The current conversion is 1,000 credits per US dollar", and "may change during beta". */
+/** "The current conversion is 1,000 credits per US dollar." (Billing) */
 export const CREDITS_PER_USD = 1000;
 
 /**
  * A price's name: a task, or a task with the variant that sets its price.
- * `atlasGenerate.perView` is charged once per target camera.
+ * `atlasGenerate.perView` is this package's guess at how a render is
+ * metered, per target camera: the rate card may say otherwise.
  */
 export type PriceKey =
   | "images2PosedRGBD"
@@ -35,11 +39,14 @@ export const PRICE_KEYS: readonly PriceKey[] = [
   "images2PosedRGBD", "posedImages2Splats.draft", "posedImages2Splats.refined", "splats2Mesh", "atlasGenerate.perView", "atlasChisel", "atlasTextToImage",
 ];
 
-/** Prices that were public on 2026-11-25. Third-party reports of the provider's pages: see docs/notes/worldlabs-atlas-api.md. */
+/** "Refined (the default): 5,000 credits ($5). Draft, with refine: false: 500 credits ($0.50)." (Posed images to splats, 2026-11-25) */
 export const PUBLISHED_CREDITS: Readonly<Partial<Record<PriceKey, number>>> = {
   "posedImages2Splats.draft": 500,
   "posedImages2Splats.refined": 5000,
 };
+
+/** Tasks whose page says a run that fails costs nothing: "Each successful run costs … Failed runs are free." */
+export const FAILED_RUNS_FREE: readonly AtlasTask[] = ["posedImages2Splats"];
 
 export type OperatorCredits = Readonly<Partial<Record<PriceKey, number>>>;
 
@@ -57,12 +64,13 @@ export const creditsToUsd = (credits: number): number => Math.round((credits / C
 
 /** The price a request falls under, and how many times. */
 export function priceKeyOf(task: AtlasTask, request: { refine?: boolean; views?: number } = {}): { key: PriceKey; units: number } {
+  // Refining is the default there: a request that does not say is priced as refined.
   if (task === "posedImages2Splats") return { key: request.refine === false ? "posedImages2Splats.draft" : "posedImages2Splats.refined", units: 1 };
   if (task === "atlasGenerate") return { key: "atlasGenerate.perView", units: Math.max(1, request.views ?? 1) };
   return { key: task, units: 1 };
 }
 
-/** What a request is expected to cost. An operator's price is used before a published one: theirs is the account's. */
+/** What a request is expected to cost. */
 export function estimate(task: AtlasTask, request: { refine?: boolean; views?: number } = {}, operator: OperatorCredits = {}): AtlasEstimate {
   const { key, units } = priceKeyOf(task, request);
   const own = operator[key], published = PUBLISHED_CREDITS[key];
@@ -73,12 +81,6 @@ export function estimate(task: AtlasTask, request: { refine?: boolean; views?: n
 }
 
 const valid = (credits: number | undefined): credits is number => typeof credits === "number" && Number.isFinite(credits) && credits >= 0;
-
-/** What the provider says an operation cost, or null when it does not say. */
-export function chargedFor(operation: AtlasOperation): AtlasCost | null {
-  if (operation.credits === null) return null;
-  return { credits: operation.credits, usd: creditsToUsd(operation.credits), basis: "provider" };
-}
 
 /** The price list as lines a person reads. */
 export function describePrices(operator: OperatorCredits = {}): string[] {

@@ -2,11 +2,13 @@
 // Cameras
 // ---------------------------------------------------------------------------
 // A camera path is geometry: the cameras themselves, in order. Here a camera
-// is a pinhole with a camera-to-world matrix in the convention the provider's
-// documentation gives for its outputs: OpenGL's, +x right, +y up, the camera
-// looking along its own -z ("right-up-back"). The world's up is +y.
+// is a pinhole with a camera-to-world matrix in the convention Atlas's
+// outputs use ("rub"): +x right, +y up, the camera looking along its own -z,
+// as OpenGL, Three.js and Blender's cameras do. The world's up is +y, and
+// its unit is the scene's: metres as Atlas predicted them, so approximate.
 //
-// Converting to and from the provider's JSON happens once, in wire.ts.
+// Atlas's own JSON gives a camera as a position and an XYZW quaternion.
+// Converting to and from it happens once, in wire.ts.
 // ---------------------------------------------------------------------------
 
 import { AtlasValidationError } from "./errors.js";
@@ -68,6 +70,41 @@ export function lookAt(eye: Vec3, target: Vec3, up: Vec3 = [0, 1, 0]): Mat4 {
 export const cameraPosition = (camera: Pick<AtlasCamera, "cameraToWorld">): Vec3 => [camera.cameraToWorld[3]!, camera.cameraToWorld[7]!, camera.cameraToWorld[11]!];
 /** The way it looks: its own -z, in the world. */
 export const cameraForward = (camera: Pick<AtlasCamera, "cameraToWorld">): Vec3 => unit([-camera.cameraToWorld[2]!, -camera.cameraToWorld[6]!, -camera.cameraToWorld[10]!]);
+
+/** A camera-to-world matrix from where the camera stands and how it is turned: a unit quaternion, x y z w. */
+export function matrixOf(position: Vec3, quaternion: readonly [number, number, number, number]): Mat4 {
+  const n = Math.hypot(...quaternion);
+  if (!(n > 1e-9)) throw new AtlasValidationError("a quaternion of length 0 turns nothing");
+  const [x, y, z, w] = quaternion.map((value) => value / n) as [number, number, number, number];
+  return [
+    1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), position[0],
+    2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), position[1],
+    2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), position[2],
+    0, 0, 0, 1,
+  ];
+}
+
+/** How a camera-to-world matrix is turned, as a unit quaternion x y z w with w at or above 0. */
+export function quaternionOf(m: Mat4): [number, number, number, number] {
+  const [m00, m01, m02, , m10, m11, m12, , m20, m21, m22] = m as number[];
+  const trace = m00! + m11! + m22!;
+  let q: [number, number, number, number];
+  if (trace > 0) {
+    const s = Math.sqrt(trace + 1) * 2;
+    q = [(m21! - m12!) / s, (m02! - m20!) / s, (m10! - m01!) / s, s / 4];
+  } else if (m00! > m11! && m00! > m22!) {
+    const s = Math.sqrt(1 + m00! - m11! - m22!) * 2;
+    q = [s / 4, (m01! + m10!) / s, (m02! + m20!) / s, (m21! - m12!) / s];
+  } else if (m11! > m22!) {
+    const s = Math.sqrt(1 + m11! - m00! - m22!) * 2;
+    q = [(m01! + m10!) / s, s / 4, (m12! + m21!) / s, (m02! - m20!) / s];
+  } else {
+    const s = Math.sqrt(1 + m22! - m00! - m11!) * 2;
+    q = [(m02! + m20!) / s, (m12! + m21!) / s, s / 4, (m10! - m01!) / s];
+  }
+  const n = Math.hypot(...q) * (q[3] < 0 ? -1 : 1);
+  return q.map((value) => value / n + 0) as [number, number, number, number];
+}
 
 /** The inverse of a rigid transform (a turn and a move), row by row. */
 export function invertRigid(m: Mat4): Mat4 {

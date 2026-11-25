@@ -1,6 +1,6 @@
 # worldlabs-atlas
 
-> A place in three dimensions from pictures of it, through World Labs Atlas: estimated cameras and depth, a Gaussian splat (draft or refined), a GLB mesh, and views along a camera path at 720p. Tracked operations that outlast a wait, with provenance and cost in credits. Not yet run against the real service (ADR-0057).
+> A place in three dimensions from pictures of it, through World Labs Atlas: estimated cameras and depth, a Gaussian splat (draft or refined), a GLB mesh, and views along a camera path at 720p. Tracked operations that outlast a wait and are never paid twice, with provenance and a price in credits. Written from the documentation, not yet run against the real service (ADR-0057).
 
 |  |  |
 |---|---|
@@ -9,7 +9,7 @@
 | Kind | node |
 | Tier | **reusable** — usable outside this project |
 | Capabilities | `world.reconstruct`, `world.mesh`, `world.render` |
-| Requires | `WORLDLABS_API_KEY` in the environment |
+| Requires | `WLT_API_KEY` in the environment |
 | In profiles | `full`, `studio`, `headless` |
 
 ## Using it outside this project

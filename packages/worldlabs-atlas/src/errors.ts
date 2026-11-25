@@ -44,13 +44,24 @@ export class AtlasHttpError extends AtlasError {
   public readonly responseBody: string;
   /** Seconds the provider asked to wait, from Retry-After. */
   public readonly retryAfterSeconds: number | null;
+  /**
+   * The provider's own stable word for the refusal, from the body's `code`:
+   * RATE_LIMIT_EXCEEDED, CONCURRENCY_LIMIT_EXCEEDED, CREDITS_UNAVAILABLE,
+   * SPEND_LIMIT_EXCEEDED, CONTENT_POLICY, REGION_NOT_DECLARED, … Branch on
+   * this, never on the message.
+   */
+  public readonly providerCode: string | null;
 
   constructor(status: number, responseBody: string, what: string, retryAfterSeconds: number | null = null) {
-    super(`Atlas answered HTTP ${status} to ${what}: ${responseBody.slice(0, 400)}`, "ATLAS_HTTP", status === 429 || status === 502 || status === 503 || status === 504, { status });
+    // 500 "retry safely", 503 capacity, 504 the gateway's 60 seconds, 429 a limit; 502 a gateway between.
+    super(`Atlas answered HTTP ${status} to ${what}: ${responseBody.slice(0, 400)}`, "ATLAS_HTTP", [429, 500, 502, 503, 504].includes(status), { status });
     this.name = "AtlasHttpError";
     this.status = status;
     this.responseBody = responseBody;
     this.retryAfterSeconds = retryAfterSeconds;
+    let code: unknown;
+    try { code = (JSON.parse(responseBody) as { code?: unknown }).code; } catch { /* not JSON */ }
+    this.providerCode = typeof code === "string" ? code : null;
   }
 
   /** The provider refused the request as it was: it did no work, and asking again unchanged will not help. */
@@ -61,6 +72,11 @@ export class AtlasHttpError extends AtlasError {
   /** The provider turned the request away without taking it: refused, or told to come back later (429). Nothing was started. */
   get notAccepted(): boolean {
     return this.refused || this.status === 429;
+  }
+
+  /** The account cannot pay for it now: out of credits, or at a spend limit (402). */
+  get unpaid(): boolean {
+    return this.status === 402;
   }
 }
 
@@ -105,18 +121,20 @@ export class AtlasTimeoutError extends AtlasError {
 /** The operation ended, and not well. */
 export class AtlasOperationError extends AtlasError {
   public readonly operationId: string;
-  /** What the provider says the run was charged, in credits; null when it does not say. */
-  public readonly credits: number | null;
+  public readonly state: "failed" | "cancelled";
+  /** The provider's specific reason: EXECUTION_FAILED, EXECUTION_TIMEOUT, THROTTLED, CONTENT_POLICY; null when it gave none. */
+  public readonly reason: string | null;
 
-  constructor(operationId: string, state: "failed" | "cancelled", providerCode: string | null, providerMessage: string, credits: number | null = null) {
-    super(`Atlas operation ${operationId} ${state}: ${providerMessage}`, state === "failed" ? "ATLAS_OPERATION_FAILED" : "ATLAS_OPERATION_CANCELLED", false, { operationId, providerCode });
+  constructor(operationId: string, state: "failed" | "cancelled", reason: string | null, providerMessage: string, rpcCode: number | null = null) {
+    super(`Atlas operation ${operationId} ${state}${reason ? ` (${reason})` : ""}: ${providerMessage}`, state === "failed" ? "ATLAS_OPERATION_FAILED" : "ATLAS_OPERATION_CANCELLED", false, { operationId, reason, rpcCode });
     this.name = "AtlasOperationError";
     this.operationId = operationId;
-    this.credits = credits;
+    this.state = state;
+    this.reason = reason;
   }
 }
 
-/** An answer that could not be understood: the shapes in wire.ts need correcting. */
+/** An answer that is not what the documentation says it is: the shapes in wire.ts need correcting. */
 export class AtlasContractError extends AtlasError {
   constructor(what: string, received: unknown) {
     super(`Atlas answered ${what} in a shape this client does not read: ${preview(received)}. Correct packages/worldlabs-atlas/src/wire.ts`, "ATLAS_CONTRACT", false, { what });
