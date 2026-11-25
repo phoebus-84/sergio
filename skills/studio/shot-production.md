@@ -43,7 +43,9 @@ Read `shot.yaml`; the style the shot reads, if any (`pva_style { channel:
 film, series: scene, episode: shot }` — its brief, written for this shot, and
 where shots in it come from); the scene's `scene.yaml` and
 `artifacts/scene-direction.md`; the film's `artifacts/bible.md` with the
-`characters/` and `locations/` entries this shot names; and the shots on
+`characters/` and `locations/` entries this shot names — and, when the
+location has a 3D set (`pva_location_sets { film, location }`), what the
+set holds; and the shots on
 either side of it (`pva_film { film, scene }`) — a shot is judged by how it
 cuts with its neighbours.
 
@@ -61,7 +63,9 @@ not afraid.
 **From.** generated — still with motion.
 
 **Holds to.** characters/mara.md (grey parka, hair tied back, the watch on
-her left wrist); locations/car-park.md at night; the light of 010-wide.
+her left wrist); locations/car-park.md at night, and the view of its set
+from her side (locations/car-park/sets/a/views/east/000003.png); the light
+of 010-wide.
 
 **Cuts from / to.** From 010-wide (she is screen-left, walking right) to
 030-insert-clock. Her eyeline must rise to screen-right.
@@ -86,7 +90,7 @@ that can be right first.
 | `footage` | `pva_footage { film, scene, query }` finds what was shot for it. The take stays in `footage/`; the cut names it as `project:footage/media/<file>`. | free |
 | `stock` | The `find-archive-media` skill: `pva_search_local_media` (already licensed in this film?), then `pva_search_media` / `pva_fetch_media`. The licence and its evidence come with the file. | free |
 | `generated` | A still: `pva_generate_image`, or `pva_generate_images` for several candidates in one call. Motion: `pva_generate_wan_video` from a still (cheap; small movement, loops), `pva_generate_minimax_h3_video` (performance, dialogue, references), `pva_generate_flux3_max_video`. Load the prompting skill of the model you use. | paid |
-| `animation` | The `blender-scene` skill (`pva_blender_create_scene`, `pva_blender_render`) or `pva_render_vector_animation`. | free |
+| `animation` | The `blender-scene` skill (`pva_blender_create_scene`, `pva_blender_render`) or `pva_render_vector_animation`. Characters staged in a place: `pva_stage_shot`, in a `.blend` or in a location's 3D set (`locationSet`). | free |
 | `graphics` | `pva_render_graphics`: titles, lower thirds, diagrams, motion graphics. | free |
 | `screen` | `pva_render_terminal` (the `vhs-terminal-recording` skill). | free |
 | `mixed` | Several of these, each a take, composited as layers in the shot's cut. | — |
@@ -120,6 +124,43 @@ Rules that hold whatever the source:
 - **Sound.** `sound: sync` — the take's own sound is the shot's.
   `silent` — mute it in the cut. `generated` — the picture is silent and
   the scene's sound stage makes what is heard.
+
+## A shot in a location that has a set
+
+When the shot's location has a 3D set (`locations/<name>/sets/<set>/`, made
+in the bible stage — the `film-breakdown` skill says how, and when it is
+worth making), the place is no longer described to a model: it is *taken
+from the set*.
+
+- **A reference from this shot's side.** If no existing view is from where
+  this camera stands, render one: `pva_location_views { film, location,
+  set, viewsId, path }` — an `orbit` or a `push` from a posed frame, or
+  `cameras` placed where the shot's camera is. Paid per view; a few views,
+  not a sweep. Name the still in the plan's **Holds to**, and give it to
+  the generator as a reference image with the character sheet.
+- **A plate.** `plate: true` joins a path's views into a clip: a moving
+  background for a composite, or a previsualisation of a camera move to
+  show the operator before the shot is generated for real.
+- **Staged in the place.** `pva_stage_shot { locationSet: { location, set
+  }, setScale, players: [...] }` puts the cast's rigs in the set's mesh
+  (`pva_location_mesh` makes it). A set has no marks: places are "x, y" in
+  metres, and the tool's answer says the box the set fills on the stage, to
+  choose them in. Its units are the reconstruction's — give `setScale` from
+  something in it whose size you know — and the stage lights it: match the
+  bible's light in the cut, or build the light in a `.blend`.
+
+**720p is the ceiling of everything a set gives.** A view is a reference;
+a plate is a background to build on or a previs. Neither is the take of a
+shot in a film whose frame is larger: the take is generated at the film's
+frame and *held to* the view, or rendered in Blender at the film's frame in
+the set's mesh. Put a set's still or plate in the cut only as a layer under
+something, or when the plan says the shot is deliberately soft — and say so
+in **Wrong if**.
+
+What a set invents, it invents in every view the same way, which is the
+point: but check each still against the location's entry before a shot is
+held to it. A set does not get a refined pass, or a new one, because one
+shot wants it: that is the bible's decision and the operator's.
 
 ## Look at every take
 

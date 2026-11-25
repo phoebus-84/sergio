@@ -187,8 +187,19 @@ channel, a series or a film, not to an episode, and is the same next week:
 - `pva_stage_shot` — several characters in one picture, on a set or an empty stage
   (Blender and FFmpeg, local, free): each a role or a rig, on a mark, doing one thing
   after another — a clip, a walk to another mark at its clip's pace, a turn, a wait. The
-  set is a `.blend` with marks; the camera is the set's or asked for in words. It says
-  who was out of the picture, hidden by the set, in another's place, or sliding.
+  set is a `.blend` with marks, or a `.glb` of a place — in a film, a location's 3D
+  set (`locationSet`), scaled and turned as asked; the camera is the set's or asked
+  for in words. It says who was out of the picture, hidden by the set, in another's
+  place, or sliding.
+- `pva_location_set`, `pva_location_views`, `pva_location_splat`, `pva_location_mesh` —
+  a film location in three dimensions, made once from pictures of it (World Labs
+  Atlas, paid, on the film's budget) and then every angle taken from it: posed frames,
+  views along a camera path, a splat, a GLB to stage in. A draft splat first, always;
+  the refined one only when the operator has said so. 720p at most: references and
+  plates, never the film's final picture. A step whose wait runs out is called again
+  with the same arguments, never under another name. Load `film-breakdown` first.
+- `pva_location_sets` — a film's sets, what they hold and cost, the licence each was
+  made under, the jobs still running, and what each step is priced at (free).
 
 A **style template** — a ready-made look and way of making it — can be given to a
 channel, a series, a film or a scene when the person asks for one; nothing needs one.
