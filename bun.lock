@@ -252,6 +252,7 @@
         "@av/strudel": "workspace:*",
         "@av/terminal-recorder": "workspace:*",
         "@av/video-composer": "workspace:*",
+        "@av/worldlabs-atlas": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.32.1",
         "@studio/cast": "workspace:*",
         "@studio/contracts": "workspace:*",

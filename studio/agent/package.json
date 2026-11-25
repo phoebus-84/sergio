@@ -74,6 +74,7 @@
     "@av/machines": "workspace:*",
     "@av/elevenlabs": "workspace:*",
     "@av/fal-media": "workspace:*",
+    "@av/worldlabs-atlas": "workspace:*",
     "@studio/contracts": "workspace:*",
     "@studio/episode": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.1",

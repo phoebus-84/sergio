@@ -2234,6 +2234,9 @@ export function registerCapabilityTools(pi: ExtensionAPI): void {
       Object.assign(caps, modelGenerationStatus(falConfigured));
       Object.assign(caps, rigCreationStatus(falConfigured));
       Object.assign(caps, motionGenerationStatus(falConfigured));
+      // A location's 3D set, through World Labs Atlas (ADR-0057): its own key, its own prices.
+      const { locationSetsStatus, readAtlasSettings } = await import("./location-tools.js");
+      Object.assign(caps, locationSetsStatus(Boolean(process.env.WORLDLABS_API_KEY), readAtlasSettings(LIBRARY_ROOT)));
 
       // The voice worker: speech only with a CustomVoice model installed, alignment only with /align (avg-twq, avg-07q).
       Object.assign(caps, await voiceWorkerStatus(process.env.AVG_TTS_WORKER_URL || DEFAULT_TTS_WORKER_URL));
