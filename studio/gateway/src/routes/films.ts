@@ -456,6 +456,8 @@ export function registerFilmRoutes(app: FastifyInstance, options: FilmRouteOptio
         frames: render.frames, durationSeconds: render.durationSeconds, units: flatten(render),
         warnings: render.warnings.map((warning) => warning.message),
         url: `/library/${render.path.split("/").map(encodeURIComponent).join("/")}`,
+        // What the render did: the windows of picture it drew and those it kept from before. Null when it rendered nothing.
+        work: render.result?.work ?? null,
       });
     }).catch((error: unknown) => {
       const e = error as { code?: string; message?: string; problems?: unknown[] };

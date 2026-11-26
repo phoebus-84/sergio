@@ -31,3 +31,19 @@ export function nextNumber(slugs: readonly string[]): string {
   const next = numbers.length > 0 ? Math.floor(Math.max(...numbers) / 10) * 10 + 10 : 10;
   return String(next).padStart(3, "0");
 }
+
+/**
+ * What a render did, for the line that says it finished: a render draws only
+ * the windows of picture a change touched and keeps the rest, and the person
+ * sees which. `work` is the render's own count, as the gateway sends it.
+ */
+export function renderWork(work: unknown): string {
+  const counts = (work ?? {}) as { pictureChunks?: unknown; pictureReused?: unknown };
+  const total = Number(counts.pictureChunks);
+  const kept = Number(counts.pictureReused);
+  if (!Number.isInteger(total) || !Number.isInteger(kept) || total <= 0 || kept < 0 || kept > total) return "";
+  const windows = `window${total === 1 ? "" : "s"}`;
+  return kept === 0
+    ? `picture: ${total} of ${total} ${windows} rendered`
+    : `picture: ${total - kept} of ${total} ${windows} rendered, ${kept} kept as ${kept === 1 ? "it was" : "they were"}`;
+}
