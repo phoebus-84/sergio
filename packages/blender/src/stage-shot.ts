@@ -11,9 +11,18 @@
 // audience. A set is a .blend; an object in it named `mark.<name>` is a
 // place a player can be sent to by that name.
 //
+// A walk goes round what stands in its way — a thing of the set, a player
+// who stays where it is — and steps onto what is low enough. With no way
+// round, the shot is refused and what stands in the way is named.
+//
 // A two-legged body stands with its arms beside it whenever it plays no
 // clip, and is watched in every frame for a part passing into another: a
-// hand into its head, its body or its other hand, a leg through the other.
+// hand into its head, its body or its other hand, a leg through the other;
+// and for its skin passing through a thing of the set.
+//
+// A hand or a foot reaches for a mark, a thing of the set or a part of
+// another player and stays on it, over whatever its clip does. A thing of
+// the set is taken in a hand, carried, and put down on a place.
 //
 // No script comes with a request, and the set's own Python is not run.
 // python/stage-shot.py does the staging; the frames are joined here.
@@ -35,6 +44,48 @@ export type StageFraming = (typeof STAGE_FRAMINGS)[number];
 /** A place on the stage: a mark of the set by name, or [x, y] in metres (x to the right, y away from the audience). */
 export type StagePlace = string | readonly [number, number];
 
+/** What reaches: a hand or a foot of a two-legged body. */
+export const STAGE_LIMBS = ["left hand", "right hand", "left foot", "right foot"] as const;
+export type StageLimb = (typeof STAGE_LIMBS)[number];
+
+/** What of another player is reached for: a hand or a foot (its middle), a shoulder (on top of it), or the nearest of a part. */
+export const STAGE_PARTS = [...STAGE_LIMBS, "left shoulder", "right shoulder", "head", "body", "left upper arm", "right upper arm", "left leg", "right leg"] as const;
+export type StagePart = (typeof STAGE_PARTS)[number];
+
+/**
+ * A hand or a foot brought to something and kept on it while the act lasts, over what the clip does.
+ * It reaches for one thing: a mark, a thing of the set, or a part of another player.
+ */
+export interface StageReach {
+  with: StageLimb;
+  /** A mark of the set: where it is, at its own height. */
+  mark?: string;
+  /** A thing of the set, by its object's name: the place on its surface nearest the shoulder. */
+  object?: string;
+  /** Another player, and what of it. Two hands that reach for each other meet between the two. */
+  player?: string;
+  part?: StagePart;
+  /** Seconds into the act at which it starts. Default 0. */
+  after?: number;
+  /** How long, the coming and the going among it. Default: until the act ends; 1.5 s in an act with nothing else. */
+  seconds?: number;
+}
+
+/** A thing of the set taken in a hand: the hand goes to it, and from then it goes where the hand goes. */
+export interface StageTake {
+  object: string;
+  with: StageLimb;
+  /** Seconds into the act at which the hand starts for it. Default 0. */
+  after?: number;
+}
+
+/** A thing in a hand put down: on a mark, or on the floor at [x, y]. It stays there. */
+export interface StagePut {
+  object: string;
+  at: StagePlace;
+  after?: number;
+}
+
 /** One thing a player does. They are done one after another. */
 export interface StageAct {
   /** A clip of this player's body to play: a .glb with one motion. Without it the body is at rest. */
@@ -48,6 +99,10 @@ export interface StageAct {
   /** Turn to face: degrees (0 the audience, 90 the right of the picture, -90 the left, 180 away), or another player by name. */
   turn?: number;
   towards?: string;
+  /** Touch something while the act lasts: one of the three in an act. The same reach in the next act stays on. */
+  reach?: StageReach;
+  take?: StageTake;
+  put?: StagePut;
 }
 
 export interface StagePlayer {
@@ -109,6 +164,36 @@ export interface StageActReport {
   speed?: number;
   /** The pace its clip walks at, read from its feet: a body moved faster or slower than that slides. */
   pace?: number;
+  /** What stood in the straight way, which it went round: things of the set and players, by name. `metres` is the way it took. */
+  round?: string[];
+  /** What it reached for and how near it came. */
+  reach?: StageTouch & { for: string; /** How long the hand was on it. */ seconds: number };
+  /** `taken` false: the hand stayed too far from it (over a twentieth of the body's height), and it was left where it was. */
+  take?: StageTouch & { object: string; taken: boolean };
+  /** `put` false: it did not have it. `gap`: how far from its place it was left, in metres. */
+  put?: { object: string; with: StageLimb; at: number | null; put: boolean; gap: number; place: [number, number, number] };
+}
+
+/** A hand on something: when, and how near. */
+export interface StageTouch {
+  with: StageLimb;
+  /** From when the hand was on it, in the shot's seconds. null: the shot ended before it got there. */
+  from?: number | null;
+  at?: number | null;
+  /** The furthest the middle of the hand was from what it reached for while it was on it, in metres. */
+  gap: number;
+  /** The furthest that was from the shoulder (or the hip), beside how `long` the limb is: further, and it cannot be reached. */
+  far: number;
+  long: number;
+}
+
+/** A body's skin through a thing of the set: how far beyond the surface at the deepest (metres), from when, for how long, deepest when. */
+export interface StageInSet {
+  thing: string;
+  depth: number;
+  from: number;
+  seconds: number;
+  at: number;
 }
 
 export interface StagePlayerReport {
@@ -139,6 +224,8 @@ export interface StagePlayerReport {
    * `depth` is in metres, beyond how far they are when it stands, and the times are the shot's.
    */
   through: RigClipThrough[];
+  /** Its skin through things of the set, deepest first. What it reaches for or carries is not counted. Empty on an empty stage. */
+  inSet?: StageInSet[];
 }
 
 export interface StageShotReport {
@@ -154,6 +241,8 @@ export interface StageShotReport {
   players: StagePlayerReport[];
   /** Pairs of players that came to stand in the same place, and from when. */
   tooClose: { players: [string, string]; from: number }[];
+  /** Things of the set that were in a hand: whose, from when, until when (null: to the end of the shot) and where each was left. */
+  carried?: { object: string; by: string; with: StageLimb; from: number; until: number | null; left: [number, number, number] | null }[];
   notes: string[];
   engine: string;
   blender: string;
@@ -168,6 +257,50 @@ export interface StageShotResult {
 export const STAGE_SHOT_LIMITS = { players: 8, acts: 12, stage: 1000 };
 const NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const MARK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+/** A thing of the set is named as Blender names its objects: anything but control characters, up to 63. */
+const THING = /^[^\u0000-\u001f]{1,63}$/;
+
+function checkAfter(after: number | undefined, where: string): void {
+  if (after !== undefined && !(Number.isFinite(after) && after >= 0 && after <= RIG_SHOT_LIMITS.seconds)) throw new Error(`${where}: after is seconds into the act, from 0 to ${RIG_SHOT_LIMITS.seconds}`);
+}
+
+function checkTouch(act: StageAct, names: ReadonlySet<string>, own: string, where: string): void {
+  const asked = [act.reach, act.take, act.put].filter((touch) => touch !== undefined).length;
+  if (asked === 0) return;
+  if (asked > 1) throw new Error(`${where}: one of reach, take and put in an act: give the others an act each`);
+  const limb = (value: unknown, what: string) => {
+    if (!STAGE_LIMBS.includes(value as StageLimb)) throw new Error(`${where}, ${what}: with is one of ${STAGE_LIMBS.join(", ")}`);
+  };
+  const thing = (value: unknown, what: string) => {
+    if (typeof value !== "string" || !THING.test(value)) throw new Error(`${where}, ${what}: object is the name of a thing of the set`);
+  };
+  if (act.reach) {
+    const reach = act.reach;
+    limb(reach.with, "reach");
+    const aims = [reach.mark, reach.object, reach.player].filter((aim) => aim !== undefined).length;
+    if (aims !== 1) throw new Error(`${where}, reach: it reaches for one thing: a mark, an object of the set, or a player and a part of it`);
+    if (reach.mark !== undefined && !MARK.test(reach.mark)) throw new Error(`${where}, reach: a mark is named in letters, digits, dots, underscores and hyphens`);
+    if (reach.object !== undefined) thing(reach.object, "reach");
+    if (reach.player !== undefined) {
+      if (reach.player === own) throw new Error(`${where}, reach: a player does not reach for itself`);
+      if (!names.has(reach.player)) throw new Error(`${where}, reach: there is no player named ${reach.player} to reach for`);
+      if (!STAGE_PARTS.includes(reach.part as StagePart)) throw new Error(`${where}, reach: part is one of ${STAGE_PARTS.join(", ")}`);
+    } else if (reach.part !== undefined) throw new Error(`${where}, reach: part is a part of a player: name the player`);
+    checkAfter(reach.after, `${where}, reach`);
+    if (reach.seconds !== undefined && (!(reach.seconds > 0) || reach.seconds > RIG_SHOT_LIMITS.seconds)) throw new Error(`${where}, reach: seconds is more than 0 and at most ${RIG_SHOT_LIMITS.seconds}`);
+  }
+  if (act.take) {
+    thing(act.take.object, "take");
+    limb(act.take.with, "take");
+    checkAfter(act.take.after, `${where}, take`);
+  }
+  if (act.put) {
+    thing(act.put.object, "put");
+    if (act.put.at === undefined) throw new Error(`${where}, put: say where it is put: a mark, or [x, y] on the floor`);
+    checkPlace(act.put.at, `${where}, put`);
+    checkAfter(act.put.after, `${where}, put`);
+  }
+}
 
 function checkPlace(place: StagePlace, where: string): void {
   if (typeof place === "string") {
@@ -220,8 +353,12 @@ export function stageSettings(request: StageShotRequest) {
         if (act.loops === 0 && index !== does.length - 1) throw new Error(`${where}: loops 0 goes on for as long as the shot lasts, so it is the last thing a player does`);
         if (act.loops === 0 && (act.seconds !== undefined || act.to !== undefined)) throw new Error(`${where}: loops 0 goes on for as long as the shot lasts: leave seconds and to out`);
       }
-      if (act.clip === undefined && act.to === undefined && act.seconds === undefined && act.turn === undefined && act.towards === undefined) {
-        throw new Error(`${where} does nothing: give it a clip, a place to go to, a turn, or seconds to wait`);
+      checkTouch(act, names, who, where);
+      if ((act.reach || act.take || act.put) && request.set === undefined && (act.take || act.put || act.reach?.player === undefined)) {
+        throw new Error(`${where}: an empty stage has no marks and no things: only a part of another player is reached for there`);
+      }
+      if (act.clip === undefined && act.to === undefined && act.seconds === undefined && act.turn === undefined && act.towards === undefined && !act.reach && !act.take && !act.put) {
+        throw new Error(`${where} does nothing: give it a clip, a place to go to, a turn, something to reach for, or seconds to wait`);
       }
     });
     return {

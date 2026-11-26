@@ -86,7 +86,7 @@ test("a request that cannot be staged is refused before Blender is started, and 
     [{ ...base, players: [{ ...guide, turn: 90, towards: "child" }, child] }, /guide: give turn or towards, not both/],
     [{ ...base, players: [{ ...guide, at: [1, 2, 3] as never }] }, /guide, at: a place is a mark's name or \[x, y\] in metres/],
     [{ ...base, players: [{ ...guide, at: "the door" }] }, /guide, at: a mark is named in letters/],
-    [one([{}]), /guide, act 1 does nothing: give it a clip, a place to go to, a turn, or seconds to wait/],
+    [one([{}]), /guide, act 1 does nothing: give it a clip, a place to go to, a turn, something to reach for, or seconds to wait/],
     [one([{ seconds: 1 }, { clip: "walk.fbx" }]), /guide, act 2: a clip is a binary glTF/],
     [one([{ clip: "w.glb", to: [1, 1], towards: "child" }]), /guide, act 1: on the way to a place a player faces the way: turn in the next act/],
     [one([{ clip: "w.glb", loops: 0 }, { seconds: 1 }]), /guide, act 1: loops 0 goes on for as long as the shot lasts, so it is the last thing a player does/],
@@ -99,6 +99,49 @@ test("a request that cannot be staged is refused before Blender is started, and 
     [{ ...base, players: [guide], fps: 120 }, /fps is a whole number from 6 to 60/],
     [{ ...base, players: [guide], seconds: 0 }, /seconds is more than 0 and at most 60/],
     [{ ...base, players: [guide], background: "grey" }, /background is a colour as #rrggbb/],
+  ] as const) {
+    assert.throws(() => stageSettings(request as StageShotRequest), message);
+  }
+});
+
+test("a hand reaches for one thing, a thing is taken with a hand and put down on a place, and what is not one of those is refused", () => {
+  const on = (does: unknown[]): StageShotRequest => ({ outputDir: "out", set: "street.blend", players: [{ ...guide, does: does as never }, child] });
+  const asked = stageSettings(on([
+    { reach: { with: "right hand", mark: "handle", after: 0.5, seconds: 2 } },
+    { clip: "guide.walk.glb", to: "door", reach: { with: "left hand", player: "child", part: "right hand" } },
+    { take: { object: "Lantern.001", with: "right hand" } },
+    { put: { object: "Lantern.001", at: [1, 2] }, seconds: 2 },
+    { reach: { with: "left foot", object: "ball" } },
+  ]));
+  // What touches goes to the script as it was asked for: an act of nothing else is long enough by the script's own count.
+  assert.deepEqual(asked.players[0]!.does.map((act) => act.reach ?? act.take ?? act.put), [
+    { with: "right hand", mark: "handle", after: 0.5, seconds: 2 },
+    { with: "left hand", player: "child", part: "right hand" },
+    { object: "Lantern.001", with: "right hand" },
+    { object: "Lantern.001", at: [1, 2] },
+    { with: "left foot", object: "ball" },
+  ]);
+  // On an empty stage there is nothing but the other players to reach for.
+  const bare = (does: unknown[]): StageShotRequest => ({ outputDir: "out", players: [{ ...guide, does: does as never }, child] });
+  assert.equal(stageSettings(bare([{ reach: { with: "right hand", player: "child", part: "left shoulder" } }])).players[0]!.does.length, 1);
+  for (const [request, message] of [
+    [on([{ reach: { with: "right hand", mark: "handle" }, take: { object: "lantern", with: "left hand" } }]), /guide, act 1: one of reach, take and put in an act: give the others an act each/],
+    [on([{ reach: { with: "tail", mark: "handle" } }]), /guide, act 1, reach: with is one of left hand, right hand, left foot, right foot/],
+    [on([{ reach: { with: "right hand" } }]), /guide, act 1, reach: it reaches for one thing: a mark, an object of the set, or a player and a part of it/],
+    [on([{ reach: { with: "right hand", mark: "handle", object: "door" } }]), /guide, act 1, reach: it reaches for one thing/],
+    [on([{ reach: { with: "right hand", mark: "the handle" } }]), /guide, act 1, reach: a mark is named in letters/],
+    [on([{ reach: { with: "right hand", player: "guide", part: "head" } }]), /guide, act 1, reach: a player does not reach for itself/],
+    [on([{ reach: { with: "right hand", player: "nobody", part: "head" } }]), /guide, act 1, reach: there is no player named nobody to reach for/],
+    [on([{ reach: { with: "right hand", player: "child" } }]), /guide, act 1, reach: part is one of left hand, right hand, left foot, right foot, left shoulder, right shoulder, head, body/],
+    [on([{ reach: { with: "right hand", mark: "handle", part: "head" } }]), /guide, act 1, reach: part is a part of a player: name the player/],
+    [on([{ reach: { with: "right hand", mark: "handle", after: -1 } }]), /guide, act 1, reach: after is seconds into the act, from 0 to 60/],
+    [on([{ reach: { with: "right hand", mark: "handle", seconds: 0 } }]), /guide, act 1, reach: seconds is more than 0 and at most 60/],
+    [on([{ take: { object: "", with: "right hand" } }]), /guide, act 1, take: object is the name of a thing of the set/],
+    [on([{ take: { object: "lantern" } }]), /guide, act 1, take: with is one of/],
+    [on([{ put: { object: "lantern" } }]), /guide, act 1, put: say where it is put: a mark, or \[x, y\] on the floor/],
+    [on([{ put: { object: "lantern", at: "the table" } }]), /guide, act 1, put: a mark is named in letters/],
+    [bare([{ reach: { with: "right hand", mark: "handle" } }]), /guide, act 1: an empty stage has no marks and no things: only a part of another player is reached for there/],
+    [bare([{ take: { object: "lantern", with: "right hand" } }]), /guide, act 1: an empty stage has no marks and no things/],
   ] as const) {
     assert.throws(() => stageSettings(request as StageShotRequest), message);
   }

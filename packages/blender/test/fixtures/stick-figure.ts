@@ -19,13 +19,20 @@ export const STICK_JOINTS: Joint[] = [
   { name: "RightLeg", parent: 9, at: [-0.12, 0.5, 0] },
 ];
 
+/** Hands, for a figure that has them: after every other joint, so that the walk and the reach name the same ones. */
+export const STICK_HANDS: Joint[] = [
+  { name: "LeftHand", parent: 4, at: [0.85, 1.5, 0] },
+  { name: "RightHand", parent: 6, at: [-0.85, 1.5, 0] },
+];
+
 /**
  * The figure. `names` renames its joints, for a skeleton whose names say nothing. `boxes` puts a
  * box of the given half-size around a joint in place of its tetrahedron: a big head, a wide body.
  * `reach` adds a clip of two seconds in which the left arm goes up and over, to the head, and back.
+ * `hands` gives it a hand after each forearm; without, its arm ends at the forearm.
  */
-export function stickFigure(options: { names?: (name: string) => string; walk?: boolean; boxes?: Partial<Record<string, number>>; reach?: boolean } = {}): Buffer {
-  const joints = STICK_JOINTS;
+export function stickFigure(options: { names?: (name: string) => string; walk?: boolean; boxes?: Partial<Record<string, number>>; reach?: boolean; hands?: boolean } = {}): Buffer {
+  const joints = options.hands ? [...STICK_JOINTS, ...STICK_HANDS] : STICK_JOINTS;
   const chunks: Buffer[] = [];
   const bufferViews: Record<string, unknown>[] = [];
   const accessors: Record<string, unknown>[] = [];

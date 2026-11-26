@@ -228,6 +228,20 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   - **A walk goes at its clip's pace**, read from the foot that carries the
     body: the body is moved as far as its feet step. Given a time of its
     own, a way is taken in that time, and the tool says the feet slide.
+  - **A walk goes round what stands in its way**: a thing of the set, a
+    player who goes nowhere in the shot. It steps onto a kerb or a stair,
+    and keeps off the edge of one when there is room beside. With no way
+    round, or with someone standing where it is sent, the shot is refused
+    and what stands there is named, instead of the walk going through it.
+  - **Characters touch things.** `reach` in an act brings a hand or a foot
+    to a mark of the set, to a thing of the set or to a part of another
+    player — a hand, a shoulder, the head — and keeps it there over what
+    the clip does; two hands that reach for each other meet between the
+    two. `take` puts a thing of the set in a hand, where it stays through
+    a walk and whatever follows; `put` puts it down on a mark or on the
+    floor; one player takes it from another's hand. An arm is as long as
+    it is: the tool says how far the hand stayed from what it reached
+    for, and a hand that does not get to a thing does not take it.
   - **A set is a `.blend` of the episode**, in metres, with no character in
     it. An object named `mark.<name>` is a place by that name. The set
     brings its light and its world; its own camera films when asked, or a
@@ -238,10 +252,11 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     or to standing, the short way round: a limb no longer spins on the way.
   - It reports what one frame does not show: the share of the shot each
     player was in the picture, the share the set hid it, pairs that came to
-    stand in one place, and a part of a body that went into another of it,
-    how many centimetres and when.
-  - Nobody touches anything: a hand on a door, an object carried and two
-    bodies in contact are still a scene built by hand.
+    stand in one place, a part of a body that went into another of it or
+    through a thing of the set, how many centimetres and when, and what
+    was carried and where it was left.
+  - Hands do not close on what they hold, and a body does not lean or step
+    to reach: those are still a scene built by hand.
   `@av/blender/stage-shot` is the reusable part.
 - **`pva_rig_shot` films a role of the cast.** `role` in place of `rigPath`
   films the release the role pins, after reading its files back against

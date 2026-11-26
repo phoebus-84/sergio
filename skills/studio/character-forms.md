@@ -378,8 +378,44 @@ looked at.
      walk measured 0.70 m/s on a figure one metre tall and 0.83 on the same
      figure at 1.2. Give `seconds` to a way only when the shot needs it
      sooner, and expect to be told the feet slide. A clip that carries the
-     body by itself is kept on the way. The floor is followed: a step up
-     onto a pavement is taken where it is.
+     body by itself is kept on the way.
+   - **A walk finds its way.** It goes straight when nothing stands there;
+     otherwise round what does: a thing of the set from knee height up, and
+     a player who goes nowhere in the shot. It steps onto what is no higher
+     than 18% of its own height (a kerb, a stair) and keeps off the edge of
+     a step when there is room beside. The act's line says what it went
+     round and how long the way was. With no way round within four metres,
+     or with someone standing where it is sent, the shot is refused and
+     what stands there is named: send it by a place first, one act for
+     each, or move the thing. A player that moves is in nobody's way: two
+     that cross are still told they stood in one place.
+   - **A hand on something: `reach`.** `reach: { with: "right hand", mark:
+     "handle" }` in an act brings the middle of that hand to a mark of the
+     set and keeps it there while the act lasts, over what the clip does;
+     `object: "door"` goes for the nearest of a thing of the set, by its
+     object's name; `player: "child", part: "right shoulder"` for a part of
+     another player — a hand or a foot, a shoulder (on top of it), or the
+     nearest of its head, body, an upper arm or a leg. It comes in 0.4 s
+     and goes back in 0.4 s; `after` and `seconds` place it inside the act;
+     the same reach in the next act stays on, so two walk hand in hand.
+     Two hands that reach for each other meet between the two, at the
+     height of a hanging elbow: a handshake. Feet reach too (`left foot`).
+     One of `reach`, `take` and `put` in an act.
+   - **A thing carried: `take` and `put`.** `take: { object: "can", with:
+     "right hand" }` brings the hand to a thing of the set, which from then
+     goes where the hand goes, through every act that follows, a walk
+     among them. `put: { object: "can", at: "shelf" }` puts it down by its
+     lowest point on a mark, or on the floor at `"x, y"`, and it stays. One
+     player takes a thing from another's hand: the one who has it reaches
+     for the other's hand, and the other takes it in an act that starts
+     once that reach is on.
+   - **An arm is as long as it is.** Nothing stretches: a hand stops as far
+     short as the arm is short, and the line says how far, how far the
+     thing was from the shoulder and how long the arm is (a toy-like figure
+     1.2 m tall has an arm of 33 cm). Stand the player within reach — send
+     it to a place in metres beside the thing — and film again. A hand
+     that stays more than a twentieth of the body's height from a thing
+     does not take it: the thing is left where it was, and that is said.
    - **The set** is a `.blend` of the episode, made as any Blender scene is
      (`blender-scene`): in metres, z up, its front towards -y, with no
      character in it. An object named `mark.<name>` is a place called
@@ -398,13 +434,22 @@ looked at.
      between it and the camera; pairs that came to stand in one place; a
      body moved faster or slower than its feet step; a part of a body that
      went into another of it, how many centimetres and when, marked from 5%
-     of its height. Then look at the film:
-     a hand through a wall, a look that misses the other's face, a light
-     that flatters nobody are seen, not measured.
-   - **What it does not do.** Nobody touches anything: no hand on a door, no
-     object carried, no two bodies in contact. No face moves. A player
-     walks in straight lines from place to place. For those, the scene is
-     still built by hand in Blender.
+     of its height; its skin through a thing of the set (an arm through a
+     post it passes, a body stood in a wall), the same way; for each reach,
+     take and put, how far the middle of the hand stayed from where it was
+     to be; and what was carried, by whom, from when, and where it was
+     left. A reach that bends an arm through its own body shows among the
+     parts gone into each other: move the player so the thing is before
+     it, not behind. Then look at the film: fingers that do not close on
+     what they hold, a hand in someone else's body, a look that misses the
+     other's face, a light that flatters nobody are seen, not measured.
+   - **What it does not do.** Hands do not close: a thing held lies against
+     the middle of the hand, and the fingers stay as the clip has them. The
+     body does not lean or step to reach, and the hand keeps its clip's
+     turn at the wrist. Nothing is pushed, opened or thrown: a door that
+     opens is moved by the set. A way is found once, before the shot: it
+     does not avoid a player that moves. No face moves. For those, the
+     scene is still built by hand in Blender.
 
 A model is made in an episode, where the budget is, and lands in
 `assets/models/`. `pva_release_model` (step 5) makes it the character's: do

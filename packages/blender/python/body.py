@@ -11,6 +11,7 @@ faces), up, side (towards its left).
   lower than they go without passing into it.
 - Parts: the skin cut up by the bone that moves each point most, and how far
   one part passes into another that is not joined to it: a hand into the head.
+- Limbs: the bones a hand or a foot reaches with, and where its middle is.
 """
 import math
 import re
@@ -188,6 +189,49 @@ def subtree(bone):
     return [bone] + list(bone.children_recursive)
 
 
+# What reaches: the bone at its root and the one after it, by their roles.
+LIMBS = {
+    "left hand": ("upperArm.left", "foreArm.left"), "right hand": ("upperArm.right", "foreArm.right"),
+    "left foot": ("thigh.left", "shin.left"), "right foot": ("thigh.right", "shin.right"),
+}
+
+
+def limb(arm, roles, parts, name):
+    """The bones a hand or a foot reaches with, by name, and the middle of its end in the world.
+    The body is at rest. `end` is the hand or the foot when the skeleton has one, else the bone
+    before it; `long` is how far the middle of the end is from the root, the limb straight.
+    Raises ValueError with what is missing."""
+    root, mid = (roles.get(role) for role in LIMBS[name])
+    what = name.split()[1]
+    if root is None or mid is None:
+        raise ValueError(f"no {'forearm' if what == 'hand' else 'shin'} was read on its {name.split()[0]} side")
+    posed = parts.posed()
+    if posed is None:
+        raise ValueError("its skin could not be read")
+    # The hand, or the foot: what hangs from the forearm, or the shin, and moves the most skin.
+    end, most = mid, 0
+    for child in mid.children:
+        count = len(parts.moved_by([bone.name for bone in subtree(child)], posed))
+        if count > most:
+            end, most = child, count
+    joint = np.array(place(arm, mid), dtype=np.float64)
+    if end is mid:
+        # No hand of its own: the fifth of the forearm's skin furthest from the elbow is its end.
+        points = parts.moved_by([bone.name for bone in subtree(mid)], posed)
+        if not len(points):
+            raise ValueError(f"no skin follows its {name}")
+        far = np.linalg.norm(points - joint, axis=1)
+        points = points[far >= np.quantile(far, 0.8)]
+    else:
+        points = parts.moved_by([bone.name for bone in subtree(end)], posed)
+    middle = mathutils.Vector(points.mean(axis=0).tolist())
+    upper = (place(arm, mid) - place(arm, root)).length
+    return {
+        "root": root.name, "mid": mid.name, "end": end.name, "middle": middle,
+        "upper": upper, "long": upper + (middle - place(arm, mid)).length,
+    }
+
+
 # Three ways out of a point, none along an axis: a ray along one would run down the edges of a box.
 RAYS = tuple(mathutils.Vector(way).normalized() for way in ((0.31, 0.52, 0.80), (-0.72, 0.13, -0.68), (0.27, -0.91, 0.31)))
 # A part is looked at in no more than this many of its points: enough to find a hand in a head.
@@ -216,6 +260,21 @@ def inside(tree, at, step):
     return bool(crossings(tree, at, RAYS[2], step) % 2)
 
 
+def skin(meshes):
+    """Where every point of these meshes is now, in the world: a body that was not cut into parts."""
+    graph = bpy.context.evaluated_depsgraph_get()
+    out = []
+    for o in meshes:
+        evaluated = o.evaluated_get(graph)
+        mesh = evaluated.to_mesh()
+        co = np.empty(len(mesh.vertices) * 3, dtype=np.float64)
+        mesh.vertices.foreach_get("co", co)
+        world = np.array(evaluated.matrix_world, dtype=np.float64)
+        out.append(co.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3])
+        evaluated.to_mesh_clear()
+    return np.concatenate(out) if out else np.zeros((0, 3))
+
+
 class Parts:
     """The skin, cut up by the bone that moves each point most: head, body, each hand (the forearm
     and all that hangs from it), each upper arm, each leg."""
@@ -231,18 +290,24 @@ class Parts:
             own.update({b.name: "head" for b in subtree(roles["head"])})
         self.names = sorted(set(own.values()))
         self.index = {part: number for number, part in enumerate(self.names)}
-        self.meshes, labels, faces, offset = [], [], {part: [] for part in self.names}, 0
+        # Which bone moves each point most, by its number among the skeleton's bones.
+        self.bones = {bone.name: number for number, bone in enumerate(arm.pose.bones)}
+        self.meshes, labels, movers, faces, offset = [], [], [], {part: [] for part in self.names}, 0
         for o in meshes:
             count = len(o.data.vertices)
             mine = np.full(count, -1, dtype=np.int32)
+            moved = np.full(count, -1, dtype=np.int32)
             if o.parent_type == "BONE" and o.parent is arm and o.parent_bone in own:
                 mine[:] = self.index[own[o.parent_bone]]
+                moved[:] = self.bones[o.parent_bone]
             else:
                 groups = {g.index: g.name for g in o.vertex_groups}
                 for vertex in o.data.vertices:
                     best = max(vertex.groups, key=lambda g: g.weight, default=None)
                     if best is not None and best.weight > 0 and groups.get(best.group) in own:
                         mine[vertex.index] = self.index[own[groups[best.group]]]
+                        moved[vertex.index] = self.bones[groups[best.group]]
+            movers.append(moved)
             # A part's surface is every face with a corner in it, so that it is closed up to where it joins the next.
             for polygon in o.data.polygons:
                 corners = tuple(v + offset for v in polygon.vertices)
@@ -252,6 +317,7 @@ class Parts:
             labels.append(mine)
             offset += count
         self.labels = np.concatenate(labels) if labels else np.zeros(0, dtype=np.int32)
+        self.movers = np.concatenate(movers) if movers else np.zeros(0, dtype=np.int32)
         self.faces = faces
         self.corners = {part: np.array(sorted({v for face in found for v in face}), dtype=np.int64) for part, found in faces.items()}
 
@@ -273,6 +339,15 @@ class Parts:
                 return None
         return np.concatenate(out) if out else np.zeros((0, 3))
 
+    def moved_by(self, bones, posed):
+        """The points of the skin that these bones move most, as they are in `posed`."""
+        numbers = [self.bones[name] for name in bones if name in self.bones]
+        return posed[np.isin(self.movers, numbers)] if numbers else posed[:0]
+
+    def of(self, part, posed):
+        """The points of a part, as they are in `posed`."""
+        return posed[self.labels == self.index[part]] if part in self.index else posed[:0]
+
     def _into(self, points, surface):
         """How far the deepest of these points is inside a surface: how far it is from the nearest
         of it, which may be a surface inside (an eye in a head), so it is at least that deep."""
@@ -292,12 +367,13 @@ class Parts:
                     deepest = max(deepest, distance)
         return deepest
 
-    def through(self, pairs=PAIRS):
-        """How far each pair of parts is in each other as the body stands now, in the world's units."""
+    def through(self, pairs=PAIRS, posed=None):
+        """How far each pair of parts is in each other as the body stands now, in the world's units.
+        `posed` is the skin as posed() gave it, when the caller has read it already."""
         pairs = [pair for pair in pairs if pair[0] in self.index and pair[1] in self.index]
         if not pairs:
             return {}
-        posed = self.posed()
+        posed = self.posed() if posed is None else posed
         if posed is None:
             return {}
         listed, points, surfaces = None, {}, {}
@@ -327,8 +403,8 @@ class Through:
     def __init__(self, parts, tall, before):
         self.parts, self.deep, self.before, self.seen = parts, tall * DEEP, before, {}
 
-    def look(self, moment):
-        for pair, depth in self.parts.through().items():
+    def look(self, moment, posed=None):
+        for pair, depth in self.parts.through(posed=posed).items():
             beyond = depth - self.before.get(pair, 0.0)
             if beyond <= self.deep:
                 continue

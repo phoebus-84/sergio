@@ -31,11 +31,15 @@ Proposed. Implemented with it:
 - characters staged in one picture (`pva_stage_shot`, by `@av/blender`):
   roles of the cast or rigs of the episode on the marks of a set, each doing
   one thing after another, a walk taken at the pace read from its clip, and
-  what a single frame does not show measured and said.
+  what a single frame does not show measured and said;
+- a way found round what stands on the set, and contact: a hand or a foot
+  brought to a mark, a thing of the set or a part of another player and
+  kept there, and a thing taken in a hand, carried and put down — each
+  with how near the hand came said in the report.
 
 Not implemented: the browser's view of a cast; motion from a generated
-video, for a body that is not a person's; a face; and contact — a hand on a
-door, an object carried, two bodies that touch.
+video, for a body that is not a person's; a face; hands that close on what
+they hold, and a body that leans or steps to reach.
 
 ## Context
 

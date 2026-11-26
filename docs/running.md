@@ -721,10 +721,13 @@ cast, or a rig still in the episode, playing a clip, locally, into a clip of
 video like any other: one character on an empty stage. `pva_stage_shot`
 films several in one picture, on a set (a `.blend` with marks) or on an
 empty stage: each stands on a mark and does one thing after another, a walk
-goes at the pace read from its clip, and the tool says who was out of the
-picture, hidden by the set, in another's place, or sliding.
-Motion from a video, a face, and contact between a character and anything
-else are not built. The browser studio has no view of a cast.
+goes at the pace read from its clip and round what stands in its way, a
+hand reaches for a mark, a thing or another player, a thing is taken,
+carried and put down, and the tool says who was out of the picture, hidden
+by the set, in another's place, sliding, through something, or short of
+what it reached for.
+Motion from a video and a face are not built. The browser studio has no
+view of a cast.
 
 ### Style templates
 

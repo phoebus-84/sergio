@@ -36,9 +36,12 @@ const players = cfg.players.map((player) => {
   if (readFileSync(player.path, 'utf8').includes('NO BODY')) { console.log('RuntimeError: ' + player.name + "'s file holds no body: there is nothing to film"); process.exit(1); }
   let from = 0;
   const does = player.does.map((act) => {
-    const seconds = act.seconds ?? (act.clip ? act.loops || 1 : 0.4);
+    const seconds = act.seconds ?? (act.clip ? act.loops || 1 : act.reach ? 1.5 : act.take || act.put ? 0.8 : 0.4);
     const told = { from, seconds, ...(act.clip ? { clip: basename(act.clip), action: readFileSync(act.clip, 'utf8'), clipSeconds: 1 } : {}),
-      ...(act.to ? { to: typeof act.to === 'string' ? [3, 1, 0.15] : [...act.to, 0], metres: 2, speed: 2 / seconds, ...(act.clip ? { pace: 1 } : {}) } : {}) };
+      ...(act.to ? { to: typeof act.to === 'string' ? [3, 1, 0.15] : [...act.to, 0], metres: 2, speed: 2 / seconds, ...(act.clip ? { pace: 1 } : {}) } : {}),
+      ...(act.reach ? { reach: { with: act.reach.with, for: act.reach.mark ?? act.reach.object ?? act.reach.player + "'s " + act.reach.part, from: from + 0.4, seconds: 1, gap: 0, far: 0.4, long: 0.6 } } : {}),
+      ...(act.take ? { take: { object: act.take.object, with: act.take.with, at: from + 0.4, taken: true, gap: 0, far: 0.4, long: 0.6 } } : {}),
+      ...(act.put ? { put: { object: act.put.object, with: 'right hand', at: from + 0.4, put: true, gap: 0, place: typeof act.put.at === 'string' ? [3, 1, 0.8] : [...act.put.at, 0] } } : {}) };
     from += seconds;
     return told;
   });
@@ -123,7 +126,7 @@ describe("pva_stage_shot", () => {
       "   child (assets/models/child.glb), 1.2 m tall, at 1.5, 2: waits 2s; then goes to 0.5, 2 playing running, 2 m in 1s",
       "   ⚠️ host is moved at 2 m/s on its way to lamp and its clip walks at 1: its feet will slide. Leave `seconds` out of that act and it goes at its clip's pace",
       "   ⚠️ child is moved at 2 m/s on its way to 0.5, 2 and its clip walks at 1: its feet will slide. Leave `seconds` out of that act and it goes at its clip's pace",
-      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, and whether a part of a body passes into another of it. A hand through a wall or someone else, a look that misses the other's face, a light that flatters nobody are seen, not measured",
+      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, whether a part of a body passes into another of it or through the set, and how near the middle of a hand came to what it reached for. Fingers that do not close on what they hold, a hand in someone else's body, a look that misses the other's face, a light that flatters nobody are seen, not measured",
     ]);
     const provenance = JSON.parse(readFileSync(video("meeting.provenance.json"), "utf8"));
     expect(provenance).toMatchObject({
@@ -171,6 +174,29 @@ describe("pva_stage_shot", () => {
     expect(existsSync(video("b.mp4"))).toBe(false);
   });
 
+  it("passes on what each touches — a reach, a thing taken and put down on a place — and says it with what else the act did", async () => {
+    const result = await stage({ players: [
+      { role: "host", at: "door", does: [
+        { reach: { with: "right hand", mark: "handle" }, seconds: 2 },
+        { take: { object: "Lantern", with: "left hand" } },
+        { clip: "walking", to: "lamp", reach: { with: "right hand", player: "child", part: "left hand" } },
+        { put: { object: "Lantern", at: "0.5, 2" } },
+      ] },
+      child,
+    ] });
+    const lines = result.content[0]!.text.split("\n");
+    expect(lines[2]).toBe(
+      '   host (the role host: guide as "rig" v1), 1.2 m tall, at door: its right hand on handle from 0.4s for 1s (2s); then takes Lantern in its left hand at 2.4s (0.8s); ' +
+        "then goes to lamp playing walking, 2 m in 1s, its right hand on child's left hand from 3.2s for 1s; then puts Lantern down at 4.2s (0.8s)",
+    );
+    // A place to put a thing is read as a place to go is: a mark's name, or metres.
+    const provenance = JSON.parse(readFileSync(video("meeting.provenance.json"), "utf8"));
+    expect(provenance.players[0].does[3].put.place).toEqual([0.5, 2, 0]);
+    expect(provenance.staged[0].asked.does[1]).toEqual({ take: { object: "Lantern", with: "left hand" } });
+    await expect(stage({ shotId: "c", players: [{ role: "host", does: [{ reach: { with: "right hand", mark: "handle" }, put: { object: "Lantern", at: "door" } }] }] })).rejects.toThrow("host, act 1: one of reach, take and put in an act: give the others an act each");
+    await expect(stage({ shotId: "c", set: undefined, setCamera: undefined, players: [{ role: "host", does: [{ take: { object: "Lantern", with: "left hand" } }] }] })).rejects.toThrow("host, act 1: an empty stage has no marks and no things");
+  });
+
   it("reads a place as a mark's name or as metres", () => {
     expect(placeOf("door")).toBe("door");
     expect(placeOf(" 1.5, -2 ")).toEqual([1.5, -2]);
@@ -196,6 +222,39 @@ describe("pva_stage_shot", () => {
       notes: ["the set has no light of its own: a sun was added from beside the camera"],
       engine: "BLENDER_EEVEE", blender: "5.2.1 LTS",
     };
+    // What a way went round, what a hand missed, a body through the set, a thing carried.
+    const touched: StageShotReport = {
+      ...report, tooClose: [], notes: [],
+      players: [{
+        name: "host", skeleton: true, at: [-4, 1, 0], turn: 90, tall: 1.7, ends: 9, travel: 4, inFrame: 1, hidden: 0, standing: { left: -75, right: -75 }, through: [],
+        does: [
+          { from: 0, seconds: 4.4, clip: "walking.glb", action: "walking", clipSeconds: 1, to: [0, 1, 0], metres: 4.4, speed: 1, pace: 1, round: ["Lamppost", "statue"] },
+          { from: 4.4, seconds: 1.5, reach: { with: "right hand", for: "handle", from: 4.8, seconds: 0.7, gap: 0.004, far: 0.5, long: 0.62 } },
+          { from: 5.9, seconds: 1.5, reach: { with: "left hand", for: "Door", from: 6.3, seconds: 0.7, gap: 0.31, far: 0.93, long: 0.62 } },
+          { from: 7.4, seconds: 0.8, take: { object: "Lantern", with: "right hand", at: 7.8, taken: true, gap: 0.05, far: 0.6, long: 0.62 } },
+          { from: 8.2, seconds: 0.8, put: { object: "Lantern", with: "right hand", at: 8.6, put: true, gap: 0.2, place: [1, 2, 0.8] } },
+          { from: 9, seconds: 0.8, take: { object: "Hat", with: "left hand", at: 9.4, taken: false, gap: 0.4, far: 1, long: 0.62 } },
+          { from: 9.8, seconds: 0.8, put: { object: "Hat", with: "left hand", at: 10.2, put: false, gap: 0, place: [1, 2, 0.8] } },
+          { from: 10.6, seconds: 1.5, reach: { with: "left hand", for: "statue's head", from: null, seconds: 0, gap: 0, far: 0, long: 0.62 } },
+        ],
+        inSet: [{ thing: "Lamppost", depth: 0.12, from: 2, seconds: 0.5, at: 2.2 }, { thing: "Bench", depth: 0.04, from: 3, seconds: 0.1, at: 3 }],
+      }],
+      carried: [{ object: "Lantern", by: "host", with: "right hand", from: 7.8, until: 8.6, left: [1.1, 2.15, 0.8] }, { object: "Hat", by: "statue", with: "left hand", from: 9, until: null, left: null }],
+    };
+    expect(describeStageShot(touched, [{ name: "host", at: "left", does: [{ clip: "walking", to: "door" }, {}, {}, {}, {}, {}, {}, {}], who: "the role host" }], "assets/video/a.mp4", 1.24, "sets/hall.blend").slice(2, -1)).toEqual([
+      "   host (the role host), 1.7 m tall, at left: goes to door round Lamppost and statue playing walking, 4.4 m in 4.4s at its clip's pace (1 m/s); then its right hand on handle from 4.8s for 0.7s (1.5s); " +
+        "then its left hand on Door from 6.3s for 0.7s (1.5s); then takes Lantern in its right hand at 7.8s (0.8s); then puts Lantern down at 8.6s (0.8s); then goes for Hat with its left hand at 9.4s (0.8s); then has no Hat to put down (0.8s); then reaching for statue's head with its left hand (1.5s)",
+      "   host passes 4 cm through Bench of the set, from 3s for 0.1s, deepest at 3s",
+      "   Lantern is in host's right hand from 7.8s until 8.6s, and is left at 1.1, 2.15, 0.8",
+      "   Hat is in statue's left hand from 9s to the end of the shot",
+      "   ⚠️ host's left hand stays 31 cm from Door: it was 0.93 m from where the limb starts, which is 0.62 m long: bring the two nearer",
+      "   ⚠️ host's right hand was 5 cm from Lantern when it took it, and carries it that far from the hand: though it was within reach (0.6 m away, the limb 0.62 m long): look at the frames",
+      "   ⚠️ Lantern was left 20 cm from where host was to put it: its right hand does not reach there from where it stands",
+      "   ⚠️ host did not take Hat: its left hand stayed 40 cm from it, and it was left where it was: it was 1 m from where the limb starts, which is 0.62 m long: bring the two nearer",
+      "   ⚠️ host had no Hat to put down at 10.2s: it never took it",
+      "   ⚠️ host's left hand never got to statue's head: the shot ended first. Give the shot or the act more seconds",
+      "   ⚠️ host passes 12 cm through Lamppost of the set, from 2s for 0.5s, deepest at 2.2s",
+    ]);
     const lines = describeStageShot(report, [{ name: "host", at: "left", does: [{ clip: "walking", to: "0, 1" }], who: "the role host" }, { name: "statue", does: [], who: "the role statue" }], "assets/video/a.mp4", 1.24, "sets/hall.blend");
     expect(lines).toEqual([
       "✅ assets/video/a.mp4 — 4s, 1280×720 at 24 fps, 1.2MB, no sound",
@@ -212,7 +271,7 @@ describe("pva_stage_shot", () => {
       "   ⚠️ statue is never in the picture",
       "   ⚠️ host and statue stand in the same place from 3.5s: one passes through the other",
       "   the set has no light of its own: a sun was added from beside the camera",
-      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, and whether a part of a body passes into another of it. A hand through a wall or someone else, a look that misses the other's face, a light that flatters nobody are seen, not measured",
+      "   look at it before it is used (pva_inspect_media): what is measured is where each body's chest is, whether a part of a body passes into another of it or through the set, and how near the middle of a hand came to what it reached for. Fingers that do not close on what they hold, a hand in someone else's body, a look that misses the other's face, a light that flatters nobody are seen, not measured",
     ]);
   });
 });
