@@ -193,6 +193,8 @@ describe("film routes", () => {
     await expect.poll(() => events.some((e) => e.type === "render.completed" || e.type === "render.failed"), { timeout: 60_000, interval: 100 }).toBe(true);
     const done = events.find((e) => e.type === "render.completed")!;
     expect(done.data).toMatchObject({ unit: "tide/_/_", quality: "final", current: true, frames: 24 });
+    // The studio says what the render drew and what it kept: the gateway passes the render's own count on.
+    expect(done.data.work).toMatchObject({ pictureChunks: expect.any(Number), pictureReused: expect.any(Number) });
     expect((done.data.units as { unit: string }[]).map((u) => u.unit)).toEqual(["tide/010-shore/010-sky", "tide/010-shore/020-wave", "tide/010-shore/_", "tide/_/_"]);
     expect(existsSync(join(root, done.data.path as string))).toBe(true);
     expect(events.some((e) => e.type === "render.progress")).toBe(true);
