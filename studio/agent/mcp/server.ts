@@ -2,13 +2,16 @@
 // The studio extension as an MCP server
 // ---------------------------------------------------------------------------
 // Serves every tool the Pi extension registers, unchanged, over MCP stdio, so
-// Claude Code (and any other MCP client) can be the executive producer:
+// any MCP client can be the executive producer — Claude Code, Codex, Gemini
+// CLI, Cursor, VS Code, OpenCode, Goose, Zed, …:
 //
 //   node --import tsx studio/agent/mcp/server.ts
 //
-// The repository's .mcp.json starts it for Claude Code. Pi keeps loading the
-// extension itself (pi -e studio/agent/extensions/index.ts); nothing here is
-// on Pi's path.
+// The repository's .mcp.json starts it for Claude Code, .codex/config.toml for
+// Codex, .gemini/settings.json for Gemini CLI, .cursor/mcp.json for Cursor,
+// .vscode/mcp.json for VS Code and opencode.json for OpenCode. Pi keeps
+// loading the extension itself (pi -e studio/agent/extensions/index.ts);
+// nothing here is on Pi's path.
 //
 // What Pi does through its own UI goes, here, to:
 //   tools            → MCP tools (same names, descriptions, JSON schemas)
@@ -17,8 +20,16 @@
 //   ui.notify        → stderr (the MCP server log)
 //   sendUserMessage  → a channel event when AVG_CLAUDE_CHANNEL=1 (Claude Code
 //                      started with the development channel flag), else the
-//                      inbox the UserPromptSubmit hook reads
+//                      inbox
 //   sendMessage      → the inbox
+//
+// Who empties the inbox (AVG_MCP_INBOX, else chosen from the client's name):
+//   hook             Claude Code: its UserPromptSubmit hook hands it to the
+//                    next prompt
+//   tool-result      every other client, which has no such hook: the server
+//                    appends it to the next pva tool result, and says there
+//                    whether the library is the one the studio serves (what
+//                    Claude Code's SessionStart hook says)
 // ---------------------------------------------------------------------------
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -42,7 +53,8 @@ import {
   type NoticeLevel,
   type ToolHost,
 } from "./host.js";
-import { SessionState, stateDir } from "./state.js";
+import { libraryVisibilityWarning } from "./library-check.js";
+import { inboxContext, SessionState, stateDir } from "./state.js";
 
 export const SERVER_NAME = "pva";
 
@@ -58,7 +70,26 @@ export const INSTRUCTIONS = [
   "first; stage skills (write-brief, write-script, compose-video, …) say how to do each stage.",
   "Paid generation is budgeted per episode: check pva_budget_status before spending.",
   "Only the operator approves a stage; ask with pva_request_approval.",
+  "Studio activity (operator review comments, stage updates) reaches you as a block headed",
+  "\"Studio activity since …\": read review activity with pva_journal and respond to it.",
 ].join(" ");
+
+/** Who empties the inbox: Claude Code's hook, or the server, into tool results. */
+export type InboxDelivery = "hook" | "tool-result";
+
+/** The heading of the studio activity a tool result carries. */
+export const TOOL_RESULT_HEADING = "Studio activity since the last pva tool call (from the pva MCP server):";
+
+/**
+ * How a client receives the inbox. AVG_MCP_INBOX wins; otherwise Claude Code
+ * (and the Claude Agent SDK, which is Claude Code) has the hook, and every
+ * other client gets it in tool results.
+ */
+export function inboxDeliveryFor(clientName: string | undefined, env: Record<string, string | undefined> = process.env): InboxDelivery {
+  const chosen = env.AVG_MCP_INBOX?.trim().toLowerCase();
+  if (chosen === "hook" || chosen === "tool-result") return chosen;
+  return /claude/i.test(clientName ?? "") ? "hook" : "tool-result";
+}
 
 const CHANNEL_INSTRUCTIONS =
   " Studio events arrive as <channel source=\"pva\" kind=\"...\">: kind=review means the operator " +
@@ -73,6 +104,8 @@ export interface PvaServerOptions {
   env?: Record<string, string | undefined>;
   modelRegistry?: ModelRegistryLike;
   log?: (line: string) => void;
+  /** The library-visibility warning for clients without a SessionStart hook; injected by tests. */
+  libraryCheck?: () => Promise<string | null>;
 }
 
 export interface PvaServer {
@@ -80,6 +113,8 @@ export interface PvaServer {
   host: ToolHost;
   state: SessionState;
   channel: boolean;
+  /** How the connected client receives the inbox; null before it has introduced itself. */
+  delivery(): InboxDelivery | null;
   /** Run the extension's session_start handlers (gateway stream, status). */
   start(): Promise<void>;
   /** Run session_shutdown handlers. Idempotent. */
@@ -157,6 +192,18 @@ export async function createPvaServer(options: PvaServerOptions = {}): Promise<P
     })),
   }));
 
+  const delivery = (): InboxDelivery | null => {
+    const client = server?.getClientVersion();
+    return client ? inboxDeliveryFor(client.name, env) : null;
+  };
+
+  /** What waits in the inbox, as a text part for a tool result; only for clients without the hook. */
+  const pendingActivity = (): { type: "text"; text: string } | null => {
+    if (delivery() !== "tool-result") return null;
+    const text = inboxContext(state.drain(), TOOL_RESULT_HEADING);
+    return text ? { type: "text", text } : null;
+  };
+
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const progressToken = request.params._meta?.progressToken;
     let progress = 0;
@@ -178,7 +225,8 @@ export async function createPvaServer(options: PvaServerOptions = {}): Promise<P
           if (text) report(text);
         },
       });
-      return { content: toMcpContent(result.content), isError: result.isError };
+      const activity = pendingActivity();
+      return { content: [...toMcpContent(result.content), ...(activity ? [activity] : [])], isError: result.isError };
     } finally {
       clearInterval(heartbeat);
     }
@@ -221,6 +269,16 @@ export async function createPvaServer(options: PvaServerOptions = {}): Promise<P
     };
   });
 
+  // Claude Code says at session start whether the studio can see this
+  // session's library (a SessionStart hook). Other clients have no such hook:
+  // the warning waits in the inbox for the first tool result.
+  server.oninitialized = () => {
+    if (delivery() !== "tool-result") return;
+    void (options.libraryCheck ?? libraryVisibilityWarning)()
+      .then((warning) => { if (warning) state.post("notice", warning); })
+      .catch(() => {});
+  };
+
   let started = false;
   let stopped = false;
   return {
@@ -228,6 +286,7 @@ export async function createPvaServer(options: PvaServerOptions = {}): Promise<P
     host,
     state,
     channel,
+    delivery,
     async start() {
       if (started) return;
       started = true;
@@ -253,7 +312,8 @@ function toMcpContent(content: Array<{ type: string; [key: string]: unknown }> |
   });
 }
 
-async function main(): Promise<void> {
+/** Serve over stdio until the client goes away. ./start.mjs calls this from any directory. */
+export async function main(): Promise<void> {
   // stdout carries MCP frames; anything the extension logs goes to stderr.
   for (const method of ["log", "info", "debug"] as const) {
     console[method] = (...args: unknown[]) => console.error(...args);

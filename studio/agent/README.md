@@ -21,9 +21,14 @@ The package uses Pi's extension and package APIs, supports TUI and RPC modes, st
 
 `mcp/` hosts this extension, unchanged, outside Pi: `mcp/host.ts` gives it the
 part of Pi's API it uses, and `mcp/server.ts` serves its tools over MCP stdio
-and its slash commands as MCP prompts (ADR-0048). The repository's `.mcp.json`
-starts it for Claude Code; `claude/` holds Claude Code's hooks and status line.
-Add a tool here once, against Pi's API — both harnesses get it.
+and its slash commands as MCP prompts (ADR-0048). The repository's project
+files start it for Claude Code (`.mcp.json`, also read by VS Code), Codex
+(`.codex/config.toml`), Gemini CLI (`.gemini/settings.json`), Cursor
+(`.cursor/mcp.json`) and OpenCode (`opencode.json`); `mcp/start.mjs` starts it
+from any directory, for every other MCP client (ADR-0057). `claude/` holds
+Claude Code's hooks and status line; other clients get what the hooks deliver
+in their tool results. Add a tool here once, against Pi's API — every harness
+gets it.
 
 ## Durable narration client
 

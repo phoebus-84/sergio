@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. The executive producer may be Pi or Claude Code, with the same tools ([ADR-0048](0048-tools-written-once-served-to-any-harness)).
+Accepted. The executive producer may be Pi or any harness that calls MCP tools — Claude Code, Codex, Gemini CLI, Cursor, VS Code, OpenCode, … — with the same tools ([ADR-0048](0048-tools-written-once-served-to-any-harness)).
 
 ## Decision
 

@@ -260,7 +260,7 @@
       "path": "studio/agent",
       "kind": "node",
       "standalone": false,
-      "summary": "The Pi executive-producer package: tools, commands, stage UX. This is where studio-specific integration with the reusable packages lives.",
+      "summary": "The executive-producer package: tools, commands, stage UX, for Pi and, over MCP, every other harness (Claude Code, Codex, Gemini CLI, Cursor, VS Code, OpenCode, …). This is where studio-specific integration with the reusable packages lives.",
       "capabilities": [],
       "requires": {},
       "docs": "docs/studio/agent.md"
@@ -269,7 +269,7 @@
       "path": "studio/gateway",
       "kind": "node",
       "standalone": false,
-      "summary": "Local backend owning Pi RPC processes and streaming events to the browser.",
+      "summary": "Local backend owning the agent's sessions (Pi RPC, the Claude Agent SDK, or any agent that speaks ACP) and streaming events to the browser.",
       "capabilities": [],
       "requires": {},
       "docs": "docs/studio/gateway.md"

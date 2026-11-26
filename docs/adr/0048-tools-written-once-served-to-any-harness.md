@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Implemented:
+Accepted, extended by [ADR-0057](0057-every-harness-and-any-acp-agent): every
+harness's project file, `AGENTS.md`, `.agents/skills/`, the inbox in tool
+results, and the gateway's ACP backend. Implemented:
 - `studio/agent/mcp/`: a Pi-shaped host and an MCP stdio server around the
   unchanged extension;
 - `studio/agent/claude/`: Claude Code's hooks and status line;
@@ -50,7 +52,7 @@ copy of each tool that drifts from the first, nor a Pi that works less well.
 
 ## Consequences
 
-- A new tool is added once, in `studio/agent/src/`, and both harnesses have
+- A new tool is added once, in `studio/agent/src/`, and every harness has
   it; `tests/mcp-server.test.ts` checks the MCP side serves every tool the
   extension registers.
 - A tool that starts using more of Pi's API must have that part added to the

@@ -7,7 +7,9 @@ dist/
 composed.json
 .pi/skills/
 .claude/skills/
-# What the studio's MCP server leaves for Claude Code's hooks and status line.
+.agents/skills/
+# What the studio's MCP server leaves for Claude Code's hooks and status line,
+# and for tool results in other harnesses.
 .claude/pva/
 
 # Secrets are environment-only (ADR-0030).

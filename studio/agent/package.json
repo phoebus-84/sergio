@@ -1,7 +1,7 @@
 {
   "name": "@studio/agent",
   "version": "0.1.0",
-  "description": "A distributable Pi package that turns Pi into Sergio's executive producer",
+  "description": "A distributable Pi package that turns Pi into Sergio's executive producer, and serves the same tools to any other harness over MCP",
   "type": "module",
   "license": "AGPL-3.0-only",
   "author": "",

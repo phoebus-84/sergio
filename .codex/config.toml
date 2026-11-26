@@ -1,0 +1,82 @@
+# Codex: the studio's tools (ADR-0048). Codex reads this file only once the
+# project is trusted; it asks the first time you start `codex` here.
+# Start Codex from the repository root, as with Pi and Claude Code: the server
+# resolves tsx and the library from the directory it starts in.
+
+[mcp_servers.pva]
+command = "node"
+args = ["--import", "tsx", "studio/agent/mcp/server.ts"]
+# Loading the extension takes a few seconds the first time.
+startup_timeout_sec = 60
+# A render can take many minutes. For one longer than this, run it with
+# `npm run studio:tool` in the background (docs/running.md).
+tool_timeout_sec = 1800
+
+# Read-only tools run without asking, as in .claude/settings.json; anything
+# that writes or spends asks first.
+
+[mcp_servers.pva.tools.pva_version]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_diagnostics]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_config]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_health]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_rpc_health]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_capability_status]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_channels]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_series]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_episodes]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_episode_detail]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_journal]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_snapshot]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_budget_status]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_check_staleness]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_list_skills]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_load_skill]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_gather_context]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_sources]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_check_provenance]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_probe_media]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_voices]
+approval_mode = "approve"
+
+[mcp_servers.pva.tools.pva_comfyui_workflows]
+approval_mode = "approve"

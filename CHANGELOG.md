@@ -23,6 +23,33 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
 
 ### Added
 
+- **Every agent harness, not just Pi and Claude Code.** The repository now
+  carries the project file each harness reads to start the studio's tools:
+  `.codex/config.toml` for Codex, `.gemini/settings.json` for Gemini CLI,
+  `.cursor/mcp.json` for Cursor, `opencode.json` for OpenCode (both
+  versions), and `.mcp.json`, which VS Code with Copilot reads as Claude Code
+  does. Start the harness from the repository root and the `pva` tools are
+  there; Codex runs the read-only ones without asking, as Claude Code does
+  (ADR-0057).
+  - **One set of instructions.** `AGENTS.md` holds what `CLAUDE.md` held;
+    `CLAUDE.md` imports it, and Gemini CLI is pointed at it.
+  - **Skills for every harness.** `npm run compose` also writes
+    `.agents/skills/`, the layout Codex, Gemini CLI, OpenCode, Goose, Zed and
+    the others read.
+  - **Studio activity outside Claude Code.** A harness without Claude Code's
+    hooks gets operator review comments and stage updates at the end of its
+    next pva tool result, and in the first one a warning when the studio does
+    not serve this session's library.
+  - **Any other MCP client** (Goose, Zed, Kiro, Windsurf, …) starts the server
+    with `node /path/to/sergio/studio/agent/mcp/start.mjs`, from any
+    directory.
+- **The browser studio can drive Codex, Gemini CLI, OpenCode and other
+  agents.** `AVG_AGENT_BACKEND=codex` (or `gemini`, `opencode`, `goose`,
+  `qwen`, `copilot`, `cursor`, `kiro`) runs each episode's session in that
+  agent over the Agent Client Protocol, with the studio's tools; `acp` with
+  `AVG_ACP_COMMAND` runs any other agent that speaks it. The agent uses its own
+  login. Its permission requests are answered by tool kind:
+  what Pi has, without web fetches (`AVG_ACP_ALLOWED_KINDS`).
 - **Your other machines, declared once.** `library/.render/machines.json`
   (`AVG_MACHINES` names another file) says which machines you have, how SSH
   reaches each (an alias of your SSH config), what each is for (`remotion`,

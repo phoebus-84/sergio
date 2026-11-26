@@ -4,7 +4,7 @@
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
-  "description": "Sergio \u2014 a studio for video made with AI agents, directed from Pi or Claude Code. `packages/*` are reusable outside this project; `studio/*` is the product built on top of them.",
+  "description": "Sergio \u2014 a studio for video made with AI agents, directed from Pi, Claude Code, Codex, Gemini CLI or any agent that calls MCP tools. `packages/*` are reusable outside this project; `studio/*` is the product built on top of them.",
   "engines": {
     "node": ">=22"
   },

@@ -1,6 +1,6 @@
 # agent
 
-> The Pi executive-producer package: tools, commands, stage UX. This is where studio-specific integration with the reusable packages lives.
+> The executive-producer package: tools, commands, stage UX, for Pi and, over MCP, every other harness (Claude Code, Codex, Gemini CLI, Cursor, VS Code, OpenCode, …). This is where studio-specific integration with the reusable packages lives.
 
 |  |  |
 |---|---|

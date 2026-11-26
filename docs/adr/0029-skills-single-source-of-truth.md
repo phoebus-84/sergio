@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, amended. Skills live in `skills/shared/`, `skills/studio/` and `studio/agent/skills/`; `npm run compose` writes `.pi/skills/` and `.claude/skills/` from them ([ADR-0048](0048-tools-written-once-served-to-any-harness)).
+Accepted, amended. Skills live in `skills/shared/`, `skills/studio/` and `studio/agent/skills/`; `npm run compose` writes `.pi/skills/`, `.claude/skills/` and `.agents/skills/` from them ([ADR-0048](0048-tools-written-once-served-to-any-harness), [ADR-0057](0057-every-harness-and-any-acp-agent)).
 
 ## Decision
 

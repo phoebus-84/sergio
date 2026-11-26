@@ -3,8 +3,9 @@
 **Make episode twenty as good as episode one.**
 
 Sergio is a local, open-source studio for making video with AI agents. Your
-agent, Claude Code or Pi, writes, generates and edits. Sergio keeps what the
-agent forgets: every attempt, what each paid call cost, the licence of each
+agent writes, generates and edits: Pi, Claude Code, Codex, Gemini CLI, Cursor,
+VS Code with Copilot, OpenCode, or any other that calls MCP tools. Sergio keeps
+what the agent forgets: every attempt, what each paid call cost, the licence of each
 borrowed asset, and each decision you approved.
 
 <p>
@@ -87,7 +88,19 @@ Then [run the agent](docs/running.md) from the repository root:
 ln -sfn /path/to/your/library library    # once: where episodes live
 pi -e studio/agent/extensions/index.ts   # Pi
 claude                                   # or Claude Code
+codex                                    # or Codex
+gemini                                   # or Gemini CLI
+opencode                                 # or OpenCode
 ```
+
+Cursor and VS Code pick the studio up when you open the folder. Each harness
+finds the studio's tools in the project file the repository carries for it
+(`.mcp.json`, `.codex/config.toml`, `.gemini/settings.json`,
+`.cursor/mcp.json`, `opencode.json`), its instructions in `AGENTS.md` and its
+skills in `.agents/skills/` or `.claude/skills/`. Any other MCP client — Goose,
+Zed, Kiro, Windsurf, Amp, … — runs `node studio/agent/mcp/start.mjs`. The
+[running guide](docs/running.md#1b-the-same-agent-in-claude-code-codex-gemini-cli-and-the-others)
+has the details for each.
 
 The browser studio is optional, but the agent's pipeline tools need a running
 gateway for stage tracking, approval requests and budget status. The
@@ -99,8 +112,10 @@ just the rendering packages.
 
 ## How it works
 
-The agent (Pi, or Claude Code through Sergio's MCP server) is the executive
-producer. A deterministic runtime keeps the pipeline's state. Dedicated
+The agent (Pi, or any other harness through Sergio's MCP server) is the
+executive producer. The gateway can run it for the browser studio too: Pi,
+Claude, or any agent that speaks the Agent Client Protocol (Codex, Gemini CLI,
+OpenCode, Goose, Copilot CLI, …). A deterministic runtime keeps the pipeline's state. Dedicated
 packages generate media. Remotion renders the episode's timeline, FFmpeg
 masters and checks it, and a gateway connects the agent to a browser studio.
 
@@ -150,9 +165,9 @@ episodes is the studio's business, not the tool's.
 | `studio/cast` | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | `studio/runtime` | Snapshots, leases, staleness, journal, policy |
 | `studio/pipelines` | Built-in pipeline manifests |
-| `studio/agent` | The executive-producer tools: a Pi extension, served to Claude Code over MCP |
+| `studio/agent` | The executive-producer tools: a Pi extension, served to every other harness over MCP |
 | `studio/adapters` | Stage adapters: the code that performs a stage, matched by contract |
-| `studio/gateway` | Agent sessions (Pi RPC or the Claude Agent SDK) and event streaming |
+| `studio/gateway` | Agent sessions (Pi RPC, the Claude Agent SDK, or any ACP agent) and event streaming |
 | `studio/web` | Browser studio |
 
 </details>

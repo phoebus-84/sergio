@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, amended by [ADR-0048](0048-tools-written-once-served-to-any-harness): the gateway runs a Pi process or a Claude Agent SDK session (`AVG_AGENT_BACKEND`).
+Accepted, amended by [ADR-0048](0048-tools-written-once-served-to-any-harness) and [ADR-0057](0057-every-harness-and-any-acp-agent): the gateway runs a Pi process, a Claude Agent SDK session, or any agent that speaks ACP (`AVG_AGENT_BACKEND`).
 
 ## Decision
 

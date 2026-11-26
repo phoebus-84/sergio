@@ -68,9 +68,9 @@ The product. Depends on `packages/`. All studio-specific integration lives here.
 | [cast](./studio/cast) | Characters on disk: who they are, the forms they take, and a production's cast pinned to what it wears |
 | [runtime](./studio/runtime) | Snapshots, leases, staleness, journal, policy |
 | [pipelines](./studio/pipelines) | Built-in pipeline manifests |
-| [agent](./studio/agent) | The executive-producer package: a Pi extension, served to Claude Code over MCP |
+| [agent](./studio/agent) | The executive-producer package: a Pi extension, served to every other harness over MCP |
 | [adapters](./studio/adapters) | Stage adapters: the code that performs a stage, matched by contract |
-| [gateway](./studio/gateway) | Agent sessions (Pi RPC or the Claude Agent SDK) and event streaming |
+| [gateway](./studio/gateway) | Agent sessions (Pi RPC, the Claude Agent SDK, or any ACP agent) and event streaming |
 | [web](./studio/web) | Browser studio |
 
 Each component page links to that component's own README and `docs/`, which are

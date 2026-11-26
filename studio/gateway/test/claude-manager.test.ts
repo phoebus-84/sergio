@@ -82,11 +82,14 @@ function make(bus = new EventBus(), env: NodeJS.ProcessEnv = { PATH: "/usr/bin" 
 }
 
 describe("backend choice", () => {
-  it("is Pi unless AVG_AGENT_BACKEND says claude", () => {
+  it("is Pi unless AVG_AGENT_BACKEND names another agent", () => {
     expect(agentBackendFrom({})).toBe("pi");
     expect(agentBackendFrom({ AVG_AGENT_BACKEND: "claude" })).toBe("claude");
     expect(agentBackendFrom({ AVG_AGENT_BACKEND: " Claude " })).toBe("claude");
-    expect(() => agentBackendFrom({ AVG_AGENT_BACKEND: "gpt" })).toThrow(/pi" or "claude/);
+    for (const name of ["codex", "gemini", "opencode", "goose", "qwen", "copilot", "acp"]) {
+      expect(agentBackendFrom({ AVG_AGENT_BACKEND: name })).toBe(name);
+    }
+    expect(() => agentBackendFrom({ AVG_AGENT_BACKEND: "gpt" })).toThrow(/one of pi, claude, codex/);
   });
 });
 

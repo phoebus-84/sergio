@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json",
+  "context": {
+    "fileName": ["AGENTS.md"]
+  },
+  "mcpServers": {
+    "pva": {
+      "command": "node",
+      "args": ["--import", "tsx", "studio/agent/mcp/server.ts"],
+      "timeout": 1800000
+    }
+  }
+}

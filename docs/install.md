@@ -5,6 +5,7 @@
 | Tool | Needed for | Notes |
 |---|---|---|
 | Node ≥ 22 | everything | |
+| An agent harness | directing production | Pi, Claude Code, Codex, Gemini CLI, Cursor, VS Code with Copilot, OpenCode, or any MCP client: [running the agent](running.md#_1b-the-same-agent-in-claude-code-codex-gemini-cli-and-the-others) |
 | Bun | dependency installation | the workspace lockfile is a `bun.lock` |
 | FFmpeg + ffprobe | `video.compose`, `media.probe`, `graphics.animate` | `brew install ffmpeg` |
 | Headless Chrome | `video.compose` (Remotion renders in it) | nothing to install: Remotion downloads `chrome-headless-shell` into `node_modules/.remotion` on the first render; `npm run doctor` says whether it is there |
@@ -130,7 +131,9 @@ narration or publishing.
 ## Skills
 
 `skills/` is the source of truth; `.pi/skills/` is **generated** by composition
-(ADR-0029). Never edit `.pi/skills/` by hand — the next compose overwrites it.
+(ADR-0029), and so are `.claude/skills/` and `.agents/skills/`, the same skills
+as `SKILL.md` directories for Claude Code, Codex, Gemini CLI and the other
+harnesses. Never edit them by hand — the next compose overwrites them.
 
 | Set | Contents |
 |---|---|

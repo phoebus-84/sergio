@@ -1,24 +1,17 @@
 // ---------------------------------------------------------------------------
 // Claude Code SessionStart hook: is this session's library the studio's?
 // ---------------------------------------------------------------------------
-// The same check the extension makes at Pi's session_start: the agent writes
-// to the library under the directory it was started in (or AVG_LIBRARY_ROOT),
-// and when the gateway serves a different one, everything produced here is
-// invisible in the studio — silently, because from the agent's side nothing
-// is wrong. Says so, and only then; a gateway that is not running is not news.
+// The same check the extension makes at Pi's session_start (see
+// ../mcp/library-check.ts). Says so, and only then.
 //
 //   cd "$CLAUDE_PROJECT_DIR" && node --import tsx studio/agent/claude/session-start.ts
 // ---------------------------------------------------------------------------
 
-import { checkServiceHealth, resolveConfig } from "../src/config.js";
+import { libraryVisibilityWarning } from "../mcp/library-check.js";
 
 async function main(): Promise<void> {
-  const config = await resolveConfig();
-  const { health } = await checkServiceHealth(config);
-  const visibility = health["library-visibility"];
-  if (!visibility || visibility.available) return;
-
-  const message = `Sergio: ${visibility.message}`;
+  const message = await libraryVisibilityWarning();
+  if (!message) return;
   process.stdout.write(
     JSON.stringify({
       systemMessage: message,

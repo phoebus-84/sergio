@@ -192,16 +192,17 @@ function syncSkills(sets) {
 
 const syncedSkills = syncSkills(profile.skills);
 
-// The same skills for Claude Code, plus the agent's own (Pi gets those from
-// the agent package's manifest).
-const CLAUDE_SKILLS = join(ROOT, ".claude", "skills");
-syncClaudeSkills(
-  [
-    ...profile.skills.map((setName) => CONFIG.skillSets[setName]?.path).filter(Boolean).map((p) => join(ROOT, p)),
-    join(ROOT, "studio", "agent", "skills"),
-  ],
-  CLAUDE_SKILLS,
-);
+// The same skills as SKILL.md directories, plus the agent's own (Pi gets
+// those from the agent package's manifest): .claude/skills/ for Claude Code
+// (Cursor, OpenCode and Goose read it too), .agents/skills/ for Codex, Gemini
+// CLI, OpenCode, Goose, Zed, Amp, Windsurf and VS Code.
+const SKILL_SOURCES = [
+  ...profile.skills.map((setName) => CONFIG.skillSets[setName]?.path).filter(Boolean).map((p) => join(ROOT, p)),
+  join(ROOT, "studio", "agent", "skills"),
+];
+for (const target of [join(ROOT, ".claude", "skills"), join(ROOT, ".agents", "skills")]) {
+  syncClaudeSkills(SKILL_SOURCES, target);
+}
 
 // ── Write composed.json ─────────────────────────────────────────────────────
 
@@ -237,7 +238,7 @@ log(`\nCapabilities:`);
 for (const [cap, info] of Object.entries(capabilities)) {
   log(`  ${info.ready ? "✓" : "!"} ${cap.padEnd(20)} <- ${info.provider}`);
 }
-log(`\nSkills: ${syncedSkills.length} synced into .pi/skills/ and .claude/skills/`);
+log(`\nSkills: ${syncedSkills.length} synced into .pi/skills/, .claude/skills/ and .agents/skills/`);
 
 if (problems.length) {
   console.error(`\n✗ ${problems.length} composition problem(s):`);

@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createPvaServer, type PvaServer } from "../mcp/server.js";
+import { createPvaServer, inboxDeliveryFor, TOOL_RESULT_HEADING, type PvaServer } from "../mcp/server.js";
 import { createModelRegistry, codexCliToken } from "../mcp/credentials.js";
 import { createToolHost } from "../mcp/host.js";
 
@@ -25,16 +25,21 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function connect(env: Record<string, string | undefined> = {}, extension = FIXTURE) {
+async function connect(
+  env: Record<string, string | undefined> = {},
+  extension = FIXTURE,
+  { clientName = "claude-code", libraryCheck = async () => null as string | null } = {},
+) {
   const pva = await createPvaServer({
     extension,
     cwd: dir,
     env: { AVG_CLAUDE_STATE_DIR: join(dir, "state"), ...env },
     modelRegistry: createModelRegistry({ env, piRegistry: async () => null, codexCli: () => undefined }),
     log: () => {},
+    libraryCheck,
   });
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  const client = new Client({ name: "test", version: "0" });
+  const client = new Client({ name: clientName, version: "0" });
   await pva.server.connect(serverSide);
   await client.connect(clientSide);
   return { pva, client };
@@ -162,6 +167,58 @@ describe("MCP server: what the extension pushes at the session", () => {
     expect(status()).toEqual({ fixture: "fixture (mcp)" });
     await pva.stop();
     expect(status()).toEqual({});
+  });
+});
+
+describe("MCP server: clients without Claude Code's hooks", () => {
+  const texts = (result: object) => ((result as { content?: unknown }).content as Array<{ text: string }>).map((c) => c.text);
+
+  it("hands the inbox to Claude Code's hook, and to tool results for every other client", () => {
+    expect(inboxDeliveryFor("claude-code", {})).toBe("hook");
+    for (const name of ["codex-mcp-client", "gemini-cli-mcp-client", "cursor-vscode", "Visual Studio Code", "opencode", "goose", "zed"]) {
+      expect(inboxDeliveryFor(name, {})).toBe("tool-result");
+    }
+    expect(inboxDeliveryFor("claude-code", { AVG_MCP_INBOX: "tool-result" })).toBe("tool-result");
+    expect(inboxDeliveryFor("codex-mcp-client", { AVG_MCP_INBOX: "hook" })).toBe("hook");
+  });
+
+  it("appends review turns and stage updates to the tool result, once", async () => {
+    const { pva, client } = await connect({}, FIXTURE, { clientName: "codex-mcp-client" });
+    expect(pva.delivery()).toBe("tool-result");
+    const pushed = await client.callTool({ name: "fx_review", arguments: {} });
+    const [result, activity] = texts(pushed);
+    expect(result).toBe("pushed");
+    expect(activity).toContain(TOOL_RESULT_HEADING);
+    expect(activity).toContain("New review activity just arrived");
+    expect(activity).toContain("[stage-update");
+    expect(inbox()).toEqual([]);
+
+    const next = await client.callTool({ name: "fx_echo", arguments: { text: "hi" } });
+    expect(texts(next)).toEqual(["hi"]);
+  });
+
+  it("leaves the inbox to the hook under Claude Code", async () => {
+    const { pva, client } = await connect();
+    expect(pva.delivery()).toBe("hook");
+    const pushed = await client.callTool({ name: "fx_review", arguments: {} });
+    expect(texts(pushed)).toEqual(["pushed"]);
+    expect(inbox()).toHaveLength(2);
+  });
+
+  it("says in the first tool result when the studio cannot see this library", async () => {
+    const warning = "Sergio: the gateway serves /elsewhere, not this library";
+    const { client } = await connect({}, FIXTURE, { clientName: "gemini-cli-mcp-client", libraryCheck: async () => warning });
+    await new Promise((r) => setTimeout(r, 20));
+    const first = await client.callTool({ name: "fx_echo", arguments: { text: "hi" } });
+    expect(texts(first)[1]).toContain(warning);
+    expect(texts(await client.callTool({ name: "fx_echo", arguments: { text: "again" } }))).toEqual(["again"]);
+  });
+
+  it("does not run the library check for Claude Code, whose SessionStart hook does", async () => {
+    let checked = false;
+    await connect({}, FIXTURE, { libraryCheck: async () => { checked = true; return "x"; } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(checked).toBe(false);
   });
 });
 

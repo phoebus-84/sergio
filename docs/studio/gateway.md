@@ -1,6 +1,6 @@
 # gateway
 
-> Local backend owning Pi RPC processes and streaming events to the browser.
+> Local backend owning the agent's sessions (Pi RPC, the Claude Agent SDK, or any agent that speaks ACP) and streaming events to the browser.
 
 |  |  |
 |---|---|

@@ -1,12 +1,15 @@
 // ---------------------------------------------------------------------------
-// The composed skill sets, laid out the way Claude Code reads skills.
+// The composed skill sets, laid out as Agent Skills (SKILL.md directories).
 // ---------------------------------------------------------------------------
-// Pi reads .pi/skills/<file>.md or <dir>/SKILL.md. Claude Code reads only
-// .claude/skills/<name>/SKILL.md, with `name` and `description` in the front
-// matter. Both copies come from the same sources (skills/shared,
-// skills/studio, and the agent's own skills); neither is edited by hand.
+// Pi reads .pi/skills/<file>.md or <dir>/SKILL.md. Claude Code, Codex, Gemini
+// CLI, Cursor, OpenCode, Goose and the others that follow the Agent Skills
+// format read only <skills>/<name>/SKILL.md, with `name` and `description` in
+// the front matter: in .claude/skills/ (Claude Code, Cursor, OpenCode, Goose)
+// or .agents/skills/ (Codex, Gemini CLI, OpenCode, Goose, Zed, Amp, VS Code).
+// Every copy comes from the same sources (skills/shared, skills/studio, and
+// the agent's own skills); none is edited by hand.
 //
-// .claude/skills/ may hold a person's own project skills too, so only the
+// A skills directory may hold a person's own project skills too, so only the
 // directories this script wrote last time (listed in .pva-synced.json) are
 // replaced.
 // ---------------------------------------------------------------------------
