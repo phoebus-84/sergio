@@ -170,6 +170,18 @@ const { mediaPath, report } = await stageShot({
   stays down and goes backwards under the body, and the way takes as long
   as that says unless `seconds` is given. A clip that carries the body by
   itself is kept on the way.
+- **A walk finds its way** (`python/way.py`). The straight one is kept when
+  it is free. Otherwise the floor is laid out in squares and the shortest
+  way over the free ones is found, then pulled straight between its
+  corners; the body turns through a corner over as much of the way as it
+  is wide. A place is free for a body when nothing of the set is over its
+  floor from 18% of its height (a step it takes) to its head, at its
+  middle and half its width about it, and no player who goes nowhere in
+  the shot stands there. Half its width is measured without its arms. The
+  edge of a step counts three times its length, so a body crosses a kerb
+  and does not walk along it. With no way within four metres of the
+  straight one (or three quarters of its length), or with someone
+  standing where it ends, `stageShot` throws and names what stands there.
 - **The camera** is the set's own, or made from the size of the players it
   is on and where they stand. It goes with them and keeps its framing,
   nearer as they come together; told to stay, it holds everywhere they go.
@@ -181,10 +193,12 @@ const { mediaPath, report } = await stageShot({
   w at or above 0 before they are played, so a blend between two takes the
   short way round instead of spinning a limb.
 - **The report** says, for each player, what it did and when, the pace and
-  the speed of each way, the share of the shot its chest was in the picture
-  and the share the set hid it, and the parts of it that went into each
-  other (`through`, in metres, as the rig sheet measures them); and the
-  pairs that came to stand in one place.
+  the speed of each way and what it went round (`round`), the share of the
+  shot its chest was in the picture and the share the set hid it, the
+  parts of it that went into each other (`through`, in metres, as the rig
+  sheet measures them) and its skin through things of the set (`inSet`:
+  points of it on the far side of a surface from its own middle, above
+  what it steps on); and the pairs that came to stand in one place.
 
 The set's own Python is not run, and no script comes with a request. Nobody
 touches anything: there is no contact between a body and the set, or

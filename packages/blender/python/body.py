@@ -216,6 +216,21 @@ def inside(tree, at, step):
     return bool(crossings(tree, at, RAYS[2], step) % 2)
 
 
+def skin(meshes):
+    """Where every point of these meshes is now, in the world: a body that was not cut into parts."""
+    graph = bpy.context.evaluated_depsgraph_get()
+    out = []
+    for o in meshes:
+        evaluated = o.evaluated_get(graph)
+        mesh = evaluated.to_mesh()
+        co = np.empty(len(mesh.vertices) * 3, dtype=np.float64)
+        mesh.vertices.foreach_get("co", co)
+        world = np.array(evaluated.matrix_world, dtype=np.float64)
+        out.append(co.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3])
+        evaluated.to_mesh_clear()
+    return np.concatenate(out) if out else np.zeros((0, 3))
+
+
 class Parts:
     """The skin, cut up by the bone that moves each point most: head, body, each hand (the forearm
     and all that hangs from it), each upper arm, each leg."""
@@ -273,6 +288,10 @@ class Parts:
                 return None
         return np.concatenate(out) if out else np.zeros((0, 3))
 
+    def of(self, part, posed):
+        """The points of a part, as they are in `posed`."""
+        return posed[self.labels == self.index[part]] if part in self.index else posed[:0]
+
     def _into(self, points, surface):
         """How far the deepest of these points is inside a surface: how far it is from the nearest
         of it, which may be a surface inside (an eye in a head), so it is at least that deep."""
@@ -292,12 +311,13 @@ class Parts:
                     deepest = max(deepest, distance)
         return deepest
 
-    def through(self, pairs=PAIRS):
-        """How far each pair of parts is in each other as the body stands now, in the world's units."""
+    def through(self, pairs=PAIRS, posed=None):
+        """How far each pair of parts is in each other as the body stands now, in the world's units.
+        `posed` is the skin as posed() gave it, when the caller has read it already."""
         pairs = [pair for pair in pairs if pair[0] in self.index and pair[1] in self.index]
         if not pairs:
             return {}
-        posed = self.posed()
+        posed = self.posed() if posed is None else posed
         if posed is None:
             return {}
         listed, points, surfaces = None, {}, {}
@@ -327,8 +347,8 @@ class Through:
     def __init__(self, parts, tall, before):
         self.parts, self.deep, self.before, self.seen = parts, tall * DEEP, before, {}
 
-    def look(self, moment):
-        for pair, depth in self.parts.through().items():
+    def look(self, moment, posed=None):
+        for pair, depth in self.parts.through(posed=posed).items():
             beyond = depth - self.before.get(pair, 0.0)
             if beyond <= self.deep:
                 continue

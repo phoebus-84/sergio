@@ -11,9 +11,14 @@
 // audience. A set is a .blend; an object in it named `mark.<name>` is a
 // place a player can be sent to by that name.
 //
+// A walk goes round what stands in its way — a thing of the set, a player
+// who stays where it is — and steps onto what is low enough. With no way
+// round, the shot is refused and what stands in the way is named.
+//
 // A two-legged body stands with its arms beside it whenever it plays no
 // clip, and is watched in every frame for a part passing into another: a
-// hand into its head, its body or its other hand, a leg through the other.
+// hand into its head, its body or its other hand, a leg through the other;
+// and for its skin passing through a thing of the set.
 //
 // No script comes with a request, and the set's own Python is not run.
 // python/stage-shot.py does the staging; the frames are joined here.
@@ -109,6 +114,17 @@ export interface StageActReport {
   speed?: number;
   /** The pace its clip walks at, read from its feet: a body moved faster or slower than that slides. */
   pace?: number;
+  /** What stood in the straight way, which it went round: things of the set and players, by name. `metres` is the way it took. */
+  round?: string[];
+}
+
+/** A body's skin through a thing of the set: how far beyond the surface at the deepest (metres), from when, for how long, deepest when. */
+export interface StageInSet {
+  thing: string;
+  depth: number;
+  from: number;
+  seconds: number;
+  at: number;
 }
 
 export interface StagePlayerReport {
@@ -139,6 +155,8 @@ export interface StagePlayerReport {
    * `depth` is in metres, beyond how far they are when it stands, and the times are the shot's.
    */
   through: RigClipThrough[];
+  /** Its skin through things of the set, deepest first. Empty on an empty stage. */
+  inSet?: StageInSet[];
 }
 
 export interface StageShotReport {
@@ -168,7 +186,6 @@ export interface StageShotResult {
 export const STAGE_SHOT_LIMITS = { players: 8, acts: 12, stage: 1000 };
 const NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const MARK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-
 function checkPlace(place: StagePlace, where: string): void {
   if (typeof place === "string") {
     if (!MARK.test(place)) throw new Error(`${where}: a mark is named in letters, digits, dots, underscores and hyphens`);

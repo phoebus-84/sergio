@@ -53,7 +53,7 @@ test("LIVE: two figures share an empty stage, each turned to the other, and one 
   // carries the body goes back at 0.45 × π, about 1.41 m/s.
   const walked = await stageShot({
     outputDir: join(root, "walked"), ...small, camera: { view: "front", framing: "wide", follow: false },
-    players: [{ name: "walker", path, at: [-1, 0], does: [{ clip: path, to: [1, 0] }, { towards: "waiting", seconds: 0.5 }] }, { name: "waiting", path, at: [1, 0.2], turn: 180 }],
+    players: [{ name: "walker", path, at: [-1, 0], does: [{ clip: path, to: [1, 0] }, { towards: "waiting", seconds: 0.5 }] }, { name: "waiting", path, at: [1, 0.6], turn: 180 }],
   });
   const [walker, waiting] = walked.report.players as [typeof walked.report.players[0], typeof walked.report.players[0]];
   const walk = walker.does[0]!;
@@ -66,10 +66,16 @@ test("LIVE: two figures share an empty stage, each turned to the other, and one 
   near(walker.ends, walk.seconds + 0.5, 0.01, "then it turns");
   near(walked.report.seconds, walker.ends, 1 / 12, "the shot lasts as long as what is done in it");
   assert.equal(waiting.turn, 180);
-  // It walked into where the other stands, and the report says from when.
-  assert.equal(walked.report.tooClose.length, 1);
-  assert.deepEqual(walked.report.tooClose[0]!.players, ["walker", "waiting"]);
-  assert.ok(walked.report.tooClose[0]!.from > 0.5 && walked.report.tooClose[0]!.from <= walk.seconds);
+  // It stops beside the other, and the straight way was free: it went round nothing.
+  assert.deepEqual([walked.report.tooClose, walk.round], [[], undefined]);
+
+  // Two that walk through each other are in one place on the way, and the report says from when: one that moves is in nobody's way.
+  const crossed = await stageShot({
+    outputDir: join(root, "crossed"), ...small, camera: { view: "front", framing: "wide", follow: false },
+    players: [{ name: "one", path, at: [-1, 0], does: [{ clip: path, to: [1, 0] }] }, { name: "other", path, at: [1, 0], does: [{ clip: path, to: [-1, 0] }] }],
+  });
+  assert.deepEqual(crossed.report.tooClose.map((pair) => pair.players), [["one", "other"]]);
+  near(crossed.report.tooClose[0]!.from, 1 / walk.pace!, 0.2, "they meet halfway");
 
   // The way is given a time of its own: the body is moved faster than its feet step, and both are said.
   const hurried = await stageShot({ outputDir: join(root, "hurried"), ...small, players: [{ name: "walker", path, at: [-1, 0], does: [{ clip: path, to: [1, 0], seconds: 1 }] }] });
@@ -77,6 +83,27 @@ test("LIVE: two figures share an empty stage, each turned to the other, and one 
   near(hurried.report.players[0]!.does[0]!.pace!, 1.41, 0.06, "the pace is the clip's, whatever the speed");
 
   await assert.rejects(stageShot({ outputDir: join(root, "long"), ...small, fps: 60, seconds: 60, players: [{ name: "walker", path }] }), /the shot would be 3600 frames .*: at most 1800/);
+});
+
+test("LIVE: a walk goes round one who stands in its way, and is refused a place where someone stands", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stage-round-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, "figure.glb");
+  await writeFile(path, stickFigure());
+  const { report } = await stageShot({
+    outputDir: join(root, "round"), ...small, camera: { view: "front", framing: "wide", follow: false },
+    players: [{ name: "walker", path, at: [-2, 0], does: [{ clip: path, to: [2, 0] }] }, { name: "standing", path, at: [0, 0] }],
+  });
+  const walk = report.players[0]!.does[0]!;
+  assert.deepEqual([walk.round, report.tooClose], [["standing"], []]);
+  // Each is 0.36 across without its arms: it passes 0.47 from the other's middle, which makes four metres 4.11.
+  assert.ok(walk.metres! > 4.05 && walk.metres! < 4.3, `the way round: ${walk.metres}`);
+  near(walk.seconds, walk.metres! / walk.pace!, 0.01, "the way round takes as long as it is");
+  assert.deepEqual(walk.to, [2, 0, 0]);
+  await assert.rejects(
+    stageShot({ outputDir: join(root, "onto"), ...small, players: [{ name: "walker", path, at: [-2, 0], does: [{ clip: path, to: [0, 0.1] }] }, { name: "standing", path, at: [0, 0] }] }),
+    /^Error: walker, act 1: it cannot go to 0, 0\.1: standing is there\. Give it a place beside, or move what is there$/,
+  );
 });
 
 test("LIVE: a figure that plays no clip stands with its arms down, no lower than its body lets them, and a hand in a head is said", live, async (t) => {
@@ -148,7 +175,42 @@ test("LIVE: on a set, players stand on its marks and its floors, are filmed by i
     stageShot({ outputDir: join(root, "noclip"), ...small, players: [{ name: "beside", path: still, does: [{ clip: path }] }] }),
     /^Error: beside has no skeleton: it can stand, wait and be moved, and plays no clip$/,
   );
-  // A walk onto the platform: the floor is followed on the way, and the body ends half a metre up.
-  const climbed = await stageShot({ outputDir: join(root, "climbed"), set, ...small, camera: { view: "front", framing: "wide", follow: false }, players: [{ name: "up", path, at: [1, 0], does: [{ clip: path, to: "platform" }] }] });
-  assert.deepEqual(climbed.report.players[0]!.does[0]!.to, [3, 0, 0.5]);
+  // Half a metre is no step for a figure of one and a half: the platform is in the way of whoever would walk onto it.
+  await assert.rejects(
+    stageShot({ outputDir: join(root, "climbed"), set, ...small, camera: { view: "front", framing: "wide", follow: false }, players: [{ name: "up", path, at: [1, 0], does: [{ clip: path, to: "platform" }] }] }),
+    /^Error: up, act 1: there is no way to platform round platform \(looked for within 4 m\)\./,
+  );
+});
+
+test("LIVE: in a yard, a walk goes round a post and steps onto a pavement, a wall right across is no way, and a body in a thing of the set is said", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stage-yard-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, "figure.glb");
+  await writeFile(path, stickFigure());
+  const set = (await runBlender({ mode: "create", scriptPath: fileURLToPath(new URL("./fixtures/stage-yard.py", import.meta.url)), outputDir: join(root, "set"), trustedInput: true, settings: { fps: 12 } })).blendPath;
+
+  const { report } = await stageShot({
+    outputDir: join(root, "shot"), set, camera: "set", width: 128, height: 72, samples: 1,
+    players: [{ name: "walker", path, at: [-2, 0], does: [{ clip: path, to: [2, 0] }, { clip: path, to: [0, 5] }] }, { name: "stuck", path, at: [0.15, 0.1] }],
+  });
+  const [walker, stuck] = report.players as [typeof report.players[0], typeof report.players[0]];
+  const [round, onto] = walker.does as [typeof walker.does[0], typeof walker.does[0]];
+  // Round the post, and the one who stands in it.
+  assert.deepEqual(round.round, ["post", "stuck"]);
+  assert.ok(round.metres! > 4.03 && round.metres! < 4.4, `the way round: ${round.metres}`);
+  // The pavement is 0.2 high, under the 0.27 this figure steps: the straight way is taken, and it ends up on it.
+  assert.deepEqual([onto.round, onto.to], [undefined, [0, 5, 0.2]]);
+  near(onto.metres!, Math.hypot(2, 5), 0.001, "straight onto the pavement");
+  // The figure's clip moves its legs alone: its arms stay out, and one goes through the post as it passes.
+  assert.deepEqual(walker.inSet!.map((inside) => inside.thing), ["post"]);
+  assert.ok(walker.inSet![0]!.depth > 0.03 && walker.inSet![0]!.depth < 0.3 && walker.inSet![0]!.seconds < 1, JSON.stringify(walker.inSet));
+  // One stood in the post is in it for the whole shot.
+  assert.deepEqual([stuck.inSet![0]!.thing, stuck.inSet![0]!.from], ["post", 0]);
+  near(stuck.inSet![0]!.seconds, report.seconds, 1 / 12, "for as long as the shot");
+  assert.ok(stuck.inSet![0]!.depth > 0.2, JSON.stringify(stuck.inSet));
+
+  await assert.rejects(
+    stageShot({ outputDir: join(root, "wall"), set, camera: "set", ...small, players: [{ name: "walker", path, at: [0, -2], does: [{ clip: path, to: [0, -4] }] }] }),
+    /^Error: walker, act 1: there is no way to 0, -4 round wall \(looked for within 4 m\)\. Give it a place to go by first, one act for each, or move what is in the way$/,
+  );
 });
