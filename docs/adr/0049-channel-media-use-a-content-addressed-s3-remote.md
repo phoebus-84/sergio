@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed in the implementation of [issue #74](https://github.com/phoebus-84/video-studio/issues/74).
+Proposed in the implementation of [issue #74](https://github.com/phoebus-84/sergio/issues/74).
 Extends [ADR-0045](0045-a-channel-is-its-own-repository.md); it does not replace
 its lock format, union merges, or local-only commands.
 
