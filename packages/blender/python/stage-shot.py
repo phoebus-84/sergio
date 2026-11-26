@@ -22,6 +22,11 @@ before its first, between two, after its last. It is watched in every frame
 for a part passing into another it is not joined to: a hand into the head;
 and for its skin passing through a thing of the set.
 
+A hand or a foot reaches for a mark, a thing of the set or a part of
+another player, and stays on it: the two bones of its limb are turned to
+bring it there, over whatever the clip does. A thing of the set is taken in
+a hand, goes where the hand goes, and is put down on a place.
+
 No script comes with the request. The set is a .blend whose own Python is
 not run (--disable-autoexec).
 """
@@ -70,6 +75,14 @@ ROUND = (4.0, 0.75)
 KERB = 3.0
 # A floor that is this share of a body's height higher or lower beside it than under it is a step's edge.
 UNEVEN = 0.03
+# A hand further than this share of a body's height from a thing does not take it.
+GRASP = 0.05
+# How long a hand takes to come to what it reaches for, and to go back to what its clip does.
+REACH_SECONDS = 0.4
+# How long a reach lasts when nothing says, the coming and the going among it.
+REACH_LASTS = 1.5
+# The bone added to a limb that reaches, at the middle of its hand or foot.
+TIP = "helper.reach."
 # No more points of a body's skin than this are looked at for being in the set.
 LOOKED_AT = 240
 
@@ -110,6 +123,16 @@ def shortest_of(quaternion):
     return quaternion.copy() if quaternion.w >= 0 else -quaternion
 
 
+def smooth(share):
+    share = min(max(share, 0.0), 1.0)
+    return share * share * (3 - 2 * share)
+
+
+def meshes_of(thing):
+    """A thing of the set and what hangs from it, as far as it has a surface."""
+    return [o for o in [thing] + list(thing.children_recursive) if o.type == "MESH"]
+
+
 def said(place):
     """A place as it was asked for: a mark's name, or its metres."""
     return place if isinstance(place, str) else f"{place[0]:g}, {place[1]:g}"
@@ -135,11 +158,27 @@ def main():
     # What is seen of the scene now. Read again whenever something in it has been moved.
     now = {"graph": bpy.context.evaluated_depsgraph_get()}
 
-    solid = set_meshes
+    def thing_of(name, player, what):
+        """A thing of the set, by the name it has there."""
+        found = scene.objects.get(name)
+        if found is None or found not in set_objects or name.startswith(MARK) or found.type in ("CAMERA", "LIGHT"):
+            names = ", ".join(sorted(o.name for o in set_objects if not o.name.startswith(MARK) and o.type not in ("CAMERA", "LIGHT"))) or "none"
+            fail(f"the set has no thing named {name} for {player} ({what}): its things are {names}" if cfg.get("set") else f"{player} ({what}): there is no set, so nothing named {name} to touch. A mark or a thing is an object of the set")
+        return found
+
+    # What is taken in a hand is in nobody's way, is nobody's floor and hides nobody.
+    taken = {}
+    for player in cfg["players"]:
+        for number, act in enumerate(player.get("does") or [], 1):
+            for what in ("take", "put"):
+                if act.get(what):
+                    taken[act[what]["object"]] = thing_of(act[what]["object"], player["name"], f"act {number}, {what}")
+    props = {mesh for thing in taken.values() for mesh in meshes_of(thing)}
+    solid = set_meshes - props
 
     def cast(origin, way, distance):
         """The first solid thing of the set a ray meets: (where, the thing, how far), or None.
-        A player is passed through."""
+        A player, and a thing that is carried, are passed through."""
         gone = 0.0
         for _ in range(24):
             hit, location, _normal, _face, obj, _matrix = scene.ray_cast(now["graph"], origin + way * gone, way, distance=distance - gone)
@@ -192,19 +231,48 @@ def main():
         x, y = where
         return mathutils.Vector((x, y, floor_at(x, y))), None
 
-    # Where everyone stands and goes is found before anyone is brought in, so that a player is not another's floor.
+    # Where everyone stands and goes, and what each touches, is found before anyone is brought in:
+    # a request that names what the set does not have is refused before a body is read.
     plans = []
+    # The limbs a player reaches with, and those of it another reaches for.
+    wanted = {player["name"]: set() for player in cfg["players"]}
     for player in cfg["players"]:
-        start, mark_turn = place_of(player.get("at", [0, 0]), player["name"], "at")
+        name = player["name"]
+        start, mark_turn = place_of(player.get("at", [0, 0]), name, "at")
         acts, at = [], start
         for number, act in enumerate(player.get("does") or [], 1):
             entry = {"act": act, "number": number, "from": at, "to": None, "way": None, "round": []}
             if act.get("to") is not None:
-                entry["to"] = place_of(act["to"], player["name"], f"act {number}, to")[0]
+                entry["to"] = place_of(act["to"], name, f"act {number}, to")[0]
                 at = entry["to"]
+            reach, take, put_down = act.get("reach"), act.get("take"), act.get("put")
+            if reach:
+                wanted[name].add(reach["with"])
+                if reach.get("mark") is not None:
+                    if reach["mark"] not in marks:
+                        fail(f"the set has no mark named {reach['mark']} for {name} (act {number}, reach): its marks are {', '.join(sorted(marks)) or 'none'}. A mark is an object named {MARK}<name>")
+                    entry["aim"] = ("mark", marks[reach["mark"]])
+                elif reach.get("object") is not None:
+                    entry["aim"] = ("thing", thing_of(reach["object"], name, f"act {number}, reach"))
+                else:
+                    entry["aim"] = ("part", reach["player"], reach["part"])
+                    if reach["part"] in anatomy.LIMBS:
+                        wanted[reach["player"]].add(reach["part"])
+            if take:
+                wanted[name].add(take["with"])
+                entry["aim"] = ("thing", taken[take["object"]])
+            if put_down:
+                where = put_down["at"]
+                if isinstance(where, str):
+                    if where not in marks:
+                        fail(f"the set has no mark named {where} for {name} (act {number}, put): its marks are {', '.join(sorted(marks)) or 'none'}. A mark is an object named {MARK}<name>")
+                    entry["put"] = marks[where].matrix_world.translation.copy()
+                else:
+                    entry["put"] = mathutils.Vector((where[0], where[1], floor_at(where[0], where[1])))
             acts.append(entry)
         plans.append({"player": player, "start": start, "markTurn": mark_turn, "acts": acts})
     by_name = {plan["player"]["name"]: plan for plan in plans}
+    touching = any(entry["act"].get(what) for plan in plans for entry in plan["acts"] for what in ("reach", "take", "put"))
 
     # ── Bring each player in, under a handle that stands on its mark ────────
     def moving(actions):
@@ -262,10 +330,51 @@ def main():
         corners = [o.matrix_world @ mathutils.Vector(c) for o in body for c in o.bound_box]
         low = mathutils.Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
         high = mathutils.Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
+        # A limb that reaches, or is reached for, is given a bone at the middle of its hand or foot,
+        # fixed to its forearm or shin: what is brought to a place is that. Before any bone is kept:
+        # adding one makes the skeleton's bones anew.
+        limbs = {}
+        if wanted[player["name"]]:
+            if not arm:
+                fail(f"{player['name']} has no skeleton: it reaches for nothing, and nothing reaches for its hand")
+            roles = anatomy.read_roles(arm, SIDE, low, high)
+            if not anatomy.is_biped(roles):
+                fail(f"{player['name']}'s bones were not read as a two-legged body's: it reaches for nothing, and nothing reaches for its hand")
+            parts = anatomy.Parts(arm, body, roles)
+            for limb in sorted(wanted[player["name"]]):
+                try:
+                    limbs[limb] = anatomy.limb(arm, roles, parts, limb)
+                except ValueError as error:
+                    fail(f"{player['name']}'s {limb} cannot reach: {error}")
+            to_arm = arm.matrix_world.inverted()
+            bpy.context.view_layer.objects.active = arm
+            bpy.ops.object.mode_set(mode="EDIT")
+            for limb, found in limbs.items():
+                # A short bone that ends at the middle of the hand: Blender brings the end of a bone to a goal.
+                tip = arm.data.edit_bones.new(TIP + limb)
+                tip.tail = to_arm @ found["middle"]
+                tip.head = tip.tail - mathutils.Vector((0, 0, max(found["long"] * 0.02, 1e-3)))
+                tip.parent = arm.data.edit_bones[found["mid"]]
+                tip.use_connect = False
+                tip.use_deform = False
+            bpy.ops.object.mode_set(mode="OBJECT")
+            for limb, found in limbs.items():
+                goal = bpy.data.objects.new(f"reach.{player['name']}.{limb}", None)
+                scene.collection.objects.link(goal)
+                bone = arm.pose.bones[TIP + limb]
+                # The bone itself is not turned: the two before it are, and its end is brought to the goal.
+                bone.lock_ik_x = bone.lock_ik_y = bone.lock_ik_z = True
+                hold = bone.constraints.new("IK")
+                hold.name = "reach"
+                hold.target, hold.chain_count, hold.influence = goal, 3, 0.0
+                # The middle of the hand in the hand's own space: where it is whatever the wrist does.
+                found.update({"goal": goal, "within": arm.data.bones[found["end"]].matrix_local.inverted() @ (to_arm @ found["middle"])})
+            bpy.context.view_layer.update()
+
         roots = [b for b in arm.pose.bones if b.parent is None] if arm else []
         lead = max(roots, key=lambda b: len(b.children_recursive)) if roots else None
         plan.update({
-            "handle": handle, "arm": arm, "body": body, "faces": faces, "lead": lead,
+            "handle": handle, "arm": arm, "body": body, "faces": faces, "lead": lead, "limbs": limbs,
             # Half its width as it stands, for walking by things; a body read as two-legged is measured below, without its arms.
             "girth": min(max(high.x - low.x, high.y - low.y), high.z - low.z) / 2,
             "own": moving(actions) if arm else None,
@@ -276,7 +385,7 @@ def main():
             notes.append(f"{player['name']} does not stand on the ground in its own file (its lowest point is at {low.z:.2f}): it was put on its mark by its lowest point")
 
         # How it stands when it plays nothing, and what of it is in what already then.
-        plan.update({"standing": None, "stance": [], "parts": None, "before": {}})
+        plan.update({"standing": None, "stance": [], "parts": None, "before": {}, "joints": {}})
         if arm:
             roles = anatomy.read_roles(arm, SIDE, low, high)
             if anatomy.is_biped(roles):
@@ -287,6 +396,7 @@ def main():
                 trunk = np.concatenate(trunk) if trunk else np.zeros((0, 3))
                 if len(trunk):
                     plan["girth"] = float(max(np.ptp(trunk[:, 0]), np.ptp(trunk[:, 1]))) / 2
+                plan["joints"] = {role: bone.name for role, bone in roles.items()}
                 plan.update({
                     "standing": hangs, "parts": parts, "before": parts.through(),
                     # By name: a bone's handle is not kept across the imports that follow.
@@ -472,6 +582,7 @@ def main():
             clip = plan["measured"].get(act["clip"]) if act.get("clip") else None
             distance = entry["lengths"][-1] if entry["to"] is not None else 0.0
             entry["look"] = max(plan["girth"], 0.15)
+            touch = act.get("reach") or act.get("take") or act.get("put")
             if act.get("seconds") is not None:
                 seconds = float(act["seconds"])
             elif entry["to"] is not None and distance > 1e-6:
@@ -480,10 +591,13 @@ def main():
                 seconds = distance / clip["pace"]
             elif clip:
                 seconds = clip["seconds"] * (act.get("loops") or 1)
+            elif touch:
+                # Long enough to come to it and to go back; a reach stays as long as it says.
+                seconds = (touch.get("after") or 0.0) + ((touch.get("seconds") or REACH_LASTS) if act.get("reach") else 2 * REACH_SECONDS)
             else:
                 seconds = TURN_SECONDS if (act.get("turn") is not None or act.get("towards") is not None) else 0.0
-            if not clip and entry["to"] is None and act.get("seconds") is None and act.get("turn") is None and act.get("towards") is None:
-                fail(f"{player['name']}, act {number} does nothing: give it a clip, a place to go `to`, a turn, or `seconds` to wait")
+            if not clip and not touch and entry["to"] is None and act.get("seconds") is None and act.get("turn") is None and act.get("towards") is None:
+                fail(f"{player['name']}, act {number} does nothing: give it a clip, a place to go `to`, a turn, something to reach for, or `seconds` to wait")
             entry.update({"clip": clip, "start": moment, "seconds": seconds, "distance": distance})
             moment += seconds
         plan["ends"] = moment
@@ -492,6 +606,81 @@ def main():
     frames = max(1, round(seconds * fps))
     if frames > cfg["maxFrames"]:
         fail(f"the shot would be {frames} frames ({seconds:.1f}s at {fps} a second): at most {cfg['maxFrames']}. Ask for fewer seconds or loops")
+
+    # ── What is reached for, taken and put down, and when ───────────────────
+    def aim_said(entry):
+        act = entry["act"]
+        if act.get("reach"):
+            reach = act["reach"]
+            return reach["mark"] if reach.get("mark") is not None else reach["object"] if reach.get("object") is not None else f"{reach['player']}'s {reach['part']}"
+        return (act.get("take") or act.get("put"))["object"]
+
+    for plan in plans:
+        windows = []
+        for entry in plan["acts"]:
+            act, begins = entry["act"], entry["start"]
+            if act.get("reach"):
+                reach = act["reach"]
+                starts = begins + (reach.get("after") or 0.0)
+                ends = starts + reach["seconds"] if reach.get("seconds") else begins + entry["seconds"]
+                if ends - starts < 1.5 / fps:
+                    fail(f"{plan['player']['name']}, act {entry['number']}: its reach has no time: it starts {reach.get('after') or 0:g}s into an act of {entry['seconds']:.2f}s. Give the reach or the act `seconds`")
+                last = windows[-1] if windows else None
+                if last and last["kind"] == "reach" and last["limb"] == reach["with"] and last["said"] == aim_said(entry) and abs(last["to"] - starts) < 1.5 / fps:
+                    # The same reach in the next act: it stays where it is.
+                    last["to"] = ends
+                    entry["window"] = None
+                    continue
+                windows.append({"kind": "reach", "limb": reach["with"], "from": starts, "to": ends, "aim": entry["aim"], "said": aim_said(entry), "entry": entry})
+            for kind in ("take", "put"):
+                if act.get(kind):
+                    starts = begins + (act[kind].get("after") or 0.0)
+                    windows.append({
+                        "kind": kind, "limb": act[kind].get("with"), "from": starts, "at": starts + REACH_SECONDS, "to": starts + 2 * REACH_SECONDS,
+                        "thing": taken[act[kind]["object"]], "said": act[kind]["object"], "entry": entry, "done": False,
+                        **({"aim": entry["aim"]} if kind == "take" else {"place": entry["put"]}),
+                    })
+            if windows and windows[-1]["entry"] is entry:
+                entry["window"] = windows[-1]
+        plan["windows"] = windows
+
+    # Who has what, in the order things happen: a thing is put down by the hand that took it.
+    has = {}
+    for _moment, _order, plan, window in sorted(((window["at"], order, plan, window) for order, plan in enumerate(plans) for window in plan["windows"] if window["kind"] != "reach"), key=lambda item: item[:2]):
+        name, thing = plan["player"]["name"], window["said"]
+        if window["kind"] == "take":
+            if has.get(thing, (None,))[0] is plan:
+                fail(f"{name}, act {window['entry']['number']}: it takes {thing} and has it already")
+            has[thing] = (plan, window["limb"])
+        else:
+            if has.get(thing, (None,))[0] is not plan:
+                fail(f"{name}, act {window['entry']['number']}: it puts {thing} down and does not have it then: it takes it first (`take`)")
+            window["limb"] = has.pop(thing)[1]
+
+    for plan in plans:
+        name = plan["player"]["name"]
+        for window in plan["windows"]:
+            lasts = window["to"] - window["from"]
+            window["in"] = min(REACH_SECONDS, lasts / 3) if window["kind"] == "reach" else REACH_SECONDS
+            # A reach that lasts to the end of the shot stays; any other goes back to what its clip does.
+            window["out"] = 0.0 if window["kind"] == "reach" and window["to"] >= seconds - 0.5 / fps else window["in"]
+            window.update({"held": 0, "gap": 0.0, "far": 0.0, "since": None})
+            if window["kind"] == "reach" and window["aim"][0] == "part":
+                other = by_name[window["aim"][1]]
+                if other["parts"] is None:
+                    fail(f"{name}, act {window['entry']['number']}: {window['aim'][1]}'s bones were not read as a two-legged body's, so it has no {window['aim'][2]} to reach for: reach for a mark where it is")
+        ordered = sorted(plan["windows"], key=lambda window: (window["limb"], window["from"]))
+        for one, other in zip(ordered, ordered[1:]):
+            if one["limb"] == other["limb"] and other["from"] < one["to"] - 0.5 / fps:
+                fail(f"{name}'s {one['limb']} is asked for two things at once: {one['said']} until {one['to']:.2f}s and {other['said']} from {other['from']:.2f}s. Give the second `after`, or the other hand")
+
+    def weight(window, moment):
+        """How far a limb is given over to what it reaches for, from 0 (its clip's) to 1 (on it)."""
+        if moment <= window["from"] or (window["out"] > 0 and moment >= window["to"]):
+            return 0.0
+        coming = smooth((moment - window["from"]) / window["in"]) if window["in"] > 0 else 1.0
+        going = smooth((window["to"] - moment) / window["out"]) if window["out"] > 0 else 1.0
+        return min(coming, going)
 
     # Under everything, the body standing. Each clip on a track of its own, above the one before.
     # A clip comes in over the pose the last one left, or out of standing; when nothing follows
@@ -711,6 +900,146 @@ def main():
     scene.render.image_settings.color_mode = "RGB"
     scene.render.film_transparent = False
 
+    # ── Hands on things ─────────────────────────────────────────────────────
+    def joint(plan, role):
+        return plan["arm"].matrix_world @ plan["arm"].pose.bones[plan["joints"][role]].head
+
+    def middle_of(plan, limb):
+        """Where the middle of a hand or a foot is now."""
+        found = plan["limbs"][limb]
+        return plan["arm"].matrix_world @ plan["arm"].pose.bones[found["end"]].matrix @ found["within"]
+
+    def tip_of(plan, limb):
+        """Where the bone that is brought to a place is now: the middle of the hand as its forearm alone has it."""
+        return plan["arm"].matrix_world @ plan["arm"].pose.bones[TIP + limb].tail
+
+    def nearest_on(thing, point):
+        """The place on a thing's surface nearest a point; where it is, when it has no surface."""
+        best = None
+        for mesh in meshes_of(thing):
+            shown = mesh.evaluated_get(now["graph"])
+            found, location, _normal, _face = shown.closest_point_on_mesh(shown.matrix_world.inverted() @ point)
+            if found:
+                location = shown.matrix_world @ location
+                if best is None or (location - point).length < (best - point).length:
+                    best = location
+        return best if best is not None else thing.matrix_world.translation.copy()
+
+    def stands_on(thing):
+        """The point a thing is put down by: under where it is, at its lowest."""
+        at = thing.matrix_world.translation
+        lows = [(mesh.matrix_world @ mathutils.Vector(corner)).z for mesh in meshes_of(thing) for corner in mesh.bound_box]
+        return mathutils.Vector((at.x, at.y, min(lows) if lows else at.z))
+
+    def reaching(plan, limb, moment):
+        """What a limb is given over to at a moment: (the window, how far), or (None, 0)."""
+        for window in plan["windows"]:
+            if window["limb"] == limb:
+                share = weight(window, moment)
+                if share > 0:
+                    return window, share
+        return None, 0.0
+
+    def aimed(plan, window, moment, skins):
+        """Where the middle of a hand or a foot is to be: on what it reaches for, as that is now."""
+        limb = window["limb"]
+        root = joint(plan, anatomy.LIMBS[limb][0])
+        if window["kind"] == "put":
+            # Where the hand must be for the thing in it to stand on its place.
+            return middle_of(plan, limb) + (window["place"] - stands_on(window["thing"]))
+        kind = window["aim"][0]
+        if kind == "mark":
+            return window["aim"][1].matrix_world.translation.copy()
+        if kind == "thing":
+            return nearest_on(window["aim"][1], root)
+        other, part = by_name[window["aim"][1]], window["aim"][2]
+        if part in anatomy.LIMBS:
+            theirs, share = reaching(other, part, moment)
+            if theirs is not None and theirs["kind"] == "reach" and theirs["aim"][0] == "part" and theirs["aim"][1:] == (plan["player"]["name"], limb):
+                # Two that reach for each other meet between their shoulders, at the height of an elbow that hangs.
+                far = joint(other, anatomy.LIMBS[part][0])
+                between = (root + far) / 2
+                between.z = (root.z - plan["limbs"][limb]["upper"] + far.z - other["limbs"][part]["upper"]) / 2
+                return between
+            return middle_of(other, part)
+        skin = skins(other)
+        if part.endswith("shoulder"):
+            # On top of it: the highest of the skin about the joint.
+            side = part.split()[0]
+            about = joint(other, f"upperArm.{side}")
+            near = np.concatenate([other["parts"].of(f"{side} upper arm", skin), other["parts"].of("body", skin)])
+            near = near[np.linalg.norm(near - np.array(about), axis=1) <= other["tall"] * 0.1]
+            return mathutils.Vector(near[np.argmax(near[:, 2])].tolist()) if len(near) else about
+        points = other["parts"].of(part, skin)
+        if not len(points):
+            return where(other)
+        return mathutils.Vector(points[np.argmin(np.linalg.norm(points - np.array(root), axis=1))].tolist())
+
+    # A thing in a hand: who has it, and how it lies in the hand.
+    holding = {}
+    carried = []
+
+    def settle(moment, skins):
+        """Bring every hand that reaches to what it reaches for, and every thing that is held with its hand."""
+        active = [(plan, window, weight(window, moment)) for plan in plans for window in plan["windows"]]
+        active = [(plan, window, share) for plan, window, share in active if share > 0]
+
+        def carry():
+            for thing, held in holding.items():
+                thing.matrix_world = held["plan"]["arm"].matrix_world @ held["plan"]["arm"].pose.bones[held["end"]].matrix @ held["lies"]
+            if holding:
+                bpy.context.view_layer.update()
+
+        carry()
+        # Twice: what a hand reaches for may itself be moved by a hand.
+        for _again in range(2 if active else 0):
+            for plan, window, _share in active:
+                if not (window["kind"] != "reach" and window["done"]):
+                    # Once a thing is taken or put down, the hand goes back from where it was then.
+                    window["to_be"] = aimed(plan, window, moment, skins)
+                limb = window["limb"]
+                # The bone brought there is fixed to the forearm; the hand may be turned at the wrist.
+                plan["limbs"][limb]["goal"].location = window["to_be"] - (middle_of(plan, limb) - tip_of(plan, limb))
+            bpy.context.view_layer.update()
+            carry()
+            skins.cache_clear()
+        now["graph"] = bpy.context.evaluated_depsgraph_get()
+        for plan, window, share in active:
+            limb, name = window["limb"], plan["player"]["name"]
+            short = (middle_of(plan, limb) - window["to_be"]).length
+            if window["kind"] == "reach":
+                if share >= 0.999:
+                    if window["since"] is None:
+                        window["since"] = moment
+                    window["held"] += 1
+                    window["gap"] = max(window["gap"], short)
+                    window["far"] = max(window["far"], (window["to_be"] - joint(plan, anatomy.LIMBS[limb][0])).length)
+            elif not window["done"] and moment >= window["at"] - 0.5 / fps:
+                window["done"] = True
+                thing = window["thing"]
+                if window["kind"] == "take":
+                    window.update({"since": moment, "gap": short, "far": (window["to_be"] - joint(plan, anatomy.LIMBS[limb][0])).length})
+                    if short > plan["tall"] * GRASP:
+                        # Too far: it stays where it is, with whoever has it.
+                        window["missed"] = True
+                        continue
+                    for record in carried:
+                        if record["object"] == window["said"] and record["until"] is None:
+                            record["until"] = round(moment, 3)
+                    end = plan["limbs"][limb]["end"]
+                    holding[thing] = {"plan": plan, "end": end, "lies": (plan["arm"].matrix_world @ plan["arm"].pose.bones[end].matrix).inverted() @ thing.matrix_world}
+                    carried.append({"object": window["said"], "by": name, "with": limb, "from": round(moment, 3), "until": None, "left": None})
+                elif holding.get(thing, {}).get("plan") is not plan:
+                    # It never had it: the hand that was to take it did not get to it.
+                    window.update({"since": moment, "missed": True})
+                else:
+                    holding.pop(thing, None)
+                    left = stands_on(thing)
+                    for record in carried:
+                        if record["object"] == window["said"] and record["until"] is None:
+                            record.update({"until": round(moment, 3), "left": [round(v, 3) for v in left]})
+                    window.update({"since": moment, "gap": (left - window["place"]).length})
+
     class Skins:
         """Each body's skin as it is now, read once however many ask."""
 
@@ -731,6 +1060,8 @@ def main():
 
         def __init__(self, plan):
             self.plan, self.deep, self.seen, self.looked = plan, plan["tall"] * anatomy.DEEP, {}, None
+            # What it reaches for and takes, it touches: that is not being in it.
+            self.touched = {mesh for window in plan["windows"] for thing in [window.get("thing") or (window["aim"][1] if window["aim"][0] == "thing" else None)] if thing is not None for mesh in meshes_of(thing)}
 
         def look(self, moment, skin, middle):
             if skin is None or not len(skin):
@@ -749,7 +1080,7 @@ def main():
                 if reach < 1e-6:
                     continue
                 met = cast(point - way, way / reach, reach)
-                if met is not None and reach - met[2] > self.deep:
+                if met is not None and met[1] not in self.touched and reach - met[2] > self.deep:
                     found.setdefault(met[1].name, []).append(reach - met[2])
             for thing, depths in found.items():
                 # One point alone may be a hand held out behind a post, not in it.
@@ -776,9 +1107,13 @@ def main():
         moment = index / fps
         for plan in plans:
             put(plan, moment)
+            for limb, found in plan["limbs"].items():
+                plan["arm"].pose.bones[TIP + limb].constraints["reach"].influence = reaching(plan, limb, moment)[1]
         scene.frame_set(first_frame + index)
         now["graph"] = bpy.context.evaluated_depsgraph_get()
         skins.cache_clear()
+        if touching:
+            settle(moment, skins)
         spots = {plan["player"]["name"]: where(plan) for plan in plans}
         if place is not None and follows:
             # It goes with them and holds them as it was asked to: nearer as they come together, further as they part.
@@ -826,8 +1161,38 @@ def main():
                 **({"pace": round(clip["pace"], 3)} if clip and entry["to"] is not None else {}),
                 # What stood in the straight way, which it went round.
                 **({"round": entry["round"]} if entry["round"] else {}),
+                **touched(plan, entry),
             })
         return out
+
+    def touched(plan, entry):
+        """What an act reached for, took or put down, and how near it came."""
+        window = entry.get("window")
+        if window is None:
+            return {}
+        if window["kind"] == "reach":
+            return {"reach": {
+                "with": window["limb"], "for": window["said"],
+                # From when it was on it and for how long; null and 0 when the shot ended before it got there.
+                "from": round(window["since"], 3) if window["since"] is not None else None, "seconds": round(window["held"] / fps, 3),
+                # The furthest the middle of the hand was from what it reached for while on it, and the furthest that was
+                # from the shoulder, beside how long the limb is: a gap is an arm too short.
+                "gap": round(window["gap"], 3), "far": round(window["far"], 3), "long": round(plan["limbs"][window["limb"]]["long"], 3),
+            }}
+        if window["kind"] == "take":
+            return {"take": {
+                "object": window["said"], "with": window["limb"], "at": round(window["since"], 3) if window["since"] is not None else None,
+                # Whether it took it: a hand that stays too far from a thing leaves it where it is.
+                "taken": window["since"] is not None and not window.get("missed", False),
+                # How far the hand was from it then: taken, it is carried that far from the hand.
+                "gap": round(window["gap"], 3), "far": round(window["far"], 3), "long": round(plan["limbs"][window["limb"]]["long"], 3),
+            }}
+        return {"put": {
+            "object": window["said"], "with": window["limb"], "at": round(window["since"], 3) if window["since"] is not None else None,
+            # Whether it had it to put down, and how far from its place it was left.
+            "put": window["since"] is not None and not window.get("missed", False),
+            "gap": round(window["gap"], 3), "place": [round(v, 3) for v in window["place"]],
+        }}
 
     (OUT / "shot.json").write_text(json.dumps({
         "frames": frames, "fps": fps, "seconds": round(frames / fps, 3), "width": width, "height": height,
@@ -854,6 +1219,8 @@ def main():
             "inSet": within[plan["player"]["name"]].told(1 / fps) if plan["player"]["name"] in within else [],
         } for plan in plans],
         "tooClose": [{"players": list(pair), "from": moment} for pair, moment in close.items()],
+        # Things of the set that were in a hand: whose, from when, until when (null: to the end), and where each was left.
+        "carried": carried,
         "notes": notes,
         "engine": scene.render.engine, "blender": bpy.app.version_string,
     }, indent=2) + "\n")

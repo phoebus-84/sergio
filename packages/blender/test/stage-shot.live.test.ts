@@ -214,3 +214,68 @@ test("LIVE: in a yard, a walk goes round a post and steps onto a pavement, a wal
     /^Error: walker, act 1: there is no way to 0, -4 round wall \(looked for within 4 m\)\. Give it a place to go by first, one act for each, or move what is in the way$/,
   );
 });
+
+test("LIVE: a hand is brought to a mark and stays as short of one out of reach as its arm is, a thing is taken, carried and put down, and two hands meet", live, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "stage-touch-live-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plain = join(root, "figure.glb"), handed = join(root, "handed.glb");
+  await writeFile(plain, stickFigure());
+  await writeFile(handed, stickFigure({ hands: true }));
+  const set = (await runBlender({ mode: "create", scriptPath: fileURLToPath(new URL("./fixtures/stage-yard.py", import.meta.url)), outputDir: join(root, "set"), trustedInput: true, settings: { fps: 12 } })).blendPath;
+  const tiny = { width: 128, height: 72, samples: 1 };
+
+  // A figure with hands and one whose arms end at the forearm: the middle of what its arm ends in is brought there.
+  const reached = await stageShot({
+    outputDir: join(root, "reach"), set, camera: "set", ...tiny,
+    players: [
+      { name: "near", path: handed, at: [-3, 0], does: [{ reach: { with: "right hand", mark: "handle" }, seconds: 2 }] },
+      { name: "short", path: plain, at: [-3, -1], does: [{ reach: { with: "right hand", mark: "far" }, seconds: 1.5 }] },
+    ],
+  });
+  const on = reached.report.players[0]!.does[0]!.reach!, off = reached.report.players[1]!.does[0]!.reach!;
+  assert.deepEqual([on.with, on.for], ["right hand", "handle"]);
+  assert.ok(on.gap < 0.01 && on.far < on.long, JSON.stringify(on));
+  // It takes 0.4 s to come, and the shot ends with the hand still on it: a reach that lasts to the end does not go back.
+  near(on.from!, 0.4, 1 / 12, "on it from");
+  near(on.seconds, 1.6, 1 / 12, "on it for");
+  // The other's act ends half a second before the shot does: its hand comes, stays, and goes back in its 1.5 s.
+  near(off.seconds, 0.7, 2 / 12, "on it for, with the going back");
+  // The mark is a metre and a half from the shoulder and the arm is 0.6 long: it stays as far short as that leaves.
+  near(off.long, 0.6, 0.01, "an arm that ends at its forearm");
+  near(off.gap, off.far - off.long, 0.02, "as short as the arm is");
+  assert.ok(off.gap > 0.8, JSON.stringify(off));
+
+  // Taken from the table, carried two metres, put on a mark: it is left there, and the hand went where the thing had to be.
+  const carried = await stageShot({
+    outputDir: join(root, "carry"), set, camera: "set", ...tiny,
+    players: [{ name: "porter", path: handed, at: [3, 1.45], turn: 180, does: [{ take: { object: "lantern", with: "right hand" } }, { clip: handed, to: [1, 1.45] }, { turn: 180 }, { put: { object: "lantern", at: "ledge" } }, { seconds: 0.5 }] }],
+  });
+  const acts = carried.report.players[0]!.does;
+  assert.ok(acts[0]!.take!.gap < 0.02 && acts[3]!.put!.gap < 0.03, JSON.stringify([acts[0]!.take, acts[3]!.put]));
+  near(acts[0]!.take!.at!, 0.4, 1 / 12, "taken when the hand is on it");
+  assert.deepEqual(acts[3]!.put!.place, [1.25, 1.8, 1]);
+  assert.equal(carried.report.carried!.length, 1);
+  const thing = carried.report.carried![0]!;
+  assert.deepEqual([thing.object, thing.by, thing.with, thing.from, thing.until], ["lantern", "porter", "right hand", acts[0]!.take!.at, acts[3]!.put!.at]);
+  for (const [axis, wanted] of [1.25, 1.8, 1].entries()) near(thing.left![axis]!, wanted, 0.03, `left on the ledge, axis ${axis}`);
+
+  // Two that reach for each other's hand meet between them; a hand lies on a shoulder within reach.
+  const met = await stageShot({
+    outputDir: join(root, "hands"), ...small, camera: { view: "front", framing: "full", follow: false },
+    players: [
+      { name: "a", path: handed, at: [-0.25, 0], towards: "b", does: [{ reach: { with: "right hand", player: "b", part: "right hand" }, seconds: 1.5 }, { reach: { with: "left hand", player: "b", part: "right shoulder" }, seconds: 1.5 }] },
+      { name: "b", path: handed, at: [0.25, 0], towards: "a", does: [{ reach: { with: "right hand", player: "a", part: "right hand" }, seconds: 1.5 }] },
+    ],
+  });
+  const [a, b] = met.report.players as [typeof met.report.players[0], typeof met.report.players[0]];
+  assert.deepEqual([a.does[0]!.reach!.for, b.does[0]!.reach!.for, a.does[1]!.reach!.for], ["b's right hand", "a's right hand", "b's right shoulder"]);
+  for (const reach of [a.does[0]!.reach!, b.does[0]!.reach!, a.does[1]!.reach!]) assert.ok(reach.gap < 0.01 && reach.seconds > 0.5, JSON.stringify(reach));
+  assert.deepEqual(met.report.tooClose, []);
+
+  // What the set does not have, and what a body cannot do, is said before anything is filmed.
+  const one = (does: unknown[], more: Record<string, unknown> = {}) => stageShot({ outputDir: join(root, `no-${Math.random().toString(36).slice(2)}`), set, camera: "set", ...tiny, players: [{ name: "porter", path: handed, at: [3, 1.45], ...more, does: does as never }] });
+  await assert.rejects(one([{ reach: { with: "right hand", mark: "knob" } }]), /^Error: the set has no mark named knob for porter \(act 1, reach\): its marks are far, handle, ledge\./);
+  await assert.rejects(one([{ take: { object: "lamp", with: "right hand" } }]), /^Error: the set has no thing named lamp for porter \(act 1, take\): its things are floor, lantern, pavement, post, table, wall$/);
+  await assert.rejects(one([{ put: { object: "lantern", at: "ledge" } }]), /^Error: porter, act 1: it puts lantern down and does not have it then: it takes it first \(`take`\)$/);
+  await assert.rejects(one([{ reach: { with: "right hand", mark: "handle", seconds: 2 } }, { reach: { with: "right hand", mark: "far", after: 0 }, seconds: 1 }].slice(0, 1).concat([{ take: { object: "lantern", with: "right hand" }, seconds: 0.1 } as never, { reach: { with: "right hand", mark: "far" }, seconds: 1 } as never])), /^Error: porter's right hand is asked for two things at once: lantern until .*s and far from .*s\. Give the second `after`, or the other hand$/);
+});

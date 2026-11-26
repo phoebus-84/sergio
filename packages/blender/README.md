@@ -182,6 +182,15 @@ const { mediaPath, report } = await stageShot({
   and does not walk along it. With no way within four metres of the
   straight one (or three quarters of its length), or with someone
   standing where it ends, `stageShot` throws and names what stands there.
+- **A hand or a foot reaches** (`reach`) for a mark, the nearest of a thing
+  of the set, or a part of another player, and stays on it over what the
+  clip does: a short bone is added to the limb, ending at the middle of
+  the hand's skin, and Blender's IK brings it there by turning the two
+  bones before it, eased in and out over 0.4 s. Two hands that reach for
+  each other meet between their shoulders. A thing of the set is taken
+  (`take`) by a hand that gets within a twentieth of the body's height of
+  it, goes where that hand goes, and is put down (`put`) by its lowest
+  point on a mark or on the floor.
 - **The camera** is the set's own, or made from the size of the players it
   is on and where they stand. It goes with them and keeps its framing,
   nearer as they come together; told to stay, it holds everywhere they go.
@@ -198,11 +207,15 @@ const { mediaPath, report } = await stageShot({
   parts of it that went into each other (`through`, in metres, as the rig
   sheet measures them) and its skin through things of the set (`inSet`:
   points of it on the far side of a surface from its own middle, above
-  what it steps on); and the pairs that came to stand in one place.
+  what it steps on); for each reach, take and put, how far the middle of
+  the hand stayed from where it was to be (`gap`), how far that was from
+  the shoulder (`far`) and how long the limb is (`long`); the pairs that
+  came to stand in one place; and what was carried, by whom, until when,
+  and where it was left (`carried`).
 
-The set's own Python is not run, and no script comes with a request. Nobody
-touches anything: there is no contact between a body and the set, or
-another body.
+The set's own Python is not run, and no script comes with a request. Hands
+do not close on what they hold, a body does not lean or step to reach, and
+nothing of the set is pushed or opened by a player.
 
 ## Standalone workflow
 
