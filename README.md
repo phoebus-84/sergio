@@ -2,56 +2,63 @@
 
 **Make episode twenty as good as episode one.**
 
-A local, open-source production system for video made with AI agents. Your
-agent — Claude Code or Pi — writes, generates and edits. The studio keeps what
-the agent forgets: every attempt, what each paid call cost, the licence of
-each borrowed asset, and each decision you approved. So a series stays a
-series, and a correction stays small: a fix at second 47 leaves everything
-else alone.
+Sergio is a local, open-source studio for making video with AI agents. Your
+agent, Claude Code or Pi, writes, generates and edits. Sergio keeps what the
+agent forgets: every attempt, what each paid call cost, the licence of each
+borrowed asset, and each decision you approved.
 
-## Made with it
+<p>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="An illustrated film cut to an original score" src="https://phoebus-84.github.io/video-studio-site/showcase/lontano.jpg"></a>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="An ambient room: a looping master, one hour long" src="https://phoebus-84.github.io/video-studio-site/showcase/ambient-kowloon.jpg"></a>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="A visual essay re-edited around a narration that did not change" src="https://phoebus-84.github.io/video-studio-site/showcase/nothing-is-only-one-thing.jpg"></a>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="A Blender scene built by script and kept editable" src="https://phoebus-84.github.io/video-studio-site/showcase/underwater.jpg"></a>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="A software explainer written from one pinned commit of the repository it explains" src="https://phoebus-84.github.io/video-studio-site/showcase/jaromail.jpg"></a>
+<a href="https://phoebus-84.github.io/video-studio-site/examples"><img height="150" alt="A vertical lesson: one episode of a series with a fixed format" src="https://phoebus-84.github.io/video-studio-site/showcase/sonnet.jpg"></a>
+</p>
 
-| A film of this kind | Length |
-|---|---|
-| A software explainer written from one pinned commit of the repository it explains | 3 min 47 s |
-| An ambient room: a looping master, extended to its length on the machine | 1 hour |
-| A visual essay re-edited from the start around a narration that did not change | 3 min 4 s |
-| An illustrated film cut to an original score | 4 min 14 s |
-| A Blender scene built by script and kept editable | 15 s |
-| A vertical lesson: one episode of a series with a fixed format | 54 s |
+Six films made with Sergio, from a one-hour ambient room to a 54-second
+vertical lesson. **[Watch them](https://phoebus-84.github.io/video-studio-site/examples)**,
+each with its receipt: what it was made from, what it cost where a cost was
+recorded, and whose work is in it.
 
-[Watch them on the product site](https://phoebus-84.github.io/video-studio-site/examples), each with its receipt:
-what it was made from, what it cost where a cost was recorded, and whose work
-is in it. They are named there and not here: the application knows no library
-(ADR-0044).
+**[Website](https://phoebus-84.github.io/video-studio-site/)** ·
+**[Install](https://phoebus-84.github.io/video-studio-site/install)** ·
+**[Recipes](https://phoebus-84.github.io/video-studio-site/recipes/)** ·
+**[Documentation](docs/index.md)** ·
+**[Changelog](CHANGELOG.md)**
 
-## What it does
+## Why it exists
+
+One good video is easy now. The tenth one in the same series, with the same
+voice, the same look and the same rules, is not: the agent forgets, the costs
+drift, and a fix in one place breaks three others. Sergio is built for the
+tenth one.
 
 - **It repeats.** A series' format is a pinned release: its compiler, its
   validator, its kits. An episode is a data file checked against it. Episode
   twenty goes through the same code as episode one.
-- **It corrects.** Every attempt is kept and what depends on what is known.
-  Change one thing and only what depends on it is made again; the render
-  reuses the seconds that did not change, a film re-renders the shots that
-  did, and two renders can be compared to show nothing else moved.
+- **It corrects.** Every attempt is kept, and Sergio knows what depends on
+  what. Change one thing and only what depends on it is made again: a fix at
+  second 47 leaves everything else alone, and two renders can be compared to
+  show nothing else moved.
 - **It accounts.** A budget per episode, reserved before a paid call is made.
-  A licence and its evidence for every borrowed asset. An approval only the
-  operator can give, bound to what was approved.
+  A licence and its evidence for every borrowed asset. An approval only you
+  can give, bound to what you approved.
 
-It makes two kinds of work. A **channel** keeps making episodes of a series
-to a pinned format. A **film** is one self-contained piece, short or feature
-length, produced at three levels — the film, its scenes, their shots — from
-real footage, stock, generated and programmed material, each level with its
-own cut, edited by the agent or by a person on a timeline and rendered with
-FFmpeg in the pieces that changed.
+It makes two kinds of work. A **channel** keeps making episodes of a series to
+a pinned format. A **film** is one self-contained piece, short or feature
+length, made at three levels (the film, its scenes, their shots) from real
+footage, stock, generated and programmed material. Each level has its own cut,
+edited by the agent or by a person on a timeline, and rendered with FFmpeg in
+the pieces that changed.
 
 ## What it is not
 
 - **Not the fastest way to one video.** If you need one clip now, a hosted
-  generator gets you there sooner. This pays off the second time you make the
-  same kind of video.
-- **Not a model catalogue.** It works with a few providers, chosen on
-  purpose, and with what runs on your own machine.
+  generator gets you there sooner. Sergio pays off the second time you make
+  the same kind of video.
+- **Not a model catalogue.** It works with a few providers, chosen on purpose,
+  and with what runs on your own machine.
 - **Not unattended.** The agent works; you decide; the decision is recorded.
   [`docs/harness-review.md`](docs/harness-review.md) says where enforcement
   stops.
@@ -59,68 +66,58 @@ FFmpeg in the pieces that changed.
   alone has not been tested. The test is written down first:
   [`bench/retake`](bench/retake/README.md), a specification with no results.
 
-## Install
+## Try it
 
 ```bash
 bun install                       # one install for every module
 npm run compose -- --profile=full # wire the pieces you want
 npm run doctor                    # check this machine can run them
-```
-
-This installs and wires the workspace, not every external tool or provider.
-See [`docs/install.md`](docs/install.md) for profiles, requirements and
-credentials.
-
-Your first render needs no account and no key:
-
-```bash
 npm run demo:render               # six seconds of titles, rendered and audited
 ```
 
-It runs once the workspace and FFmpeg are ready, and downloads Remotion's
-headless browser the first time.
+The first render needs no account and no key. It runs once the workspace and
+FFmpeg are ready, and downloads Remotion's headless browser the first time.
+This installs and wires the workspace, not every external tool or provider:
+[`docs/install.md`](docs/install.md) covers profiles, requirements and
+credentials.
 
-Then [run the agent](docs/running.md):
+Then [run the agent](docs/running.md) from the repository root:
 
 ```bash
-ln -sfn /path/to/your/library library    # once — where episodes live
+ln -sfn /path/to/your/library library    # once: where episodes live
 pi -e studio/agent/extensions/index.ts   # Pi
-claude                                   # or Claude Code, from the repository root
+claude                                   # or Claude Code
 ```
 
-The browser UI is optional; the agent's pipeline tools still need a running
-gateway for stage tracking, approval requests and budget status. See the
-[running guide](docs/running.md).
+The browser studio is optional, but the agent's pipeline tools need a running
+gateway for stage tracking, approval requests and budget status. The
+[running guide](docs/running.md) explains both.
 
 You do not have to take all of it. `npm run compose -- --list` shows the
-profiles; `--profile=voice` gives you just the voice tool, `--profile=render`
+profiles: `--profile=voice` gives you just the voice tool, `--profile=render`
 just the rendering packages.
 
-## How it is built
+## How it works
 
-An agent — Pi, or Claude Code through the studio's MCP server — is the
-executive producer; a deterministic runtime keeps pipeline state; dedicated
-packages generate media; Remotion renders the episode's edit timeline and
-FFmpeg masters and checks it; a gateway connects the agent to a browser studio.
+The agent (Pi, or Claude Code through Sergio's MCP server) is the executive
+producer. A deterministic runtime keeps the pipeline's state. Dedicated
+packages generate media. Remotion renders the episode's timeline, FFmpeg
+masters and checks it, and a gateway connects the agent to a browser studio.
 
-### The shape of this repository
-
-The repository is split along one line, and that line is enforced by
+The repository is split along one line, enforced by
 `npm run check:boundaries`:
 
 ```
-packages/     reusable outside this project — they know nothing about episodes,
-              pipelines, or the studio. Use them in any project.
-
-studio/       the product. Depends on packages/. All studio-specific
-              integration lives here, never inside a package.
-
-skills/       shared/ is useful in any agent workflow; studio/ holds the
-              production-stage skills.
+packages/   reusable anywhere: they know nothing about episodes, pipelines or the studio
+studio/     the product, built on packages/; all studio-specific integration lives here
+skills/     shared/ for any agent workflow; studio/ for the production stages
 ```
 
-A voice tool should be a voice tool. The fact that this studio uses it to
-narrate episodes is the studio's business, not the tool's.
+A voice tool should be a voice tool. That this studio uses it to narrate
+episodes is the studio's business, not the tool's.
+
+<details>
+<summary><strong>The packages</strong>: what each one is on its own</summary>
 
 | Package | What it is on its own |
 |---|---|
@@ -139,6 +136,11 @@ narrate episodes is the studio's business, not the tool's.
 | `packages/blender` | Editable 3D scenes, Geometry Nodes, Eevee/Cycles animation and Poly Haven assets |
 | `packages/video-composer` | Typed timeline → FFmpeg filter graph; probes and QA; multitrack mixes; the cut renderer (effects, transitions, mix, loudness) |
 
+</details>
+
+<details>
+<summary><strong>The studio</strong>: the modules of the product</summary>
+
 | Studio module | Role |
 |---|---|
 | `studio/contracts` | Canonical schemas, vocabulary, bindings |
@@ -153,37 +155,31 @@ narrate episodes is the studio's business, not the tool's.
 | `studio/gateway` | Agent sessions (Pi RPC or the Claude Agent SDK) and event streaming |
 | `studio/web` | Browser studio |
 
+</details>
+
 ## Documentation
 
-The product website, recipes and selected films live in the website's own Git
-project. Its build does not depend on this workspace;
-it imports an explicit snapshot of the technical reference when requested.
+The [website](https://phoebus-84.github.io/video-studio-site/) has the guides,
+the recipes and the films. It lives in its own repository and does not build
+from this one. The films are named there and not here: the application knows
+no library (ADR-0044).
 
-The application documentation remains under [`docs/`](docs/index.md), with its
-own lightweight VitePress reference site:
+The application's own documentation is under [`docs/`](docs/index.md), with a
+lightweight VitePress reference site (`npm run docs:dev`, and
+`npm run docs:build`, which also fails on any dead internal link).
 
-```bash
-npm run docs:dev     # http://localhost:5173
-npm run docs:build   # also fails on any dead internal link
-```
-
-- [Install and composition](docs/install.md)
-- [Running the agent](docs/running.md)
-- [Channel Git and media storage](docs/workspace.md#git-and-storage) — version text and restore media by hash
-- [Architecture](docs/architecture.md)
-- [Domain language](docs/context.md)
-- [Workspace layout](docs/workspace.md)
-- [Pipelines](docs/pipelines.md)
-- [Contributing](docs/contributing.md)
+- [Install and composition](docs/install.md) and [running the agent](docs/running.md)
+- [Architecture](docs/architecture.md), [domain language](docs/context.md) and [pipelines](docs/pipelines.md)
+- [Workspace layout](docs/workspace.md), and [channel Git and media storage](docs/workspace.md#git-and-storage): text versioned, media restored by hash
+- [Contributing](docs/contributing.md), and [what a release number promises](docs/contributing.md#releases)
 - [Blender setup and workflow](packages/blender/README.md)
-- [DaVinci Resolve editorial handoff](docs/resolve-handoff.md) — optional integration through the actively maintained [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp)
+- [DaVinci Resolve editorial handoff](docs/resolve-handoff.md), through the actively maintained [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp)
 - [Harness review and improvement priorities](docs/harness-review.md)
-- [Changelog](CHANGELOG.md), and [what a release number promises](docs/contributing.md#releases)
-- [Retake](bench/retake/README.md) — the specification of a benchmark for what happens after the first take
-- [Per-component reference](docs/index.md#packages)
-- [Decision records](docs/adr/)
+- [Retake](bench/retake/README.md): the specification of a benchmark for what happens after the first take
+- [Per-component reference](docs/index.md#packages) and [decision records](docs/adr/)
 
-## Everyday commands
+<details>
+<summary><strong>Everyday commands</strong></summary>
 
 ```bash
 npm test                  # every module's tests
@@ -193,6 +189,8 @@ npm run compose -- --list # available profiles
 npm run doctor            # toolchain, credentials, capability readiness
 npm run resolve:plan -- --help # offline Resolve handoff preflight; live edits use upstream MCP
 ```
+
+</details>
 
 ## Licence
 
