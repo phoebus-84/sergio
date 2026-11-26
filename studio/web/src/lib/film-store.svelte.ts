@@ -12,6 +12,7 @@
 import { filmApi, FilmApiError } from "./film-api";
 import { onGatewayEvent } from "./gateway.svelte.ts";
 import { library } from "./library-store.svelte.ts";
+import { renderWork } from "./film-format";
 import {
   unitKey, unitPath,
   type EffectDefinition, type FilmLevel, type FilmTree, type FootageClip, type SceneNode, type ShotNode, type UnitNode,
@@ -156,7 +157,7 @@ class FilmStore {
       if (type === "render.completed") {
         this.lastRender = {
           kind: "completed", unit, quality: data.quality === "preview" ? "preview" : "final", at: Date.now(),
-          message: data.reused ? "already rendered: nothing had changed" : `rendered ${String(data.renderId ?? "")}`,
+          message: data.reused ? "already rendered: nothing had changed" : [`rendered ${String(data.renderId ?? "")}`, renderWork(data.work)].filter(Boolean).join(" · "),
           ...(typeof data.url === "string" ? { url: data.url } : {}),
         };
       } else if (type === "render.failed") {

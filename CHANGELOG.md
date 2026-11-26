@@ -248,6 +248,11 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
   their record; the shot's provenance says who played it.
 - **A fal call that runs out of time names the request it left.** The job
   may still finish and be charged; the message says which one it was.
+- **The studio says what a render did.** When the render of a cut finishes,
+  the cut editor says how much of the picture it drew and how much it kept
+  from before: "picture: 1 of 3 windows rendered, 2 kept as they were", so a
+  small change is seen to redo only the part of the picture it touched. The
+  gateway's `render.completed` event carries the render's count (`work`).
 
 ### Documentation
 
