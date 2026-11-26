@@ -18,10 +18,10 @@ repository.
 
 | Document | What it answers |
 |---|---|
-| [Changelog](https://github.com/phoebus-84/video-studio/blob/main/CHANGELOG.md) | What changed for someone who uses the studio, and what needs action? |
+| [Changelog](https://github.com/phoebus-84/sergio/blob/main/CHANGELOG.md) | What changed for someone who uses the studio, and what needs action? |
 | [Releases](./contributing#releases) | How is a release cut, and what does its number promise? |
-| [Licensing](https://github.com/phoebus-84/video-studio/blob/main/LICENSING.md) | Which licence covers which part, and what does neither cover? |
-| [Retake](https://github.com/phoebus-84/video-studio/tree/main/bench/retake) | How will the studio be measured against a model working alone? A specification; no results yet. |
+| [Licensing](https://github.com/phoebus-84/sergio/blob/main/LICENSING.md) | Which licence covers which part, and what does neither cover? |
+| [Retake](https://github.com/phoebus-84/sergio/tree/main/bench/retake) | How will the studio be measured against a model working alone? A specification; no results yet. |
 
 ## Understanding the system
 

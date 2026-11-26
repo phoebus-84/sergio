@@ -10,7 +10,7 @@ Accepted. Implemented:
   reports of `pva_capability_status` and `pva_config`;
 - the Blender tools on a `blender` machine (`pva_stage_shot`, `pva_rig_shot`,
   `pva_rig_sheet`, `pva_blender_render`), through render-worker's Blender jobs
-  ([issue #121](https://github.com/phoebus-84/video-studio/issues/121)).
+  ([issue #121](https://github.com/phoebus-84/sergio/issues/121)).
 
 ## Context
 

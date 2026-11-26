@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed in [PR #95](https://github.com/phoebus-84/video-studio/pull/95).
+Proposed in [PR #95](https://github.com/phoebus-84/sergio/pull/95).
 Extends [ADR-0018](0018-typescript-is-the-control-plane-python-isolated-to-mlx.md)
 to portable local inference while preserving the TypeScript control plane
 and the deliberate Python worker/API boundary.

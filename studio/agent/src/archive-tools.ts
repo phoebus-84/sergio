@@ -22,7 +22,7 @@ import { channelPath, seriesPath } from "@studio/contracts/src/layout.mjs";
 import { WORKSPACE_PARAMS, workspaceOf } from "./workspace-target.js";
 import { ARCHIVE_ENV_KEYS, readEnv } from "./config.js";
 
-const USER_AGENT = "sergio-archive-media/0.1 (https://github.com/phoebus-84/video-studio)";
+const USER_AGENT = "sergio-archive-media/0.1 (https://github.com/phoebus-84/sergio)";
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/i;
 
 export interface ArchiveSettings {

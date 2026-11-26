@@ -17,7 +17,7 @@ but the end-to-end enforcement story is incomplete.
 ## Since this review
 
 Faults found after it and closed in the release being prepared (0.2.0; the
-[changelog](https://github.com/phoebus-84/video-studio/blob/main/CHANGELOG.md)
+[changelog](https://github.com/phoebus-84/sergio/blob/main/CHANGELOG.md)
 has each in a line). They bear on the findings below without closing them:
 
 - **Two writers of one cut.** The gateway and the agent could both read a

@@ -49,7 +49,7 @@ cut and what its number promises: [contributing](docs/contributing.md#releases).
     `pva_blender_render` run where `prefer.blender` says: on the first
     `blender` machine that answers with a Blender the tools take, with its
     `bin` and its GPU lock, else here
-    ([#121](https://github.com/phoebus-84/video-studio/issues/121)). The code
+    ([#121](https://github.com/phoebus-84/sergio/issues/121)). The code
     goes to the machine's engine clone by git push, the files once by content,
     and the output comes back checked byte for byte; the tool keeps it as a
     local result, with `machine` in its provenance, and says where Blender ran.

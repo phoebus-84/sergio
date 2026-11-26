@@ -54,9 +54,9 @@ record describes code that has since changed.
 | [0046](./0046-archive-media-carry-licence-and-evidence) | Archive media carry their licence and its evidence | Accepted (`avg-fe8.2`). |
 | [0047](./0047-audio-edits-are-recipes) | Audio edits are recipes: cut on words, mixed, mastered, reproducible | Accepted (`avg-8hs.5`). |
 | [0048](./0048-tools-written-once-served-to-any-harness) | The agent's tools are written once, for Pi, and served to other harnesses over MCP | Accepted. |
-| [0049](./0049-channel-media-use-a-content-addressed-s3-remote) | Channel media use a content-addressed S3 remote | Proposed in the implementation of [issue #74](https://github.com/phoebus-84/video-studio/issues/74). |
+| [0049](./0049-channel-media-use-a-content-addressed-s3-remote) | Channel media use a content-addressed S3 remote | Proposed in the implementation of [issue #74](https://github.com/phoebus-84/sergio/issues/74). |
 | [0050](./0050-a-film-is-produced-at-three-levels) | A film is produced at three levels, each with its own cut and renders | Accepted. |
-| [0051](./0051-portable-qwen-inference) | Portable Qwen inference preserves the worker boundary | Proposed in [PR #95](https://github.com/phoebus-84/video-studio/pull/95). |
+| [0051](./0051-portable-qwen-inference) | Portable Qwen inference preserves the worker boundary | Proposed in [PR #95](https://github.com/phoebus-84/sergio/pull/95). |
 | [0052](./0052-a-character-is-a-record-and-takes-any-form) | A character is a record, and takes any form | Proposed. |
 | [0053](./0053-music-is-code-rendered-offline) | Music is Strudel code, rendered offline by the engine the studio plays it with | Accepted; amended by ADR-0055. |
 | [0054](./0054-styles-are-optional-parametric-templates) | Styles are optional, parametric templates | Accepted. |
