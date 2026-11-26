@@ -186,9 +186,12 @@ channel, a series or a film, not to an episode, and is the same next week:
   empty stage.
 - `pva_stage_shot` — several characters in one picture, on a set or an empty stage
   (Blender and FFmpeg, local, free): each a role or a rig, on a mark, doing one thing
-  after another — a clip, a walk to another mark at its clip's pace, a turn, a wait. The
-  set is a `.blend` with marks; the camera is the set's or asked for in words. It says
-  who was out of the picture, hidden by the set, in another's place, or sliding.
+  after another — a clip, a walk to another mark at its clip's pace and round what
+  stands in its way, a turn, a wait, a hand brought to a mark, a thing or another player
+  (`reach`), a thing taken in a hand and put down (`take`, `put`). The set is a `.blend`
+  with marks; the camera is the set's or asked for in words. It says who was out of the
+  picture, hidden by the set, in another's place, sliding, through something, or short
+  of what it reached for.
 
 A **style template** — a ready-made look and way of making it — can be given to a
 channel, a series, a film or a scene when the person asks for one; nothing needs one.

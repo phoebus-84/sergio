@@ -64,6 +64,19 @@ description: Create editable Blender scenes and animations using bpy, background
   the height of the floor under it.
 - **A floor under every place.** A place given in metres stands on the
   highest surface it has room to stand on; with nothing under it, on z 0.
+- **What is in the way is in the way.** A walk goes round every mesh of the
+  set that stands above knee height where a body would pass, and onto what
+  is no higher than a kerb or a stair (18% of the walker's height): a
+  pavement is 15 cm, a stair 18. Leave a way as wide as the widest player
+  and a little more between the things it must pass, and build a height to
+  be climbed as stairs or a ramp.
+- **Things to touch have names, and marks say where a hand goes.** A thing a
+  player reaches for, takes or puts down is asked for by its object's
+  name: name it (`lantern`, not `Cube.004`), make what belongs to it its
+  children, and put its origin where it stands. An empty named
+  `mark.<name>` at the height of a hand — a door's handle, a rail, the top
+  of a table for a thing to be put on — is a place a hand is sent to.
+  Nothing is in reach unless a player can stand an arm's length from it.
 - **Its own light and world.** They are kept as they are. A set with no
   light is given a sun, and the shot says so.
 - **Its own camera**, when the shot is one the set decides: `setCamera: true`
